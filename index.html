@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odesílací webapp – v1 (Opravená)</title>
+<style>
+
+:root{
+  --bg:#f7fafc;          /* light bg */
+  --card:#ffffff;        /* white cards */
+  --ink:#0f172a;         /* slate-900 text */
+  --muted:#475569;       /* slate-600 */
+  --accent:#0ea5e9;      /* sky-500 */
+  --urgent:#dc2626;      /* red-600 */
+  --soon:#d97706;        /* amber-600 */
+  --routine:#16a34a;     /* green-600 */
+  --acute:#be123c;       /* rose-700 */
+  --brand:#1d4ed8;       /* blue-700 */
+  --border:#e5e7eb;      /* gray-200 */
+  --shadow: 0 6px 18px rgba(2,6,23,.08);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color:var(--ink);
+  background: var(--bg);
+  letter-spacing:.2px;
+  font-size: 17px;       /* bigger base */
+  line-height: 1.55;
+}
+.container{max-width:1024px;margin:0 auto;padding:20px}
+.header{
+  display:flex;align-items:center;gap:16px;padding:16px 18px;margin:8px 0 20px;
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+.logo{
+  width:52px;height:52px;border-radius:12px;
+  display:grid;place-items:center;
+  background: radial-gradient(100% 100% at 30% 20%, #93c5fd, #dbeafe 70%);
+  color:#1e3a8a;font-weight:900;font-size:18px;
+  border:1px solid #bfdbfe;
+}
+h1{font-size:24px;margin:0;font-weight:800;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+.panel{
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
+  border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:18px;
+  box-shadow:var(--shadow);
+}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
+@media (min-width:760px){.cards{grid-template-columns:repeat(4,1fr);}}
+.card{
+  padding:16px;background:var(--card);border:2px solid var(--border);border-radius:14px;cursor:pointer;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  display:flex;flex-direction:column;gap:8px;min-height:106px
+}
+.card:hover{transform:translateY(-2px);border-color:#cbd5e1}
+.card.active{outline:3px solid var(--accent);background:linear-gradient(180deg,#ffffff,#f1f5f9)}
+.card .title{font-weight:800;font-size:18px}
+.card .desc{font-size:14px;color:var(--muted)}
+.grid{display:grid;gap:12px}
+@media (min-width:760px){.grid.cols-2{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.grid.cols-3{grid-template-columns:repeat(3,1fr)}}
+.field{display:flex;flex-direction:column;gap:6px;background:#ffffff;border:1.5px solid var(--border);padding:12px;border-radius:12px}
+label{font-size:14px;color:#334155;font-weight:600}
+input,select,textarea{
+  width:100%;padding:12px;border-radius:10px;border:2px solid #e2e8f0;
+  background:#f8fafc;color:var(--ink);font-size:16px;outline:none;font-weight:600;
+}
+input:focus,select:focus,textarea:focus{border-color:#93c5fd; box-shadow:0 0 0 3px rgba(147,197,253,.35)}
+textarea{min-height:84px;resize:vertical}
+.badge{display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:999px;font-size:14px;font-weight:800;letter-spacing:.3px}
+.badge.urgent{background:#fee2e2;color:#7f1d1d;border:2px solid #fecaca}
+.badge.soon{background:#fef3c7;color:#78350f;border:2px solid #fde68a}
+.badge.routine{background:#dcfce7;color:#065f46;border:2px solid #bbf7d0}
+.badge.acute{background:#ffe4e6;color:#7f1d1d;border:2px solid #fecdd3}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;align-items:center}
+button{
+  padding:14px 16px;border-radius:12px;border:2px solid #cbd5e1;background:#ffffff;color:var(--ink);cursor:pointer;
+  font-weight:900;letter-spacing:.3px;font-size:16px
+}
+button.primary{background:linear-gradient(180deg,#38bdf8,#0ea5e9);border:none;color:white}
+.small{font-size:13px;color:var(--muted)}
+.footer{margin-top:20px;font-size:13px;color:var(--muted)}
+hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+.copy{white-space:pre-wrap;background:#f8fafc;border:2px dashed #e2e8f0;border-radius:10px;padding:12px;font-family:ui-monospace,Consolas,monospace}
+.kicker{font-size:14px;color:#475569;margin-left:6px;font-weight:600}
+.collapsible summary{cursor:pointer;list-style:none}
+.collapsible summary::-webkit-details-marker{display:none}
+.collapsible{border:1px solid var(--border);border-radius:12px;padding:12px;background:#ffffff}
+code.k{background:#f1f5f9;border:1px solid #e2e8f0;padding:2px 6px;border-radius:6px;color:#111827}
+
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">VA</div>
+      <div>
+        <h1>Odesílací webapp</h1>
+        <div class="sub">Rychlé odeslání pacienta do angiologické péče (4 kroky · ~60–90 s)</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <strong>Krok 1 – vyberte kategorii</strong>
+      <div class="cards" id="categoryCards">
+        <div class="card" data-cat="carotid"><div class="title">Karotické povodí</div><div class="desc">TIA/CMP, asymptomatická stenóza…</div></div>
+        <div class="card" data-cat="claud"><div class="title">Klaudikace</div><div class="desc">Bolest při chůzi, vzdálenost, ABI…</div></div>
+        <div class="card" data-cat="clti"><div class="title">Kritická končetinová ischemie (CLTI)</div><div class="desc">Bolest v klidu, vřed/ischémie, infekce…</div></div>
+        <div class="card" data-cat="veins"><div class="title">Žíly</div><div class="desc">Otok, vřed, tromboflebitida…</div></div>
+      </div>
+    </div>
+
+    <form id="refForm" class="panel" onsubmit="event.preventDefault(); generateEmail();">
+      <strong>Krok 2 – klíčové údaje</strong>
+      <div id="dynamicFields" class="grid" style="margin-top:10px"></div>
+      <hr/>
+      <strong>Krok 3 – společné (minimální) údaje</strong>
+      <div class="grid cols-2" style="margin-top:10px">
+        <div class="field">
+          <label>Odesílající lékař – jméno, tel., e‑mail</label>
+          <input id="refDoctor" placeholder="MUDr. Ján Novák · +421 9xx xxx xxx · jan.novak@nemocnica.sk">
+        </div>
+        <div class="field">
+          <label>Pacient – iniciály + rok nar. + tel.</label>
+          <input id="patientKey" placeholder="J V · 1967 · +421 9xx xxx xxx">
+        </div>
+        <div class="field">
+          <label>Okres / město pacienta</label>
+          <input id="district" placeholder="Trnava">
+        </div>
+        <div class="field">
+          <label><input type="checkbox" id="consent"> Souhlas se zpracováním min. údajů za účelem třídění a objednání</label>
+        </div>
+      </div>
+
+      <div id="triageBox" style="margin-top:10px"></div>
+
+      <div class="actions">
+        <button type="submit" class="primary">Vygenerovat e‑mail</button>
+        <button type="button" onclick="copySummary()">Zkopírovat zprávu</button>
+        <span class="kicker">Po odeslání: <em>Děkujeme za důvěru. Ozveme se do 24 h.</em></span>
+      </div>
+
+      <div id="preview" style="margin-top:12px;display:none">
+        <div class="field">
+          <label>Náhled předmětu</label>
+          <div id="subjectPreview" class="copy"></div>
+        </div>
+        <div class="field">
+          <label>Náhled zprávy (tělo e‑mailu)</label>
+          <div id="bodyPreview" class="copy"></div>
+        </div>
+        <div class="actions">
+          <a id="mailtoLink" target="_blank"><button type="button" class="primary">Otevřít e‑mailového klienta</button></a>
+        </div>
+      </div>
+    </form>
+
+    <div class="panel collapsible">
+      <summary><strong>Krok 4 – GDPR & provozovatel (placeholder)</strong></summary>
+      <div class="grid cols-2" style="margin-top:10px">
+        <div class="field">
+          <label>Provozovatel (název, adresa, IČO)</label>
+          <textarea id="gdprOperator" placeholder="Klinika angiologie NÚSCH a.s., ... (doplníme)"></textarea>
+        </div>
+        <div class="field">
+          <label>Stručné GDPR (předvyplněný návrh – upravíte později)</label>
+          <textarea id="gdprShort">Zpracováváme nezbytné kontaktní a klinické údaje za účelem třídění a objednání pacienta. Právní základ: oprávněný zájem a předsmluvní vztah. Údaje se neukládají do databáze; odesílají se e‑mailem pověřenému týmu a uchovávají se pouze v rámci e‑mailové komunikace po dobu nutnou k organizaci ošetření.</textarea>
+        </div>
+      </div>
+      <div class="small">Logo/branding: nateraz generická značka <code class="k">VA</code> (doplníme Vaše logo/farby).</div>
+    </div>
+
+    <div class="footer">
+      <details class="collapsible">
+        <summary><strong>Nastavení (adresy, formát předmětu)</strong></summary>
+        <div class="grid cols-2" style="margin-top:10px">
+          <div class="field">
+            <label>Cílové e‑maily (TO) – oddělené čárkou</label>
+            <input id="targetEmails" placeholder="angio.referrals@example.sk">
+          </div>
+          <div class="field">
+            <label>Předmět – formát (ponechaný návrh)</label>
+            <input id="subjectFormat" value="REFERRAL: {CAT} – {PRIOR} – {ID} – {DISTRICT}">
+          </div>
+        </div>
+        <div class="small">Automatické CC: e‑mail odesílajícího lékaře (je‑li vyplněn).</div>
+      </details>
+      <hr>
+      <div class="small">v1 · single‑file · mobile‑first · bez ukládání dat • Třídění podle pravidel ESVS/NICE (lokální prahy upravíme).</div>
+    </div>
+  </div>
+
+<script>
+// ------- CATEGORY DEFINITIONS -------
+const FIELDS = {
+  carotid: [
+    {id:"caro_state", label:"Stav", type:"select", options:["Pacient je asymptomatický","Závažná neinvalidizující CMP (>7 dní)","Mírná CMP (24h–7 dní)","Vícečetné cerebrální TIA (<24h)","Jedna cerebrální TIA (<24h)","Monokulární TIA nebo CMP"]},
+    {id:"caro_last", label:"Poslední příznak", type:"select", options:["≤14 dní",">14 dní","Bez příznaků"]},
+    {id:"caro_now", label:"Aktuálny stav", type:"select", options:["Ustoupené/bez progrese","Přetrvávající/progredující deficit nebo opakované TIA (crescendo)"]},
+    {id:"caro_date", label:"Datum posledního příznaku (volitelné)", type:"text", placeholder:"DD.MM.RRRR"},
+    {id:"caro_side", label:"Strana příznaků", type:"select", options:["levá","pravá","nevím"]},
+    {id:"caro_pct", label:"Stenóza (%)", type:"select", options:["nevím","<50","50–69","70–99","100 (okluze)"]},
+    {id:"caro_antith", label:"Anti‑trombotika", type:"select", options:["nie","áno – ASA","áno – klopidogrel","áno – iné"]},
+  ],
+  claud: [
+    {id:"cl_dit", label:"Klaudikačná vzdialenosť", type:"select", options:["<50 m","50–200 m",">200 m"]},
+    {id:"cl_restpain", label:"Bolesť v pokoji", type:"select", options:["nie","áno"]},
+    {id:"cl_wound", label:"Rana/ulcerácia", type:"select", options:["nie","áno"]},
+    {id:"cl_abi", label:"ABI (ak viete)", type:"select", options:["nevím","<0.5","0.5–0.8",">0.8"]},
+    {id:"cl_dm", label:"Diabetes", type:"select", options:["nie","áno"]},
+  ],
+  clti: [
+    {id:"ct_rest", label:"Bolesť v pokoji >2 týždne", type:"select", options:["nie","áno"]},
+    {id:"ct_tissue", label:"Tkanivové poškodenie", type:"select", options:["žiadne","vred","nekróza"]},
+    {id:"ct_inf", label:"Infekcia rany", type:"select", options:["žiadna","lokálna","systémová (horúčky)"]},
+    {id:"ct_dm", label:"Diabetes", type:"select", options:["nie","áno"]},
+    {id:"ct_hemo", label:"Hemodynamika (ABI/TBI/TCPO₂)", type:"select", options:["nevím","kritická","hraničná/normálna"]},
+  ],
+  veins: [
+    {id:"v_main", label:"Hlavný problém", type:"select", options:["opuch nohy","varixy","vred","tromboflebitída","iné"]},
+    {id:"v_onset", label:"Nástup ťažkostí", type:"select", options:["náhly ≤72 h","3–14 dní",">14 dní"]},
+    {id:"v_vte", label:"VTE riziká (operácia/imobilita/gravidita/HAK/onko…)", type:"select", options:["nie","áno"]},
+    {id:"v_chest", label:"Dýchavica alebo bolesť na hrudi", type:"select", options:["nie","áno"]},
+    {id:"v_comp", label:"Komplikácie varixov", type:"select", options:["nie","krvácanie","zápal (bolestivý uzol)"]},
+  ]
+};
+
+let currentCat = null;
+
+function renderFields(cat){
+  currentCat = cat;
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
+  document.querySelector(`.card[data-cat="${cat}"]`).classList.add('active');
+  const box = document.getElementById('dynamicFields');
+  box.innerHTML = '';
+  const fields = FIELDS[cat];
+  const grid = document.createElement('div');
+  grid.className = 'grid cols-2';
+  fields.forEach(f=>{
+    const wrap = document.createElement('div'); wrap.className='field';
+    const lab = document.createElement('label'); lab.textContent = f.label;
+    let el;
+    if(f.type==='select'){
+      el = document.createElement('select');
+      f.options.forEach(o=>{
+        const opt = document.createElement('option'); opt.value=o; opt.textContent=o; el.appendChild(opt);
+      });
+    }else{
+      el = document.createElement('input');
+      el.placeholder = f.placeholder||'';
+    }
+    el.id = f.id;
+    wrap.appendChild(lab); wrap.appendChild(el); grid.appendChild(wrap);
+  });
+  box.appendChild(grid);
+
+  // Inject CAR calculator button when carotid selected
+  if(cat==='carotid'){
+    const carBtnWrap = document.createElement('div');
+    carBtnWrap.style.marginTop = '8px';
+    carBtnWrap.innerHTML = '<button type="button" id="openCarCalc" class="primary" style="background:linear-gradient(180deg,#22c55e,#16a34a)">CAR kalkulačka (ECST-2)</button> <span class="small" style="margin-left:8px">vypočíta riziko a môže doplniť stenózu (%)</span>';
+    document.getElementById('dynamicFields').appendChild(carBtnWrap);
+    setTimeout(()=>{ const b=document.getElementById('openCarCalc'); if(b) b.addEventListener('click',()=>{ document.getElementById('carModal').showModal(); syncFromFormToCar(); }); },0);
+  }
+
+  updateTriage();
+}
+
+function getVal(id){ const el=document.getElementById(id); return el?el.value:''; }
+
+function updateTriage(){
+  if(!currentCat){ document.getElementById('triageBox').innerHTML=''; return; }
+  const t = computeTriage();
+  const badgeClass = t.level==='URGENT' ? 'urgent' : (t.level==='SOON' ? 'soon' : (t.level==='ACUTE' ? 'acute' : 'routine'));
+  document.getElementById('triageBox').innerHTML = `
+    <div class="badge ${badgeClass}">${t.level} · ${t.window}</div>
+    <div class="small" style="margin-top:6px">${t.reason}</div>
+  `;
+}
+
+function computeTriage(){
+  if(currentCat==='carotid'){
+    const state=getVal('caro_state'), last=getVal('caro_last'), now=getVal('caro_now'), pct=getVal('caro_pct');
+    const symptomatic = state && state !== 'Pacient je asymptomatický';
+    // AKÚTNE equivalents: crescendo/progrese nebo vícečetné TIA <24 h
+    if( now==='Přetrvávající/progredující deficit nebo opakované TIA (crescendo)' || state==='Vícečetné cerebrální TIA (<24h)'){
+      return {level:'ACUTE', window:'dnes / urgentní příjem', reason:'Progredující/crescendo stav nebo vícečetné TIA <24 h.'};
+    }
+    // Symptomatický do 14 dní -> URGENT
+    if(symptomatic && last==='≤14 dní'){
+      return {level:'URGENT', window:'24–72 h', reason:'Symptomatická karotida ≤14 dní od příznaku (stav stabilní).'};
+    }
+    // Asymptomatický
+    if(!symptomatic){
+      if(pct==='70–99' || pct==='nevím'){
+        return {level:'SOON', window:'2–4 týdny', reason:'Asymptomatická stenóza ≥70 % nebo suspektní.'};
+      }
+      if(pct==='100 (okluze)'){
+        return {level:'ROUTINE', window:'do 3 měs.', reason:'Chronická okluze – sekundární prevence, neurologický dohled.'};
+      }
+      return {level:'ROUTINE', window:'do 3 měs.', reason:'Bez příznaků a bez vysoké stenózy.'};
+    }
+    // Symptomatický >14 dní
+    if(symptomatic && last==='>14 dní'){
+      if(pct==='70–99' || pct==='nevím'){
+        return {level:'SOON', window:'2–4 týdny', reason:'Symptomatický >14 dní se stenózou ≥70 % nebo suspektní.'};
+      }
+      return {level:'ROUTINE', window:'do 3 měs.', reason:'Symptomatický >14 dní bez vysoké stenózy.'};
+    }
+    return {level:'ROUTINE', window:'', reason:'Bez recentních příznaků.'};
+  }
+  
+  // --- ODSTRÁNENÝ CHYBNÝ BLOK ---
+  // Nasledujúcich 8 riadkov bolo odstránených, pretože spôsobovali syntaktickú chybu.
+  /*
+    if((state==='TIA'||state==='CMP (trvalý deficit)') && last==='≤14 dní'){
+      return {level:'URGENT', window:'24–72 h', reason:'Symptomatická karotída ≤14 dní od príznaku (stav stabilný).'};
+    }
+    if(state!=='Asymptomatický' && last==='>14 dní' && (pct==='70–99'||pct==='nevím')){
+      return {level:'SOON', window:'2–4 týždne', reason:'Symptomatická >14 dní so suspektnou/≥70 % stenózou.'};
+    }
+    if(state==='Asymptomatický' && (pct==='70–99'||pct==='nevím')){
+      return {level:'SOON', window:'2–4 týždne', reason:'Asymptomatická stenóza ≥70 % alebo suspektná.'};
+    }
+    return {level:'ROUTINE', window:'do 3 mes.', reason:'Bez recentných príznakov a bez vysokej stenózy.'};
+  }
+  */
+  // --- KONIEC ODSTRÁNENÉHO BLOKU ---
+
+  if(currentCat==='claud'){
+    const dp=getVal('cl_dit'), rp=getVal('cl_restpain'), w=getVal('cl_wound'), abi=getVal('cl_abi');
+    if(rp==='áno' || w==='áno'){ return {level:'URGENT', window:'24–72 h', reason:'Bolesť v pokoji alebo rana → CLTI.'}; }
+    if(dp==='<50 m' || abi==='<0.5'){ return {level:'SOON', window:'2–4 týždne', reason:'Ťažké klaudikácie alebo výrazne nízke ABI.'}; }
+    if(dp==='50–200 m' || abi==='0.5–0.8'){ return {level:'SOON', window:'do 6 týždňov', reason:'Stredne ťažké klaudikácie / hraničné ABI.'}; }
+    return {level:'ROUTINE', window:'do 3 mes.', reason:'>200 m bez rany/bolesti v pokoji.'};
+  }
+  if(currentCat==='clti'){
+    const rest=getVal('ct_rest'), tissue=getVal('ct_tissue'), inf=getVal('ct_inf');
+    if(inf==='systémová (horúčky)'){ return {level:'URGENT', window:'do 24 h', reason:'CLTI s podozrením na systémovú infekciu.'}; }
+    if(tissue!=='žiadne' || rest==='áno'){ return {level:'URGENT', window:'24–72 h', reason:'Tkanivové poškodenie alebo bolesť v pokoji.'}; }
+    return {level:'SOON', window:'1–2 týždne', reason:'Neistý stav – vyžaduje rýchle posúdenie.'};
+  }
+  if(currentCat==='veins'){
+    const main=getVal('v_main'), onset=getVal('v_onset'), vte=getVal('v_vte'), chest=getVal('v_chest'), comp=getVal('v_comp');
+    if(chest==='áno' || (onset==='náhly ≤72 h' && vte==='áno')){
+      return {level:'ACUTE', window:'dnes / ER', reason:'Suspektná PE alebo akútny opuch s VTE rizikom.'};
+    }
+    if(main==='vred' || comp==='krvácanie' || comp==='zápal (bolestivý uzol)'){
+      return {level:'SOON', window:'1–2 týždne', reason:'Vred alebo komplikované varixy.'};
+    }
+    return {level:'ROUTINE', window:'do 3 mes.', reason:'Ne­komplikované varixy bez akútnych znakov.'};
+  }
+  return {level:'ROUTINE', window:'', reason:''};
+}
+
+function generateEmail(){
+  if(!currentCat){ alert('Zvolte kategorii.'); return; }
+  const tri = computeTriage();
+  const district = (document.getElementById('district').value||'').trim() || '—';
+  const id = (document.getElementById('patientKey').value||'').trim() || 'Pacient';
+  const ref = (document.getElementById('refDoctor').value||'').trim();
+  const consent = document.getElementById('consent').checked ? 'ÁNO' : 'NIE';
+
+  const subjectTpl = (document.getElementById('subjectFormat').value||'REFERRAL: {CAT} – {PRIOR} – {ID} – {DISTRICT}');
+  const subject = subjectTpl
+    .replace('{CAT}', catLabel(currentCat))
+    .replace('{PRIOR}', tri.level)
+    .replace('{ID}', id)
+    .replace('{DISTRICT}', district);
+
+  const keyLines = buildKeyLines(currentCat);
+  const body = `Pacient: ${id}
+Odosielajúci lekár: ${ref}
+
+Kategorie: ${catLabel(currentCat)}
+Klíčové údaje: ${keyLines}
+Třídění: ${tri.level} (${tri.window}) – ${tri.reason}
+
+Poznámka: 
+Souhlas se zpracováním min. údajů za účelem objednání: ${consent}
+
+Koordinátor: MUDr. Lukáš Vincze · +421 917 911 202
+
+—
+Děkujeme za důvěru. Ozveme se do 24 h.`;
+
+  // Preview
+  document.getElementById('subjectPreview').textContent = subject;
+  document.getElementById('bodyPreview').textContent = body;
+  document.getElementById('preview').style.display='block';
+
+  // Build mailto
+  const to = (document.getElementById('targetEmails').value || 'angio.referrals@example.sk').split(',').map(s=>s.trim()).filter(Boolean).join(',');
+  const cc = extractEmail(ref); // auto‑CC odosielajúceho
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}${cc?`&cc=${encodeURIComponent(cc)}`:''}`;
+  document.getElementById('mailtoLink').href = mailto;
+  updateTriage();
+}
+
+function buildKeyLines(cat){
+  function v(id){ const el=document.getElementById(id); return el?el.value:''; }
+  if(cat==='carotid'){
+    return [
+      `stav ${v('caro_state')}`,
+      `posl. príznak ${v('caro_last')}`,
+      `stenóza ${v('caro_pct')}`,
+      `strana ${v('caro_side')}`,
+      `ATB ${v('caro_antith')}`
+    ].join(', ');
+  }
+  if(cat==='claud'){
+    return [
+      `vzdialenosť ${v('cl_dit')}`,
+      `bolesť v pokoji ${v('cl_restpain')}`,
+      `rana ${v('cl_wound')}`,
+      `ABI ${v('cl_abi')}`,
+      `DM ${v('cl_dm')}`
+    ].join(', ');
+  }
+  if(cat==='clti'){
+    return [
+      `bolesť v pokoji ${v('ct_rest')}`,
+      `tkanivo ${v('ct_tissue')}`,
+      `infekcia ${v('ct_inf')}`,
+      `DM ${v('ct_dm')}`,
+      `hemodynamika ${v('ct_hemo')}`
+    ].join(', ');
+  }
+  if(cat==='veins'){
+    return [
+      `problém ${v('v_main')}`,
+      `nástup ${v('v_onset')}`,
+      `VTE riziká ${v('v_vte')}`,
+      `dýchavica/bolesť na hrudi ${v('v_chest')}`,
+      `komplikácie ${v('v_comp')}`
+    ].join(', ');
+  }
+  return '';
+}
+
+function catLabel(cat){
+  return {carotid:'Karotída', claud:'Klaudikace', clti:'CLTI', veins:'Žíly'}[cat] || cat;
+}
+
+function copySummary(){
+  const subj = document.getElementById('subjectPreview').textContent || '';
+  const body = document.getElementById('bodyPreview').textContent || '';
+  const txt = `Předmět: ${subj}\n\n${body}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    // Použijeme vlastný modal namiesto alert()
+    showSimpleModal('Zkopírováno do schránky.');
+  });
+}
+
+// Náhrada za alert()
+function showSimpleModal(message) {
+  let modal = document.getElementById('simpleModal');
+  if (!modal) {
+    modal = document.createElement('dialog');
+    modal.id = 'simpleModal';
+    modal.style.border = 'none';
+    modal.style.borderRadius = '12px';
+    modal.style.padding = '20px';
+    modal.style.boxShadow = '0 5px 20px rgba(0,0,0,0.2)';
+    modal.innerHTML = `
+      <p style="margin:0 0 16px; font-size: 16px;">${message}</p>
+      <button id="simpleModalClose" style="padding:10px 14px;border-radius:10px;border:2px solid #cbd5e1;background:#fff;color:var(--ink);cursor:pointer;font-weight:700;font-size:14px;width:100%">OK</button>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('simpleModalClose').onclick = () => modal.close();
+  } else {
+    modal.querySelector('p').textContent = message;
+  }
+  modal.showModal();
+}
+// Nahradenie pôvodnej funkcie alert()
+window.alert = showSimpleModal;
+
+
+function extractEmail(combined){
+  // heuristic: find first something@something
+  const m = (combined||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return m ? m[0] : '';
+}
+
+// Live triage updates
+document.addEventListener('input', (e)=>{
+  if(e.target.closest('#dynamicFields')) updateTriage();
+});
+
+// Activate cards
+document.querySelectorAll('.card').forEach(c=>{
+  c.addEventListener('click', ()=> renderFields(c.dataset.cat));
+});
+
+
+// ===== CAR calculator (ECST-2) minimal core =====
+function carCalc_core(tslev, plaqueUlcerated, sex, car, noccl, age, event, diabetes, mi, pvd, hypert){
+  let val = 0;
+  if (sex === "Male") { val += (1 - 0.71854305) * 0.17618; } else { val += (0 - 0.71854305) * 0.17618; }
+  if (car > 0) { val += (car / 10 - 3.62661424) * 0.16201; }
+  if (noccl === "Yes") {
+      val += (1 - 0.03062914) * -0.71454;
+      val += (84.5 / 10 - 3.62661424) * 0.16201;
+  } else {
+      val += (0 - 0.03062914) * -0.71454;
+  }
+  if (age > 0) {
+      let currentAge = age < 40 ? 40 : age;
+      val += (currentAge / 10 - 6.23071192) * 0.10874;
+  }
+  if (tslev > -1) {
+      let currentTslev = tslev < 7 ? 7 : tslev;
+      val += (currentTslev / 7 - 8.881386) * -0.04214;
+  }
+  const eventContributions = { "MO": [0,0,0,0], "T": [1,0,0,0], "MT": [0,1,0,0], "S": [0,0,1,0], "SM": [0,0,0,1] };
+  const eventCoefficients = [ { mean: 0.19784768, coef: 0.34097 }, { mean: 0.16970199, coef: 0.71518 }, { mean: 0.1763245, coef: 0.59875 }, { mean: 0.25082781, coef: 0.93125 } ];
+  const eventValues = eventContributions[event]||[0,0,0,0];
+  for (let i=0;i<eventValues.length;i++){ val += (eventValues[i] - eventCoefficients[i].mean) * eventCoefficients[i].coef; }
+  val += (diabetes === "Yes" ? 1 - 0.12003311 : 0 - 0.12003311) * 0.30055;
+  val += (mi === "Yes" ? 1 - 0.11258278 : 0 - 0.11258278) * 0.45166;
+  val += (pvd === "Yes" ? 1 - 0.17384106 : 0 - 0.17384106) * 0.16255;
+  val += (hypert === "Yes" ? 1 - 0.37168874 : 0 - 0.37168874) * 0.2167;
+  val += (plaqueUlcerated === "Yes" ? 1 - 0.67384106 : 0 - 0.67384106) * 0.70738;
+  const riskScore = (1 - Math.pow(0.90042, Math.exp(val))) * 100;
+  return riskScore;
+}
+function carCalc_bucketed(originalRiskScore){
+  if (isNaN(originalRiskScore)) return null;
+  let riskScore = Math.floor(originalRiskScore / 2);
+  if (riskScore < 5) { riskScore = 5; }
+  if (riskScore < 20) {
+      return {score:riskScore, class:'routine', label:'nízke riziko', rec:'Zvážte randomizáciu v ECST‑2.'};
+  } else {
+      return {score:riskScore, class:'urgent', label:'vyššie riziko', rec:'Zvážte rýchlu revaskularizáciu.'};
+  }
+}
+// Sync from main form to CAR modal
+function syncFromFormToCar(){
+  const pct = document.getElementById('caro_pct')?.value||'';
+  const last = document.getElementById('caro_last')?.value||'';
+  const state = document.getElementById('caro_state')?.value||'';
+  const sten = document.getElementById('car_sten');
+  if(sten && pct && pct!=='nevím' && pct!=='100 (okluze)'){
+    if(pct==='<50') sten.value = 49;
+    if(pct==='50–69') sten.value = 60;
+    if(pct==='70–99') sten.value = 75;
+  }
+  const evtSel = document.getElementById('car_evt');
+  if(evtSel){
+    // Upravená synchronizácia, aby lepšie zodpovedala možnostiam v CAR kalkulačke
+    if(state==='Pacient je asymptomatický') evtSel.value='asymptomatic';
+    else if(state==='Závažná neinvalidizující CMP (>7 dní)') evtSel.value='SM';
+    else if(state==='Mírná CMP (24h–7 dní)') evtSel.value='S';
+    else if(state==='Vícečetné cerebrální TIA (<24h)') evtSel.value='MT';
+    else if(state==='Jedna cerebrální TIA (<24h)') evtSel.value='T';
+    else if(state==='Monokulární TIA nebo CMP') evtSel.value='MO';
+    else evtSel.value='T'; // Default pre ostatné symptomatické
+  }
+  const car_days = document.getElementById('car_days');
+  if(car_days){
+    car_days.value = (last==='≤14 dní') ? 7 : (last==='>14 dní'? 30 : '');
+  }
+}
+function runCar(){
+  const tslev = parseInt(document.getElementById('car_days').value||'0',10);
+  const plaque = document.getElementById('car_ulc').value;
+  const sex = document.getElementById('car_sex').value;
+  const car = parseInt(document.getElementById('car_sten').value||'0',10);
+  const noccl = document.getElementById('car_near').value;
+  const age = parseInt(document.getElementById('car_age').value||'0',10);
+  const evt = document.getElementById('car_evt').value;
+  const dm = document.getElementById('car_dm').value;
+  const mi = document.getElementById('car_mi').value;
+  const pvd = document.getElementById('car_pvd').value;
+  const ht = document.getElementById('car_ht').value;
+  if(!evt){ document.getElementById('carResult').innerHTML='<span style="color:#b91c1c">Zvoľte typ príhody.</span>'; return; }
+  // Špeciálny prípad pre asymptomatických - v ECST-2 sa dni od príhody nezapočítavajú
+  const daysForCalc = (evt === 'asymptomatic') ? 0 : tslev; // Použijeme 0 alebo inú štandardnú hodnotu pre asympt.
+
+  const orig = carCalc_core(daysForCalc, plaque, sex, car, noccl, age, evt, dm, mi, pvd, ht);
+  const pack = carCalc_bucketed(orig);
+  if(!pack){ document.getElementById('carResult').textContent='Výpočet zlyhal.'; return; }
+  document.getElementById('carResult').innerHTML = `<div class="badge ${pack.class}">${pack.label.toUpperCase()} · 5‑ročné riziko ~ ${pack.score}%</div> <div class="small">${pack.rec}</div>`;
+}
+function applyCarToForm(){
+  const sten = document.getElementById('car_sten').value;
+  if(sten){
+    const sel = document.getElementById('caro_pct');
+    if(sel){
+      let bucket = '50–69';
+      const s = parseInt(sten,10);
+      if(s<50) bucket = '<50';
+      else if(s<70) bucket = '50–69';
+      else bucket = '70–99';
+      sel.value = bucket;
+      updateTriage();
+    }
+  }
+  document.getElementById('carModal').close();
+}
+
+</script>
+
+<dialog id="carModal" style="width:min(900px,96vw);border:none;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:0;overflow:hidden">
+  <div style="background:#0ea5e9;height:8px"></div>
+  <div style="padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <h3 style="margin:0;font-weight:800;font-size:18px">CAR kalkulačka (ECST‑2)</h3>
+      <button onclick="document.getElementById('carModal').close()" style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer">Zavřít</button>
+    </div>
+    <p class="small" style="margin:6px 0 12px">Pomůcka pro odhad 5‑letého ipsilaterálního rizika CMP. Výsledek nenahrazuje klinické rozhodnutí.</p>
+
+    <form id="carForm" onsubmit="event.preventDefault(); runCar();">
+      <div class="grid cols-2">
+        <!-- Tieto polia sú tu pre úplnosť ECST-2, aj keď nie sú v hlavnom formulári -->
+        <div class="field">
+          <label>Věk (roky)</label>
+          <input id="car_age" type="number" min="18" placeholder="Zadajte vek">
+        </div>
+        <div class="field">
+          <label>Pohlaví</label>
+          <select id="car_sex"><option value="Male">Muž</option><option value="Female">Žena</option></select>
+        </div>
+        <div class="field">
+          <label>Stupeň stenózy (%)</label>
+          <input id="car_sten" type="number" min="50" max="99" placeholder="50–99">
+        </div>
+        <div class="field">
+          <label>Nejzávažnější ipsilaterální příhoda</label>
+          <select id="car_evt">
+            <option value="">Vyberte…</option>
+            <option value="asymptomatic">Pacient je asymptomatický</option>
+            <option value="SM">Závažná neinvalidizující CMP (>7 dní)</option>
+            <option value="S">Mírná CMP (24h–7 dní)</option>
+            <option value="MT">Vícečetné cerebrální TIA (<24h)</option>
+            <option value="T">Jedna cerebrální TIA (<24h)</option>
+            <option value="MO">Monokulární TIA nebo CMP</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Čas od poslední příhody (dny)</label>
+          <input id="car_days" type="number" min="0" placeholder="Počet dní (0 pre asympt.)">
+        </div>
+        <div class="field">
+          <label>Ulcerace plátu</label>
+          <select id="car_ulc"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+        <div class="field">
+          <label>Téměř okluze</label>
+          <select id="car_near"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+        <div class="field">
+          <label>Diabetes mellitus</label>
+          <select id="car_dm"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+        <div class="field">
+          <label>Anamnéza infarktu myokardu</label>
+          <select id="car_mi"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+        <div class="field">
+          <label>Periferní vaskulární onemocnění</label>
+          <select id="car_pvd"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+        <div class="field">
+          <label>Hypertenze (léčená)</label>
+          <select id="car_ht"><option value="No">Nie</option><option value="Yes">Áno</option></select>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button type="submit" class="primary">Vypočítat CAR riziko</button>
+        <button type="button" onclick="applyCarToForm()" style="font-weight:800;border:2px solid #cbd5e1;border-radius:10px;padding:10px 12px;background:#fff">Použít do formuláře (stenóza)</button>
+      </div>
+      <div id="carResult" class="small" style="margin-top:8px"></div>
+    </form>
+  </div>
+</dialog>
+
+</body>
+</html>
