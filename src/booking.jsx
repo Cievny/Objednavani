@@ -326,7 +326,7 @@ const emptyForm = {
   time: "",
 };
 
-const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
+const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
@@ -342,12 +342,12 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
 
   const takenByDate = useMemo(() => {
     const map = new Map();
-    orders.filter(isSlotOccupying).forEach((o) => {
-      if (!map.has(o.date)) map.set(o.date, new Set());
-      map.get(o.date).add(o.time);
+    occupied.forEach(({ date, time }) => {
+      if (!map.has(date)) map.set(date, new Set());
+      map.get(date).add(time);
     });
     return map;
-  }, [orders]);
+  }, [occupied]);
 
   const freeSlotsFor = (isoDate) => {
     const open = openSlots[isoDate] || [];
@@ -392,7 +392,7 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
   };
   const goBack = () => { setError(""); setStep((s) => Math.max(1, s - 1)); };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (!freeSlotsFor(form.date).includes(form.time)) {
@@ -428,9 +428,13 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
       date: form.date,
       time: form.time,
     };
-    onSubmit(order);
-    setCreatedOrder(order);
-    setStep(4);
+    try {
+      await onSubmit(order);
+      setCreatedOrder(order);
+      setStep(4);
+    } catch (err) {
+      setError(err?.message || "Objednávku sa nepodarilo odoslať. Skúste to znova.");
+    }
   };
 
   const resetWizard = () => { setCreatedOrder(null); setForm(emptyForm); setStep(1); setError(""); };
@@ -1169,15 +1173,38 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
 };
 
 // Overenie / zrušenie objednávky pacientom (podľa čísla objednávky + telefónu)
-const OrderLookup = ({ orders, onCancelOrder }) => {
+const OrderLookup = ({ onLookup, onCancel }) => {
   const [orderId, setOrderId] = useState("");
   const [phone, setPhone] = useState("");
-  const [searched, setSearched] = useState(false);
+  const [found, setFound] = useState(null);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const norm = (v) => v.replace(/\D/g, "").slice(-9);
-  const found = searched
-    ? orders.find((o) => o.id.toUpperCase() === orderId.trim().toUpperCase() && norm(o.patient.phone) === norm(phone) && norm(phone).length >= 9)
-    : null;
+  const search = async () => {
+    setBusy(true); setMessage(""); setFound(null);
+    try {
+      const order = await onLookup(orderId.trim(), phone);
+      if (!order) setMessage("Objednávku sme nenašli — skontrolujte číslo objednávky aj telefón.");
+      else setFound(order);
+    } catch (e) {
+      setMessage(e?.message || "Vyhľadanie zlyhalo. Skúste to znova.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancel = async () => {
+    if (!window.confirm("Naozaj chcete objednávku zrušiť?")) return;
+    setBusy(true);
+    try {
+      await onCancel(found.id, phone);
+      setFound({ ...found, status: "rejected", statusNote: "Zrušené pacientom" });
+    } catch (e) {
+      setMessage(e?.message || "Zrušenie zlyhalo. Skúste to znova.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const canCancel = found && (found.status === "new" || found.status === "confirmed");
 
@@ -1188,23 +1215,21 @@ const OrderLookup = ({ orders, onCancelOrder }) => {
         <div className="grid md:grid-cols-2 gap-3">
           <input
             value={orderId}
-            onChange={(e) => { setOrderId(e.target.value); setSearched(false); }}
+            onChange={(e) => { setOrderId(e.target.value); setFound(null); setMessage(""); }}
             placeholder="Číslo objednávky (USG-…)"
             className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005ca9] outline-none"
           />
           <input
             value={phone}
-            onChange={(e) => { setPhone(e.target.value); setSearched(false); }}
+            onChange={(e) => { setPhone(e.target.value); setFound(null); setMessage(""); }}
             placeholder="Telefón zadaný pri objednávke"
             className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005ca9] outline-none"
           />
         </div>
-        <button onClick={() => setSearched(true)} className="bg-[#005ca9] hover:bg-[#004a87] text-white font-bold px-5 py-2.5 rounded-lg transition-colors">
-          Vyhľadať
+        <button onClick={search} disabled={busy} className="bg-[#005ca9] hover:bg-[#004a87] disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-lg transition-colors">
+          {busy ? "Pracujem…" : "Vyhľadať"}
         </button>
-        {searched && !found && (
-          <p className="text-sm text-red-600 font-semibold">Objednávku sme nenašli — skontrolujte číslo objednávky aj telefón.</p>
-        )}
+        {message && <p className="text-sm text-red-600 font-semibold">{message}</p>}
         {found && (
           <div className="border border-slate-200 rounded-xl p-4 space-y-2">
             <p className="font-bold">{found.exam.label}</p>
@@ -1214,10 +1239,7 @@ const OrderLookup = ({ orders, onCancelOrder }) => {
               {found.statusNote && <span className="text-slate-500"> ({found.statusNote})</span>}
             </p>
             {canCancel && (
-              <button
-                onClick={() => { if (window.confirm("Naozaj chcete objednávku zrušiť?")) onCancelOrder(found.id); }}
-                className="bg-[#e2001a] hover:bg-[#c00017] text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-              >
+              <button onClick={cancel} disabled={busy} className="bg-[#e2001a] hover:bg-[#c00017] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
                 Zrušiť objednávku
               </button>
             )}
@@ -1228,69 +1250,11 @@ const OrderLookup = ({ orders, onCancelOrder }) => {
   );
 };
 
-// --- 6. ZDIEĽANÝ STAV APLIKÁCIE ---
-// Dátová vrstva: teraz localStorage, neskôr sa telo tohto hooku vymení za Supabase
-// (tabuľky orders / open_slots / settings / pricelist — pozri supabase/schema.sql).
-export function useBookingData() {
-  const [orders, setOrders] = useState(() => loadJson(USG_ORDERS_KEY, []));
-  const [openSlots, setOpenSlots] = useState(() => loadJson(USG_OPEN_SLOTS_KEY, {}));
-  const [settings, setSettings] = useState(() => loadJson(USG_SETTINGS_KEY, defaultSettings));
-  const [pricelist, setPricelist] = useState(() => normalizePricelist(loadJson(USG_PRICELIST_KEY, defaultPricelist)));
-
-  useEffect(() => { localStorage.setItem(USG_ORDERS_KEY, JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem(USG_OPEN_SLOTS_KEY, JSON.stringify(openSlots)); }, [openSlots]);
-  useEffect(() => { localStorage.setItem(USG_SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem(USG_PRICELIST_KEY, JSON.stringify(pricelist)); }, [pricelist]);
-
-  const addOrder = (order) => setOrders((prev) => [...prev, order]);
-
-  const setStatus = (orderId, status, statusNote = "") =>
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status, statusNote } : o)));
-
-  const toggleSlot = (date, slot) =>
-    setOpenSlots((prev) => {
-      const day = prev[date] || [];
-      const next = day.includes(slot) ? day.filter((s) => s !== slot) : [...day, slot].sort();
-      return { ...prev, [date]: next };
-    });
-
-  const openDay = (date) => setOpenSlots((prev) => ({ ...prev, [date]: [...allDaySlots] }));
-
-  const openRange = (from, to) =>
-    setOpenSlots((prev) => {
-      if (!from || !to || from > to) return prev;
-      const next = { ...prev };
-      const d = new Date(`${from}T12:00:00`);
-      const end = new Date(`${to}T12:00:00`);
-      while (d <= end) {
-        const day = d.getDay();
-        if (day !== 0 && day !== 6) next[toISODate(d)] = [...allDaySlots];
-        d.setDate(d.getDate() + 1);
-      }
-      return next;
-    });
-
-  const reschedule = (orderId, date, time) =>
-    setOrders((prev) => prev.map((o) =>
-      o.id === orderId
-        ? { ...o, date, time, statusNote: `Presunuté z ${o.date} ${o.time}` }
-        : o
-    ));
-
-  const closeDay = (date) =>
-    setOpenSlots((prev) => {
-      const bookedTimes = new Set(orders.filter((o) => o.date === date && isSlotOccupying(o)).map((o) => o.time));
-      const next = (prev[date] || []).filter((s) => bookedTimes.has(s));
-      return { ...prev, [date]: next };
-    });
-
-  const pendingCount = orders.filter((o) => o.status === "new").length;
-
-  return {
-    orders, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, toggleSlot, openDay, openRange, closeDay, reschedule,
-    saveSettings: setSettings, savePricelist: setPricelist,
-  };
-}
-
-export { PatientView, AdminView, UsgHero, OrderLookup };
+// --- 6. EXPORTY ---
+// Dátová vrstva (localStorage / Supabase) žije v src/data.js.
+export {
+  PatientView, AdminView, UsgHero, OrderLookup, usgStatuses,
+  defaultSettings, defaultPricelist, normalizePricelist,
+  allDaySlots, isSlotOccupying, toISODate, loadJson,
+  USG_ORDERS_KEY, USG_OPEN_SLOTS_KEY, USG_SETTINGS_KEY, USG_PRICELIST_KEY,
+};

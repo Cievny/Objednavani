@@ -56,18 +56,30 @@ backend (pozri nižšie).
 Predvolený IBAN v nastaveniach je **verejne známy vzorový (DEMO) IBAN**,
 nie účet NÚSCH. Aplikácia na to upozorňuje v správe aj pri QR kóde.
 
-## Ďalší krok: Supabase
+## Supabase (ostrá prevádzka)
 
-Návrh schémy je pripravený v [`supabase/schema.sql`](supabase/schema.sql)
-(tabuľky `orders`, `open_slots`, `pricelist`, `settings` + RLS politiky
-a unikátny index proti dvojitej rezervácii toho istého termínu).
+Integrácia je hotová — appka beží v dvoch režimoch:
 
-Postup nasadenia:
+- **bez `.env`** → demo na localStorage (vrátane prístupového kódu),
+- **s `.env`** → Supabase: spoločná databáza, prihlásenie personálu cez
+  Supabase Auth (e-mail + heslo), realtime obnovovanie stránky pracoviska.
 
-1. Vytvoriť projekt na [supabase.com](https://supabase.com) a spustiť
-   `supabase/schema.sql` v SQL editore.
-2. `npm install @supabase/supabase-js` a doplniť URL + anon key do `.env`.
-3. V `src/booking.jsx` vymeniť telo hooku `useBookingData()` — jediné miesto,
-   kde sa siaha na dáta — za volania Supabase.
-4. Prihlásenie pracoviska cez Supabase Auth namiesto prístupového kódu.
-5. Hosting buildu napr. na Vercel/Netlify.
+Bezpečnostný model: pacient (anonymný) nikdy nečíta tabuľku `orders` —
+obsadenosť termínov, vytvorenie, overenie aj zrušenie objednávky idú cez
+SECURITY DEFINER funkcie (`get_booked_slots`, `create_order`,
+`lookup_order`, `cancel_order`), ktoré vracajú len nevyhnutné údaje.
+Dvojitú rezerváciu blokuje unikátny index na (deň, čas).
+
+### Postup nasadenia
+
+1. [supabase.com](https://supabase.com) → **New project**, región
+   **Frankfurt (eu-central-1)** — zdravotné údaje ostanú v EÚ.
+2. **SQL Editor** → vložiť a spustiť celý [`supabase/schema.sql`](supabase/schema.sql).
+3. **Authentication → Sign In / Up** → vypnúť verejnú registráciu
+   (Allow new users to sign up = OFF); personál pozývať cez
+   **Authentication → Users → Invite user** (nusch.sk e-maily).
+4. Skopírovať `.env.example` na `.env` a doplniť **Project URL** a
+   **anon key** (Settings → API).
+5. V správe appky nastaviť skutočný IBAN pracoviska (alebo upraviť
+   riadok v tabuľke `settings`).
+6. Build nasadiť napr. na Vercel/Netlify (env premenné zadať aj tam).
