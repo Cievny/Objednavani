@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import {
   defaultSettings, defaultPricelist, normalizePricelist,
-  allDaySlots, isSlotOccupying, toISODate, loadJson,
+  generateWindowSlots, isSlotOccupying, toISODate, loadJson,
   USG_ORDERS_KEY, USG_OPEN_SLOTS_KEY, USG_SETTINGS_KEY, USG_PRICELIST_KEY,
 } from "./booking.jsx";
 
@@ -41,6 +41,8 @@ const orderFromRow = (r) => ({
   date: r.slot_date,
   time: (r.slot_time || "").slice(0, 5),
   variableSymbol: r.variable_symbol || "",
+  doctor: r.doctor || "",
+  paid: Boolean(r.paid),
 });
 
 const lookupFromJson = (j) => j && ({
@@ -52,6 +54,8 @@ const lookupFromJson = (j) => j && ({
   price: j.price == null ? null : Number(j.price),
   date: j.slot_date,
   time: (j.slot_time || "").slice(0, 5),
+  doctor: j.doctor || "",
+  paid: Boolean(j.paid),
 });
 
 const pricelistFromRows = (rows) =>
@@ -65,11 +69,19 @@ const pricelistFromRows = (rows) =>
 const groupSlots = (rows) => {
   const map = {};
   rows.forEach((r) => {
-    const t = r.slot_time.slice(0, 5);
-    (map[r.slot_date] = map[r.slot_date] || []).push(t);
+    (map[r.slot_date] = map[r.slot_date] || []).push({ time: r.slot_time.slice(0, 5), doctor: r.doctor || "" });
   });
-  Object.values(map).forEach((arr) => arr.sort());
+  Object.values(map).forEach((arr) => arr.sort((a, b) => a.time.localeCompare(b.time)));
   return map;
+};
+
+// staré lokálne dáta mali sloty ako reťazce — znormalizujeme na objekty
+const normalizeLocalSlots = (map) => {
+  const out = {};
+  Object.entries(map || {}).forEach(([date, arr]) => {
+    out[date] = (arr || []).map((s) => (typeof s === "string" ? { time: s, doctor: "" } : s));
+  });
+  return out;
 };
 
 const friendlyDbError = (error) => {
@@ -107,7 +119,7 @@ export function useAuth() {
 export function useBookingData(isStaff) {
   const [orders, setOrders] = useState(() => (isSupabaseConfigured ? [] : loadJson(USG_ORDERS_KEY, [])));
   const [occupiedRemote, setOccupiedRemote] = useState([]);
-  const [openSlots, setOpenSlots] = useState(() => (isSupabaseConfigured ? {} : loadJson(USG_OPEN_SLOTS_KEY, {})));
+  const [openSlots, setOpenSlots] = useState(() => (isSupabaseConfigured ? {} : normalizeLocalSlots(loadJson(USG_OPEN_SLOTS_KEY, {}))));
   const [settings, setSettings] = useState(() => (isSupabaseConfigured ? defaultSettings : loadJson(USG_SETTINGS_KEY, defaultSettings)));
   const [pricelist, setPricelist] = useState(() => (isSupabaseConfigured ? defaultPricelist : normalizePricelist(loadJson(USG_PRICELIST_KEY, defaultPricelist))));
   const [loading, setLoading] = useState(isSupabaseConfigured);
@@ -121,7 +133,7 @@ export function useBookingData(isStaff) {
   const reload = useCallback(async () => {
     if (!supabase) return;
     const [slotsRes, priceRes, settingsRes] = await Promise.all([
-      supabase.from("open_slots").select("slot_date, slot_time"),
+      supabase.from("open_slots").select("slot_date, slot_time, doctor"),
       supabase.from("pricelist").select("*").eq("active", true).order("sort_order"),
       supabase.from("settings").select("key, value"),
     ]);
@@ -129,7 +141,13 @@ export function useBookingData(isStaff) {
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(pricelistFromRows(priceRes.data));
     if (!settingsRes.error && settingsRes.data.length > 0) {
       const kv = Object.fromEntries(settingsRes.data.map((r) => [r.key, r.value]));
-      setSettings({ iban: kv.iban || defaultSettings.iban, beneficiary: kv.beneficiary || defaultSettings.beneficiary });
+      let doctors = [];
+      try { doctors = JSON.parse(kv.doctors || "[]"); } catch { doctors = []; }
+      setSettings({
+        iban: kv.iban || defaultSettings.iban,
+        beneficiary: kv.beneficiary || defaultSettings.beneficiary,
+        doctors: Array.isArray(doctors) ? doctors : [],
+      });
     }
     if (isStaff) {
       const { data, error } = await supabase.from("orders").select("*").order("slot_date").order("slot_time");
@@ -213,73 +231,68 @@ export function useBookingData(isStaff) {
     await reload();
   };
 
-  const toggleSlot = async (date, slot) => {
-    if (!supabase) {
-      setOpenSlots((prev) => {
-        const day = prev[date] || [];
-        const next = day.includes(slot) ? day.filter((t) => t !== slot) : [...day, slot].sort();
-        return { ...prev, [date]: next };
-      });
-      return;
+  // otvorenie termínov: okno (deň/rozsah + čas od–do + interval + lekár)
+  const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, stepMinutes, doctor = "", skipWeekends = true }) => {
+    if (!dateFrom || !dateTo || dateFrom > dateTo) return;
+    const times = generateWindowSlots(timeFrom, timeTo, stepMinutes);
+    if (times.length === 0) return;
+    const days = [];
+    const d = new Date(`${dateFrom}T12:00:00`);
+    const end = new Date(`${dateTo}T12:00:00`);
+    while (d <= end) {
+      const dow = d.getDay();
+      if (!skipWeekends || (dow !== 0 && dow !== 6)) days.push(toISODate(d));
+      d.setDate(d.getDate() + 1);
     }
-    const isOpen = (openSlots[date] || []).includes(slot);
-    const { error } = isOpen
-      ? await supabase.from("open_slots").delete().eq("slot_date", date).eq("slot_time", slot)
-      : await supabase.from("open_slots").insert({ slot_date: date, slot_time: slot });
-    throwIf(error);
-    await reload();
-  };
-
-  const upsertSlots = async (rows) => {
-    const { error } = await supabase.from("open_slots").upsert(rows, { onConflict: "slot_date,slot_time", ignoreDuplicates: true });
-    throwIf(error);
-    await reload();
-  };
-
-  const openDay = async (date) => {
-    if (!supabase) { setOpenSlots((prev) => ({ ...prev, [date]: [...allDaySlots] })); return; }
-    await upsertSlots(allDaySlots.map((t) => ({ slot_date: date, slot_time: t })));
-  };
-
-  const openRange = async (from, to) => {
-    if (!from || !to || from > to) return;
     if (!supabase) {
       setOpenSlots((prev) => {
         const next = { ...prev };
-        const d = new Date(`${from}T12:00:00`);
-        const end = new Date(`${to}T12:00:00`);
-        while (d <= end) {
-          const day = d.getDay();
-          if (day !== 0 && day !== 6) next[toISODate(d)] = [...allDaySlots];
-          d.setDate(d.getDate() + 1);
-        }
+        days.forEach((iso) => {
+          const byTime = new Map((next[iso] || []).map((slot) => [slot.time, slot]));
+          times.forEach((t) => byTime.set(t, { time: t, doctor }));
+          next[iso] = [...byTime.values()].sort((a, b) => a.time.localeCompare(b.time));
+        });
         return next;
       });
       return;
     }
     const rows = [];
-    const d = new Date(`${from}T12:00:00`);
-    const end = new Date(`${to}T12:00:00`);
-    while (d <= end) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) {
-        const iso = toISODate(d);
-        allDaySlots.forEach((t) => rows.push({ slot_date: iso, slot_time: t }));
-      }
-      d.setDate(d.getDate() + 1);
+    days.forEach((iso) => times.forEach((t) => rows.push({ slot_date: iso, slot_time: t, doctor })));
+    const { error } = await supabase.from("open_slots").upsert(rows, { onConflict: "slot_date,slot_time" });
+    throwIf(error);
+    await reload();
+  };
+
+  const closeSlot = async (date, time) => {
+    if (!supabase) {
+      setOpenSlots((prev) => ({ ...prev, [date]: (prev[date] || []).filter((slot) => slot.time !== time) }));
+      return;
     }
-    if (rows.length > 0) await upsertSlots(rows);
+    const { error } = await supabase.from("open_slots").delete().eq("slot_date", date).eq("slot_time", time);
+    throwIf(error);
+    await reload();
   };
 
   const closeDay = async (date) => {
     const bookedTimes = new Set(orders.filter((o) => o.date === date && isSlotOccupying(o)).map((o) => o.time));
     if (!supabase) {
-      setOpenSlots((prev) => ({ ...prev, [date]: (prev[date] || []).filter((t) => bookedTimes.has(t)) }));
+      setOpenSlots((prev) => ({ ...prev, [date]: (prev[date] || []).filter((slot) => bookedTimes.has(slot.time)) }));
       return;
     }
-    const freeTimes = (openSlots[date] || []).filter((t) => !bookedTimes.has(t));
+    const freeTimes = (openSlots[date] || []).map((slot) => slot.time).filter((t) => !bookedTimes.has(t));
     if (freeTimes.length === 0) return;
     const { error } = await supabase.from("open_slots").delete().eq("slot_date", date).in("slot_time", freeTimes);
+    throwIf(error);
+    await reload();
+  };
+
+  const setPaid = async (orderId, paid = true) => {
+    const paidAt = paid ? new Date().toISOString() : null;
+    if (!supabase) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid, paidAt } : o)));
+      return;
+    }
+    const { error } = await supabase.from("orders").update({ paid, paid_at: paidAt }).eq("id", orderId);
     throwIf(error);
     await reload();
   };
@@ -287,7 +300,11 @@ export function useBookingData(isStaff) {
   const saveSettings = async (next) => {
     if (!supabase) { setSettings(next); return; }
     const { error } = await supabase.from("settings").upsert(
-      [{ key: "iban", value: next.iban }, { key: "beneficiary", value: next.beneficiary }],
+      [
+        { key: "iban", value: next.iban },
+        { key: "beneficiary", value: next.beneficiary },
+        { key: "doctors", value: JSON.stringify(next.doctors || []) },
+      ],
       { onConflict: "key" }
     );
     throwIf(error);
@@ -334,7 +351,7 @@ export function useBookingData(isStaff) {
   return {
     isSupabase: isSupabaseConfigured, loading,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, reschedule, toggleSlot, openDay, openRange, closeDay,
+    addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, lookupOrder, cancelOrder,
   };
 }

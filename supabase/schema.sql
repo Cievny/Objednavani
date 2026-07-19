@@ -28,6 +28,7 @@ create table pricelist (
 create table open_slots (
   slot_date date not null,
   slot_time time not null,
+  doctor text not null default '',
   primary key (slot_date, slot_time)
 );
 
@@ -52,7 +53,10 @@ create table orders (
   email text not null default '',
   slot_date date not null,
   slot_time time not null,
-  variable_symbol text not null default ''
+  variable_symbol text not null default '',
+  doctor text not null default '',
+  paid boolean not null default false,
+  paid_at timestamptz
 );
 
 -- Jeden aktívny pacient na termín (zamietnuté objednávky termín uvoľnia)
@@ -67,7 +71,8 @@ create table settings (
 );
 insert into settings (key, value) values
   ('iban', 'SK__DOPLNTE_SKUTOCNY_IBAN__'),
-  ('beneficiary', 'NÚSCH, a.s.');
+  ('beneficiary', 'NÚSCH, a.s.'),
+  ('doctors', '[]');
 
 -- Predvolený cenník (platnosť od 01.03.2026)
 insert into pricelist (id, label, price_self, price_referral, sort_order) values
@@ -139,8 +144,12 @@ create or replace function create_order(
   p_slot_date date, p_slot_time time, p_variable_symbol text
 ) returns text
 language plpgsql security definer set search_path = public as $$
+declare v_doctor text;
 begin
-  if not exists (select 1 from open_slots s where s.slot_date = p_slot_date and s.slot_time = p_slot_time) then
+  select s.doctor into v_doctor
+  from open_slots s
+  where s.slot_date = p_slot_date and s.slot_time = p_slot_time;
+  if not found then
     raise exception 'Vybraný termín nie je otvorený na objednávanie.';
   end if;
   if exists (select 1 from orders o where o.slot_date = p_slot_date and o.slot_time = p_slot_time and o.status <> 'rejected') then
@@ -149,11 +158,12 @@ begin
   insert into orders (
     id, has_referral, exam_type_id, exam_label, price, reason,
     referrer_name, referrer_facility, patient_name, birth_date,
-    insurance, phone, email, slot_date, slot_time, variable_symbol
+    insurance, phone, email, slot_date, slot_time, variable_symbol, doctor
   ) values (
     p_id, p_has_referral, p_exam_type_id, p_exam_label, p_price, p_reason,
     coalesce(p_referrer_name, ''), coalesce(p_referrer_facility, ''), p_patient_name, p_birth_date,
-    coalesce(p_insurance, ''), p_phone, coalesce(p_email, ''), p_slot_date, p_slot_time, p_variable_symbol
+    coalesce(p_insurance, ''), p_phone, coalesce(p_email, ''), p_slot_date, p_slot_time, p_variable_symbol,
+    coalesce(v_doctor, '')
   );
   return p_id;
 end $$;
@@ -164,7 +174,7 @@ returns jsonb
 language sql security definer set search_path = public as $$
   select to_jsonb(x) from (
     select o.id, o.status, o.status_note, o.has_referral, o.exam_label,
-           o.price, o.slot_date, o.slot_time
+           o.price, o.slot_date, o.slot_time, o.doctor, o.paid
     from orders o
     where upper(o.id) = upper(p_id)
       and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9

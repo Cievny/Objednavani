@@ -129,11 +129,11 @@ export default function App() {
         openSlots={data.openSlots}
         settings={data.settings}
         pricelist={data.pricelist}
-        onToggleSlot={data.toggleSlot}
-        onOpenDay={data.openDay}
-        onOpenRange={data.openRange}
+        onOpenWindow={data.openWindow}
+        onCloseSlot={data.closeSlot}
         onCloseDay={data.closeDay}
         onSetStatus={data.setStatus}
+        onSetPaid={data.setPaid}
         onReschedule={data.reschedule}
         onSaveSettings={data.saveSettings}
         onSavePricelist={data.savePricelist}

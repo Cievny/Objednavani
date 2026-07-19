@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 // --- 1. KONFIGURÁCIA ---
 
 const USG_ORDERS_KEY = "usgOrders_v1";
-const USG_OPEN_SLOTS_KEY = "usgOpenSlots_v1";
+const USG_OPEN_SLOTS_KEY = "usgOpenSlots_v2";
 const USG_SETTINGS_KEY = "usgSettings_v1";
 const USG_PRICELIST_KEY = "usgPricelist_v2";
 
@@ -46,8 +46,8 @@ const insuranceOptions = [
 ];
 
 const usgStatuses = {
-  new: { label: "Čaká na platbu", badge: "bg-yellow-600", border: "border-yellow-500" },
-  confirmed: { label: "Zaplatená / potvrdená", badge: "bg-green-600", border: "border-green-500" },
+  new: { label: "Nová", badge: "bg-yellow-600", border: "border-yellow-500" },
+  confirmed: { label: "Potvrdená", badge: "bg-green-600", border: "border-green-500" },
   rejected: { label: "Zamietnutá", badge: "bg-red-600", border: "border-red-500" },
   done: { label: "Vykonaná", badge: "bg-blue-600", border: "border-blue-500" },
   noshow: { label: "Neprišiel", badge: "bg-slate-500", border: "border-slate-400" },
@@ -56,6 +56,7 @@ const usgStatuses = {
 const defaultSettings = {
   iban: "SK3112000000198742637541", // DEMO IBAN — nastavte vlastný v správe!
   beneficiary: "NÚSCH, a.s.",
+  doctors: [], // mená lekárov priraditeľných k termínom
 };
 
 // Sloty po 20 minút, ktoré môže pracovisko otvoriť
@@ -63,6 +64,19 @@ const SLOT_START_MINUTES = 7 * 60 + 30;
 const SLOT_END_MINUTES = 14 * 60 + 30;
 const SLOT_LENGTH_MINUTES = 20;
 const EXAM_DURATION_LABEL = "20 min";
+
+export function generateWindowSlots(fromTime, toTime, stepMinutes) {
+  const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const from = toMin(fromTime);
+  const to = toMin(toTime);
+  const step = Number(stepMinutes);
+  const slots = [];
+  if (!step || step < 5 || from >= to) return slots;
+  for (let m = from; m + step <= to; m += step) {
+    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return slots;
+}
 
 function generateDaySlots() {
   const slots = [];
@@ -352,7 +366,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
   const freeSlotsFor = (isoDate) => {
     const open = openSlots[isoDate] || [];
     const taken = takenByDate.get(isoDate) || new Set();
-    return open.filter((s) => !taken.has(s));
+    return open.filter((slot) => !taken.has(slot.time));
   };
 
   const todayIso = toISODate(new Date());
@@ -383,7 +397,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     }
     if (step === 2) {
       if (!form.date || !form.time) return setError("Vyberte si deň a čas.");
-      if (!freeSlotsFor(form.date).includes(form.time)) {
+      if (!freeSlotsFor(form.date).some((slot) => slot.time === form.time)) {
         setField("time", "");
         return setError("Vybraný termín už nie je dostupný. Vyberte iný.");
       }
@@ -395,7 +409,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!freeSlotsFor(form.date).includes(form.time)) {
+    const chosenSlot = freeSlotsFor(form.date).find((slot) => slot.time === form.time);
+    if (!chosenSlot) {
       setStep(2);
       setField("time", "");
       return setError("Vybraný termín už nie je dostupný. Vyberte iný.");
@@ -410,6 +425,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
       status: "new",
       statusNote: "",
       hasReferral: isReferral,
+      doctor: chosenSlot.doctor || "",
+      paid: false,
       exam: {
         typeId: examType.id,
         label: examType.label,
@@ -537,16 +554,17 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                     <div className="grid grid-cols-3 gap-2">
                       {freeSlotsFor(form.date).map((slot) => (
                         <button
-                          key={slot}
+                          key={slot.time}
                           type="button"
-                          onClick={() => setField("time", slot)}
-                          className={`py-2 px-3 rounded-lg text-sm font-bold border-2 transition-colors ${
-                            form.time === slot
+                          onClick={() => setField("time", slot.time)}
+                          className={`py-2 px-2 rounded-lg text-sm font-bold border-2 transition-colors ${
+                            form.time === slot.time
                               ? "border-[#005ca9] bg-[#005ca9] text-white"
                               : "border-[#b3d1ec] text-[#005ca9] hover:border-[#005ca9]"
                           }`}
                         >
-                          {slot}
+                          {slot.time}
+                          {slot.doctor && <span className="block text-[10px] font-normal opacity-80 truncate">{slot.doctor}</span>}
                         </button>
                       ))}
                     </div>
@@ -626,6 +644,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             <p className="text-slate-700">
               <strong>{createdOrder.exam.label}</strong><br />
               {formatDateHuman(createdOrder.date)} o {createdOrder.time}
+              {createdOrder.doctor && <><br /><span className="text-sm text-slate-500">Vyšetruje: {createdOrder.doctor}</span></>}
             </p>
             <p className="text-xs text-slate-500">Číslo objednávky: <strong>{createdOrder.id}</strong></p>
           </div>
@@ -696,7 +715,14 @@ function formatBirth(patient) {
   return "";
 }
 
-const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
+const PaidBadge = ({ order }) => {
+  if (order.price == null || order.price <= 0) return null;
+  return order.paid
+    ? <span className="bg-emerald-700 text-emerald-100 text-xs font-bold px-2 py-1 rounded">ZAPLATENÉ</span>
+    : <span className="bg-amber-700 text-amber-100 text-xs font-bold px-2 py-1 rounded">NEZAPLATENÉ</span>;
+};
+
+const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor }) => {
   const status = usgStatuses[order.status];
   const [resched, setResched] = useState(false);
   const [reschedDate, setReschedDate] = useState(order.date);
@@ -710,10 +736,11 @@ const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
           <span className="font-bold text-lg">{order.patient.name}</span>
           <span className="text-slate-400 text-sm ml-2">{formatBirth(order.patient)}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-bold px-2 py-1 rounded ${order.hasReferral ? "bg-green-800 text-green-200" : "bg-blue-800 text-blue-200"}`}>
             {order.hasReferral ? "ŽIADANKA" : "SAMOPLATCA"}
           </span>
+          <PaidBadge order={order} />
           <span className={`${status.badge} text-xs font-bold px-2 py-1 rounded`}>{status.label}</span>
         </div>
       </div>
@@ -725,6 +752,7 @@ const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
           </span>
         )}
       </p>
+      {order.doctor && <p className="text-sm text-teal-300">Lekár: {order.doctor}</p>}
       <p className="text-sm text-slate-300 italic">{order.exam.reason}</p>
       {order.hasReferral && order.exam.referrerName && (
         <p className="text-xs text-slate-400">
@@ -738,9 +766,14 @@ const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
       {order.statusNote && <p className="text-xs text-amber-300">Poznámka: {order.statusNote}</p>}
 
       <div className="flex flex-wrap gap-2 pt-1">
+        {!order.paid && order.price > 0 && canAct && (
+          <button onClick={() => onSetPaid(order.id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+            💰 Platba prijatá
+          </button>
+        )}
         {order.status === "new" && (
           <button onClick={() => onSetStatus(order.id, "confirmed")} className="bg-green-600 hover:bg-green-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-            Platba prijatá — potvrdiť
+            Potvrdiť termín
           </button>
         )}
         {order.status === "confirmed" && (
@@ -783,11 +816,11 @@ const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
               <div className="flex flex-wrap gap-2">
                 {reschedSlots.map((slot) => (
                   <button
-                    key={slot}
-                    onClick={() => { onReschedule(order.id, reschedDate, slot); setResched(false); }}
+                    key={slot.time}
+                    onClick={() => { onReschedule(order.id, reschedDate, slot.time); setResched(false); }}
                     className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
                   >
-                    {slot}
+                    {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
                   </button>
                 ))}
               </div>
@@ -898,22 +931,33 @@ const StatTile = ({ label, value, accent }) => (
   </div>
 );
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpenDay, onCloseDay, onOpenRange, onSetStatus, onReschedule, onSaveSettings, onSavePricelist }) => {
+const intervalOptions = [10, 15, 20, 30, 45, 60];
+
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
-  const [rangeFrom, setRangeFrom] = useState(todayIso);
-  const [rangeTo, setRangeTo] = useState(todayIso);
+  const [winFrom, setWinFrom] = useState(todayIso);
+  const [winTo, setWinTo] = useState(todayIso);
+  const [winTimeFrom, setWinTimeFrom] = useState("07:30");
+  const [winTimeTo, setWinTimeTo] = useState("14:30");
+  const [winStep, setWinStep] = useState(20);
+  const [winDoctor, setWinDoctor] = useState("");
+  const [winSkipWeekends, setWinSkipWeekends] = useState(true);
   const [fStatus, setFStatus] = useState("all");
+  const [fPaid, setFPaid] = useState("all");
   const [fText, setFText] = useState("");
   const [fDate, setFDate] = useState("");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
+  const [doctorsDraft, setDoctorsDraft] = useState((settings.doctors || []).join("\n"));
+
+  const doctors = settings.doctors || [];
 
   const freeSlotsFor = (iso) => {
     const open = openSlots[iso] || [];
     const taken = new Set(orders.filter((o) => o.date === iso && isSlotOccupying(o)).map((o) => o.time));
-    return open.filter((t) => !taken.has(t));
+    return open.filter((slot) => !taken.has(slot.time));
   };
 
   const pending = orders
@@ -930,20 +974,23 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
     return orders.filter((o) => isSlotOccupying(o) && o.date >= todayIso && o.date <= endIso).length;
   })();
 
+  const unpaidCount = orders.filter((o) => isSlotOccupying(o) && !o.paid && o.price > 0 && (o.status === "new" || o.status === "confirmed")).length;
+
   const filteredOrders = orders
     .filter((o) => fStatus === "all" || o.status === fStatus)
+    .filter((o) => fPaid === "all" || (fPaid === "paid" ? o.paid : !o.paid))
     .filter((o) => !fDate || o.date === fDate)
     .filter((o) => {
       const q = fText.trim().toLowerCase();
       if (!q) return true;
-      return o.patient.name.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.patient.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
+      return o.patient.name.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.patient.phone.replace(/\s/g, "").includes(q.replace(/\s/g, "")) || (o.doctor || "").toLowerCase().includes(q);
     })
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
   const exportCsv = () => {
-    const rows = [["Dátum", "Čas", "Stav", "Pacient", "Narodený", "Telefón", "E-mail", "Vyšetrenie", "Cena €", "Žiadanka", "VS", "Objednávka", "Poznámka"]];
+    const rows = [["Dátum", "Čas", "Lekár", "Stav", "Zaplatené", "Pacient", "Narodený", "Telefón", "E-mail", "Vyšetrenie", "Cena €", "Žiadanka", "VS", "Objednávka", "Poznámka"]];
     filteredOrders.forEach((o) => rows.push([
-      o.date, o.time, usgStatuses[o.status].label, o.patient.name,
+      o.date, o.time, o.doctor || "", usgStatuses[o.status].label, o.paid ? "áno" : "nie", o.patient.name,
       o.patient.birthNumber || o.patient.birthDate || "", o.patient.phone, o.patient.email,
       o.exam.label, o.price, o.hasReferral ? "áno" : "nie", o.variableSymbol || "", o.id, o.statusNote || "",
     ]));
@@ -956,7 +1003,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
     URL.revokeObjectURL(a.href);
   };
 
-  const dayOpen = openSlots[selectedDate] || [];
+  const dayOpen = (openSlots[selectedDate] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
   const dayOrders = new Map(
     orders.filter((o) => o.date === selectedDate && isSlotOccupying(o)).map((o) => [o.time, o])
   );
@@ -969,12 +1016,24 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
     return { iso, open, free, booked: open - free };
   });
 
+  const handleOpenWindow = () => {
+    onOpenWindow({
+      dateFrom: winFrom, dateTo: winTo,
+      timeFrom: winTimeFrom, timeTo: winTimeTo,
+      stepMinutes: winStep, doctor: winDoctor,
+      skipWeekends: winSkipWeekends,
+    });
+    setSelectedDate(winFrom);
+  };
+
   const tabs = [
     { id: "overview", label: `Prehľad${pending.length > 0 ? ` (${pending.length})` : ""}` },
     { id: "calendar", label: "Kalendár" },
     { id: "orders", label: "Objednávky" },
     { id: "settings", label: "Nastavenia" },
   ];
+
+  const inputDark = "p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm";
 
   return (
     <div className="space-y-5">
@@ -994,8 +1053,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <StatTile label="dnešný program" value={todayProgram.length} accent="text-blue-300" />
-            <StatTile label="čaká na spracovanie" value={pending.length} accent="text-yellow-300" />
-            <StatTile label="voľné termíny dnes" value={freeSlotsFor(todayIso).length} accent="text-green-300" />
+            <StatTile label="nové žiadosti" value={pending.length} accent="text-yellow-300" />
+            <StatTile label="nezaplatené" value={unpaidCount} accent="text-amber-300" />
             <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
           </div>
 
@@ -1010,8 +1069,9 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
                       <span className="font-mono font-bold text-lg text-blue-300 w-16">{o.time}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
-                        <p className="text-xs text-slate-400 truncate">{o.exam.label}</p>
+                        <p className="text-xs text-slate-400 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
                       </div>
+                      <PaidBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "confirmed" && (
                         <button onClick={() => onSetStatus(o.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
@@ -1026,7 +1086,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
             <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
             {pending.length === 0
               ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne žiadosti nečakajú na spracovanie.</p>
-              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
           </div>
         </div>
       )}
@@ -1052,63 +1112,93 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
             </div>
           </div>
 
-          <div className="bg-slate-700 rounded-lg p-4 space-y-2">
-            <h3 className="text-sm font-bold text-green-300">Hromadné otvorenie termínov</h3>
-            <p className="text-xs text-slate-400">Otvorí všetky časy v pracovných dňoch (víkendy preskočí) vo zvolenom rozsahu.</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
-              <span className="text-slate-400">—</span>
-              <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
-              <button
-                onClick={() => onOpenRange(rangeFrom, rangeTo)}
-                className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
-              >
-                Otvoriť pracovné dni
-              </button>
+          <div className="bg-slate-700 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-bold text-green-300">Otvoriť termíny</h3>
+            <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno, interval medzi termínmi a prípadne lekára.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Deň od</label>
+                <input type="date" value={winFrom} onChange={(e) => { setWinFrom(e.target.value); if (e.target.value > winTo) setWinTo(e.target.value); }} className={`w-full ${inputDark}`} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Deň do</label>
+                <input type="date" value={winTo} onChange={(e) => setWinTo(e.target.value)} className={`w-full ${inputDark}`} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Čas od</label>
+                <input type="time" value={winTimeFrom} onChange={(e) => setWinTimeFrom(e.target.value)} className={`w-full ${inputDark}`} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Čas do</label>
+                <input type="time" value={winTimeTo} onChange={(e) => setWinTimeTo(e.target.value)} className={`w-full ${inputDark}`} />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Interval</label>
+                <select value={winStep} onChange={(e) => setWinStep(Number(e.target.value))} className={`w-full ${inputDark}`}>
+                  {intervalOptions.map((m) => (<option key={m} value={m}>{m} min</option>))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-slate-400 mb-1">Lekár</label>
+                <select value={winDoctor} onChange={(e) => setWinDoctor(e.target.value)} className={`w-full ${inputDark}`}>
+                  <option value="">— neurčený —</option>
+                  {doctors.map((d) => (<option key={d} value={d}>{d}</option>))}
+                </select>
+              </div>
+              <label className="flex items-end gap-2 text-xs text-slate-300 pb-2 cursor-pointer">
+                <input type="checkbox" checked={winSkipWeekends} onChange={(e) => setWinSkipWeekends(e.target.checked)} className="w-4 h-4 accent-green-500" />
+                preskočiť víkendy
+              </label>
             </div>
+            {doctors.length === 0 && (
+              <p className="text-xs text-amber-300">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
+            )}
+            <button onClick={handleOpenWindow} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
+              Otvoriť termíny
+            </button>
           </div>
 
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="text-lg font-bold text-blue-300">Deň: {formatDateHuman(selectedDate)}</h3>
-              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
+              <div className="flex items-center gap-2">
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={inputDark} />
+                <button onClick={() => onCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+                  Zavrieť voľné
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2 mb-3">
-              <button onClick={() => onOpenDay(selectedDate)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-                Otvoriť celý deň
-              </button>
-              <button onClick={() => onCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-                Zavrieť voľné termíny
-              </button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {allDaySlots.map((slot) => {
-                const isOpen = dayOpen.includes(slot);
-                const booked = dayOrders.get(slot);
-                if (booked) {
-                  return (
-                    <div key={slot} className="p-2 rounded-lg text-sm bg-blue-900/70 border border-blue-500 text-center">
-                      <span className="font-mono font-bold">{slot}</span>
-                      <span className="block text-xs truncate">{booked.patient.name}</span>
-                      <span className="block text-xs opacity-75">{usgStatuses[booked.status].label}</span>
-                    </div>
-                  );
-                }
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => onToggleSlot(selectedDate, slot)}
-                    className={`p-2 rounded-lg text-sm font-semibold transition-colors ${
-                      isOpen ? "bg-green-600 hover:bg-green-500 text-white" : "bg-slate-800 hover:bg-slate-600 text-slate-400"
-                    }`}
-                  >
-                    {slot}
-                    <span className="block text-xs font-normal">{isOpen ? "otvorený" : "zatvorený"}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {dayOpen.length === 0
+              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">V tento deň nie sú otvorené žiadne termíny.</p>
+              : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {dayOpen.map((slot) => {
+                    const booked = dayOrders.get(slot.time);
+                    if (booked) {
+                      return (
+                        <div key={slot.time} className="p-2 rounded-lg text-sm bg-blue-900/70 border border-blue-500 text-center">
+                          <span className="font-mono font-bold">{slot.time}</span>
+                          <span className="block text-xs truncate">{booked.patient.name}</span>
+                          <span className="block text-[10px] opacity-75">{usgStatuses[booked.status].label}{booked.paid ? " · zaplatené" : booked.price > 0 ? " · nezaplatené" : ""}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={slot.time} className="p-2 rounded-lg text-sm bg-green-900/40 border border-green-700 text-center relative">
+                        <span className="font-mono font-bold text-green-200">{slot.time}</span>
+                        <span className="block text-[10px] text-green-300 truncate">{slot.doctor || "voľný termín"}</span>
+                        <button
+                          onClick={() => onCloseSlot(selectedDate, slot.time)}
+                          title="Zavrieť termín"
+                          className="absolute top-1 right-1 text-green-300 hover:text-white text-xs leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
           </div>
         </div>
       )}
@@ -1119,14 +1209,19 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
             <input
               value={fText}
               onChange={(e) => setFText(e.target.value)}
-              placeholder="Hľadať: meno, telefón, číslo objednávky…"
-              className="flex-1 min-w-48 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+              placeholder="Hľadať: meno, telefón, lekár, číslo objednávky…"
+              className={`flex-1 min-w-48 ${inputDark}`}
             />
-            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm">
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputDark}>
               <option value="all">Všetky stavy</option>
               {Object.entries(usgStatuses).map(([key, st]) => (<option key={key} value={key}>{st.label}</option>))}
             </select>
-            <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
+            <select value={fPaid} onChange={(e) => setFPaid(e.target.value)} className={inputDark}>
+              <option value="all">Platba: všetko</option>
+              <option value="paid">Zaplatené</option>
+              <option value="unpaid">Nezaplatené</option>
+            </select>
+            <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputDark} />
             {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-white">✕ dátum</button>}
           </div>
           <div className="flex items-center justify-between">
@@ -1137,12 +1232,23 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
           </div>
           {filteredOrders.length === 0
             ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
-            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
         </div>
       )}
 
       {tab === "settings" && (
         <div className="space-y-5">
+          <div className="bg-slate-700 p-4 rounded-lg space-y-3">
+            <h3 className="text-lg font-bold text-blue-300">Lekári</h3>
+            <p className="text-sm text-slate-400">Jeden lekár na riadok. Ponúkajú sa pri otváraní termínov a pacient meno vidí pri výbere času.</p>
+            <textarea
+              rows={4}
+              value={doctorsDraft}
+              onChange={(e) => setDoctorsDraft(e.target.value)}
+              placeholder={"MUDr. Jana Nováková\nMUDr. Peter Kováč"}
+              className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+            />
+          </div>
           <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
           <div className="bg-slate-700 p-4 rounded-lg space-y-3">
             <h3 className="text-lg font-bold text-blue-300">Nastavenia platby</h3>
@@ -1157,10 +1263,14 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpe
               </div>
             </div>
             <button
-              onClick={() => onSaveSettings({ iban: ibanDraft.trim(), beneficiary: beneficiaryDraft.trim() })}
+              onClick={() => onSaveSettings({
+                iban: ibanDraft.trim(),
+                beneficiary: beneficiaryDraft.trim(),
+                doctors: doctorsDraft.split("\n").map((d) => d.trim()).filter(Boolean),
+              })}
               className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
-              Uložiť nastavenia
+              Uložiť nastavenia (vrátane lekárov)
             </button>
             {settings.iban === defaultSettings.iban && (
               <p className="text-yellow-300 text-sm bg-yellow-900/40 p-2 rounded">⚠ Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
@@ -1234,10 +1344,16 @@ const OrderLookup = ({ onLookup, onCancel }) => {
           <div className="border border-slate-200 rounded-xl p-4 space-y-2">
             <p className="font-bold">{found.exam.label}</p>
             <p className="text-sm">{formatDateHuman(found.date)} o {found.time} · {formatPrice(found.price)}{found.hasReferral ? " (doplatok so žiadankou)" : ""}</p>
+            {found.doctor && <p className="text-sm">Lekár: {found.doctor}</p>}
             <p className="text-sm">
               Stav: <strong>{usgStatuses[found.status].label}</strong>
               {found.statusNote && <span className="text-slate-500"> ({found.statusNote})</span>}
             </p>
+            {found.price > 0 && (
+              <p className="text-sm">
+                Platba: <strong className={found.paid ? "text-emerald-600" : "text-amber-600"}>{found.paid ? "Zaplatené" : "Čaká na platbu"}</strong>
+              </p>
+            )}
             {canCancel && (
               <button onClick={cancel} disabled={busy} className="bg-[#e2001a] hover:bg-[#c00017] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
                 Zrušiť objednávku
