@@ -16,15 +16,24 @@ nahradí ho prihlásenie cez Supabase Auth.
 
 ## Funkcie
 
-- **Kalendár riadený pracoviskom** — pacient vidí len termíny, ktoré pracovisko
-  otvorilo (20-minútové sloty, 07:30–14:10).
-- **Žiadanka** — pacient povinne volí, či má žiadanku od lekára:
-  so žiadankou platí doplatok (30 €), bez nej plnú samoplatcovskú cenu.
-- **Cenník NÚSCH** (platnosť od 01.03.2026) — editovateľný v správe,
-  dve ceny na položku (samoplatca / doplatok), prázdny doplatok = položka
-  len pre samoplatcov.
-- **QR platba PAY by square** — slovenský štandard, funguje vo všetkých
-  bankových aplikáciách (knižnica `bysquare` + `qrcode`).
+Pacient (`/#/`):
+- 4-krokový sprievodca objednaním (vyšetrenie → termín → údaje → platba)
+- povinná voľba žiadanky: s ňou doplatok (30 €), bez nej plná cena
+- mesačný kalendár len s termínmi, ktoré pracovisko otvorilo
+- **bez rodného čísla** — pýta sa len dátum narodenia (RČ sa doplní pri
+  vyšetrení alebo zo žiadanky); e-mail a telefón povinné
+- QR platba PAY by square (`bysquare` + `qrcode`)
+- overenie stavu / zrušenie objednávky podľa čísla objednávky + telefónu
+
+Pracovisko (`/#/sprava`):
+- **Prehľad** — dnešný program pre lekára, štatistiky, čakajúce žiadosti
+- **Kalendár** — pás 14 dní s obsadenosťou, hromadné otvorenie pracovných
+  dní v rozsahu, otváranie/zatváranie jednotlivých slotov
+  (20-minútové sloty, 07:30–14:10)
+- **Objednávky** — všetky objednávky s filtrami (stav, deň, hľadanie podľa
+  mena/telefónu/čísla), presunutie na iný termín, zrušenie, export CSV
+- **Nastavenia** — cenník NÚSCH (dve ceny na položku; prázdny doplatok =
+  len samoplatca) a platobné údaje (IBAN, príjemca)
 
 ## Vývoj
 

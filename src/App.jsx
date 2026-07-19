@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useBookingData, PatientView, AdminView, UsgHero } from "./booking.jsx";
+import { useBookingData, PatientView, AdminView, UsgHero, OrderLookup } from "./booking.jsx";
 
 // Provizórny prístupový kód pre stránku pracoviska — nahradí ho skutočné
 // prihlásenie (Supabase Auth). Je to len zábrana proti náhodnému preklikaniu,
@@ -103,8 +103,10 @@ export default function App() {
                 pricelist={data.pricelist}
                 onToggleSlot={data.toggleSlot}
                 onOpenDay={data.openDay}
+                onOpenRange={data.openRange}
                 onCloseDay={data.closeDay}
                 onSetStatus={data.setStatus}
+                onReschedule={data.reschedule}
                 onSaveSettings={data.saveSettings}
                 onSavePricelist={data.savePricelist}
               />
@@ -119,6 +121,10 @@ export default function App() {
               settings={data.settings}
               pricelist={data.pricelist}
               onSubmit={data.addOrder}
+            />
+            <OrderLookup
+              orders={data.orders}
+              onCancelOrder={(id) => data.setStatus(id, "rejected", "Zrušené pacientom")}
             />
           </>
         )}

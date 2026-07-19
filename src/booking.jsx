@@ -90,6 +90,12 @@ function formatDateHuman(isoDate) {
   });
 }
 
+function formatDateShort(isoDate) {
+  return new Date(`${isoDate}T12:00:00`).toLocaleDateString("sk-SK", {
+    weekday: "short", day: "numeric", month: "numeric",
+  });
+}
+
 function formatPrice(price) {
   return `${price.toFixed(2).replace(".", ",")} €`;
 }
@@ -106,6 +112,36 @@ function loadJson(key, fallback) {
 
 function isSlotOccupying(order) {
   return order.status !== "rejected";
+}
+
+// Kontrola slovenského/českého rodného čísla: formát, mesiac (+20/+50/+70),
+// platný dátum a deliteľnosť 11 (10-miestne; s historickou výnimkou do r. 1985).
+export function validateBirthNumber(input) {
+  const clean = String(input).replace(/[\s/]/g, "");
+  if (!/^\d{9,10}$/.test(clean)) return "Rodné číslo zadajte v tvare RRMMDD/XXXX.";
+  const yy = parseInt(clean.slice(0, 2), 10);
+  let mm = parseInt(clean.slice(2, 4), 10);
+  const dd = parseInt(clean.slice(4, 6), 10);
+  if (mm > 70) mm -= 70;
+  else if (mm > 50) mm -= 50;
+  else if (mm > 20) mm -= 20;
+  if (mm < 1 || mm > 12) return "Rodné číslo má neplatný mesiac.";
+  if (clean.length === 9) {
+    if (yy > 53) return "9-miestne rodné číslo môžu mať len osoby narodené do roku 1953.";
+  } else {
+    const first9 = parseInt(clean.slice(0, 9), 10);
+    const check = parseInt(clean[9], 10);
+    const wholeOk = Number(clean) % 11 === 0;
+    const legacyOk = first9 % 11 === 10 && check === 0;
+    if (!wholeOk && !legacyOk) return "Rodné číslo nie je platné (nesedí kontrolný súčet).";
+  }
+  const year = clean.length === 9 ? 1900 + yy : yy + (yy < 54 ? 2000 : 1900);
+  const date = new Date(year, mm - 1, dd);
+  if (date.getFullYear() !== year || date.getMonth() !== mm - 1 || date.getDate() !== dd) {
+    return "Rodné číslo obsahuje neplatný dátum narodenia.";
+  }
+  if (date > new Date()) return "Rodné číslo obsahuje dátum v budúcnosti.";
+  return null;
 }
 
 // --- 3. QR PLATBA (PAY by square) ---
@@ -282,7 +318,7 @@ const emptyForm = {
   referrerName: "",
   referrerFacility: "",
   patientName: "",
-  birthNumber: "",
+  birthDate: "",
   insurance: "25",
   phone: "",
   email: "",
@@ -364,6 +400,9 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
       setField("time", "");
       return setError("Vybraný termín už nie je dostupný. Vyberte iný.");
     }
+    if (form.phone.replace(/\D/g, "").length < 9) {
+      return setError("Zadajte platné telefónne číslo (aspoň 9 číslic).");
+    }
     const order = {
       id: `USG-${Date.now().toString(36).toUpperCase()}`,
       variableSymbol: String(Date.now()).slice(-10),
@@ -381,7 +420,7 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
       price: priceFor(examType),
       patient: {
         name: form.patientName.trim(),
-        birthNumber: form.birthNumber.trim(),
+        birthDate: form.birthDate,
         insurance: form.insurance,
         phone: form.phone.trim(),
         email: form.email.trim(),
@@ -532,8 +571,9 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
               <input required value={form.patientName} onChange={(e) => setField("patientName", e.target.value)} className={inputCls} placeholder="Ján Novák" />
             </div>
             <div>
-              <label className={labelCls}>Rodné číslo *</label>
-              <input required value={form.birthNumber} onChange={(e) => setField("birthNumber", e.target.value)} className={inputCls} placeholder="800101/1234" />
+              <label className={labelCls}>Dátum narodenia *</label>
+              <input type="date" required value={form.birthDate} onChange={(e) => setField("birthDate", e.target.value)} max={toISODate(new Date())} className={inputCls} />
+              <p className="text-xs text-slate-400 mt-1">Rodné číslo od vás nepýtame — doplní sa až pri vyšetrení alebo zo žiadanky.</p>
             </div>
             <div>
               <label className={labelCls}>Zdravotná poisťovňa</label>
@@ -546,8 +586,8 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
               <input required value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>E-mail (na potvrdenie termínu)</label>
-              <input type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} className={inputCls} placeholder="jan.novak@..." />
+              <label className={labelCls}>E-mail *</label>
+              <input type="email" required value={form.email} onChange={(e) => setField("email", e.target.value)} className={inputCls} placeholder="jan.novak@..." />
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>Dôvod vyšetrenia / ťažkosti *</label>
@@ -646,14 +686,25 @@ const PatientView = ({ orders, openSlots, settings, pricelist, onSubmit }) => {
 
 // --- 5. SPRÁVA (pohľad sonografického pracoviska) ---
 
-const UsgOrderCard = ({ order, onSetStatus }) => {
+function formatBirth(patient) {
+  if (patient.birthNumber) return patient.birthNumber;
+  if (patient.birthDate) return "nar. " + new Date(patient.birthDate + "T12:00:00").toLocaleDateString("sk-SK");
+  return "";
+}
+
+const UsgOrderCard = ({ order, onSetStatus, onReschedule, freeSlotsFor }) => {
   const status = usgStatuses[order.status];
+  const [resched, setResched] = useState(false);
+  const [reschedDate, setReschedDate] = useState(order.date);
+  const canAct = order.status === "new" || order.status === "confirmed";
+  const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate) : [];
+
   return (
     <div className={`bg-slate-700 rounded-lg p-4 border-l-4 ${status.border} space-y-2`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <span className="font-bold text-lg">{order.patient.name}</span>
-          <span className="text-slate-400 text-sm ml-2">{order.patient.birthNumber}</span>
+          <span className="text-slate-400 text-sm ml-2">{formatBirth(order.patient)}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold px-2 py-1 rounded ${order.hasReferral ? "bg-green-800 text-green-200" : "bg-blue-800 text-blue-200"}`}>
@@ -680,23 +731,13 @@ const UsgOrderCard = ({ order, onSetStatus }) => {
         Tel. {order.patient.phone}{order.patient.email && ` · ${order.patient.email}`}
         {order.variableSymbol && ` · VS ${order.variableSymbol}`} · objednávka {order.id}
       </p>
-      {order.statusNote && <p className="text-xs text-red-300">Poznámka: {order.statusNote}</p>}
+      {order.statusNote && <p className="text-xs text-amber-300">Poznámka: {order.statusNote}</p>}
+
       <div className="flex flex-wrap gap-2 pt-1">
         {order.status === "new" && (
-          <>
-            <button onClick={() => onSetStatus(order.id, "confirmed")} className="bg-green-600 hover:bg-green-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-              Platba prijatá — potvrdiť
-            </button>
-            <button
-              onClick={() => {
-                const reason = window.prompt("Dôvod zamietnutia / zrušenia (voliteľné):") ?? "";
-                onSetStatus(order.id, "rejected", reason);
-              }}
-              className="bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
-            >
-              Zrušiť
-            </button>
-          </>
+          <button onClick={() => onSetStatus(order.id, "confirmed")} className="bg-green-600 hover:bg-green-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+            Platba prijatá — potvrdiť
+          </button>
         )}
         {order.status === "confirmed" && (
           <>
@@ -704,7 +745,51 @@ const UsgOrderCard = ({ order, onSetStatus }) => {
             <button onClick={() => onSetStatus(order.id, "noshow")} className="bg-slate-500 hover:bg-slate-400 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Neprišiel</button>
           </>
         )}
+        {canAct && onReschedule && (
+          <button onClick={() => { setResched(!resched); setReschedDate(order.date); }} className="bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+            {resched ? "Zavrieť presun" : "Presunúť"}
+          </button>
+        )}
+        {canAct && (
+          <button
+            onClick={() => {
+              const reason = window.prompt("Dôvod zrušenia (voliteľné):") ?? "";
+              onSetStatus(order.id, "rejected", reason || "Zrušené pracoviskom");
+            }}
+            className="bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+          >
+            Zrušiť
+          </button>
+        )}
       </div>
+
+      {resched && (
+        <div className="bg-slate-800 rounded-lg p-3 space-y-2 border border-purple-600">
+          <p className="text-sm font-semibold text-purple-300">Presunúť na iný termín:</p>
+          <input
+            type="date"
+            value={reschedDate}
+            min={toISODate(new Date())}
+            onChange={(e) => setReschedDate(e.target.value)}
+            className="p-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm"
+          />
+          {reschedSlots.length === 0
+            ? <p className="text-xs text-slate-400">V tento deň nie sú voľné otvorené termíny.</p>
+            : (
+              <div className="flex flex-wrap gap-2">
+                {reschedSlots.map((slot) => (
+                  <button
+                    key={slot}
+                    onClick={() => { onReschedule(order.id, reschedDate, slot); setResched(false); }}
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            )}
+        </div>
+      )}
     </div>
   );
 };
@@ -802,111 +887,344 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpenDay, onCloseDay, onSetStatus, onSaveSettings, onSavePricelist }) => {
-  const [selectedDate, setSelectedDate] = useState(toISODate(new Date()));
+const StatTile = ({ label, value, accent }) => (
+  <div className="bg-slate-700 rounded-lg p-3 text-center">
+    <p className={`text-2xl font-bold ${accent || "text-white"}`}>{value}</p>
+    <p className="text-xs text-slate-400">{label}</p>
+  </div>
+);
+
+const AdminView = ({ orders, openSlots, settings, pricelist, onToggleSlot, onOpenDay, onCloseDay, onOpenRange, onSetStatus, onReschedule, onSaveSettings, onSavePricelist }) => {
+  const todayIso = toISODate(new Date());
+  const [tab, setTab] = useState("overview");
+  const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [rangeFrom, setRangeFrom] = useState(todayIso);
+  const [rangeTo, setRangeTo] = useState(todayIso);
+  const [fStatus, setFStatus] = useState("all");
+  const [fText, setFText] = useState("");
+  const [fDate, setFDate] = useState("");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
+
+  const freeSlotsFor = (iso) => {
+    const open = openSlots[iso] || [];
+    const taken = new Set(orders.filter((o) => o.date === iso && isSlotOccupying(o)).map((o) => o.time));
+    return open.filter((t) => !taken.has(t));
+  };
 
   const pending = orders
     .filter((o) => o.status === "new")
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+  const todayProgram = orders
+    .filter((o) => o.date === todayIso && (o.status === "confirmed" || o.status === "new"))
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  const next7 = (() => {
+    const end = new Date(); end.setDate(end.getDate() + 7);
+    const endIso = toISODate(end);
+    return orders.filter((o) => isSlotOccupying(o) && o.date >= todayIso && o.date <= endIso).length;
+  })();
+
+  const filteredOrders = orders
+    .filter((o) => fStatus === "all" || o.status === fStatus)
+    .filter((o) => !fDate || o.date === fDate)
+    .filter((o) => {
+      const q = fText.trim().toLowerCase();
+      if (!q) return true;
+      return o.patient.name.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.patient.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
+    })
+    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+  const exportCsv = () => {
+    const rows = [["Dátum", "Čas", "Stav", "Pacient", "Narodený", "Telefón", "E-mail", "Vyšetrenie", "Cena €", "Žiadanka", "VS", "Objednávka", "Poznámka"]];
+    filteredOrders.forEach((o) => rows.push([
+      o.date, o.time, usgStatuses[o.status].label, o.patient.name,
+      o.patient.birthNumber || o.patient.birthDate || "", o.patient.phone, o.patient.email,
+      o.exam.label, o.price, o.hasReferral ? "áno" : "nie", o.variableSymbol || "", o.id, o.statusNote || "",
+    ]));
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `usg-objednavky-${toISODate(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   const dayOpen = openSlots[selectedDate] || [];
   const dayOrders = new Map(
     orders.filter((o) => o.date === selectedDate && isSlotOccupying(o)).map((o) => [o.time, o])
   );
 
-  const shiftDay = (delta) => {
-    const d = new Date(`${selectedDate}T12:00:00`);
-    d.setDate(d.getDate() + delta);
-    setSelectedDate(toISODate(d));
-  };
+  const strip = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const iso = toISODate(d);
+    const open = (openSlots[iso] || []).length;
+    const free = freeSlotsFor(iso).length;
+    return { iso, open, free, booked: open - free };
+  });
+
+  const tabs = [
+    { id: "overview", label: `Prehľad${pending.length > 0 ? ` (${pending.length})` : ""}` },
+    { id: "calendar", label: "Kalendár" },
+    { id: "orders", label: "Objednávky" },
+    { id: "settings", label: "Nastavenia" },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-xl font-bold text-yellow-300 mb-3">Nové žiadosti ({pending.length})</h3>
-        {pending.length === 0
-          ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne žiadosti nečakajú na spracovanie.</p>
-          : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} />))}</div>}
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.id ? "bg-[#e2001a] text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="text-xl font-bold text-blue-300">Kalendár — otváranie termínov</h3>
-          <div className="flex items-center gap-2">
-            <button onClick={() => shiftDay(-1)} className="bg-slate-600 hover:bg-slate-500 px-3 py-2 rounded font-bold transition-colors">‹</button>
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white" />
-            <button onClick={() => shiftDay(1)} className="bg-slate-600 hover:bg-slate-500 px-3 py-2 rounded font-bold transition-colors">›</button>
+      {tab === "overview" && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <StatTile label="dnešný program" value={todayProgram.length} accent="text-blue-300" />
+            <StatTile label="čaká na spracovanie" value={pending.length} accent="text-yellow-300" />
+            <StatTile label="voľné termíny dnes" value={freeSlotsFor(todayIso).length} accent="text-green-300" />
+            <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
           </div>
-        </div>
-        <p className="text-slate-300 mb-2 font-semibold">{formatDateHuman(selectedDate)}</p>
-        <p className="text-sm text-slate-400 mb-3">
-          Kliknutím na čas termín otvoríte (zelený) alebo zatvoríte (sivý). Obsadené termíny sú označené menom pacienta.
-        </p>
-        <div className="flex gap-2 mb-3">
-          <button onClick={() => onOpenDay(selectedDate)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-            Otvoriť celý deň
-          </button>
-          <button onClick={() => onCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
-            Zavrieť voľné termíny
-          </button>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {allDaySlots.map((slot) => {
-            const isOpen = dayOpen.includes(slot);
-            const booked = dayOrders.get(slot);
-            if (booked) {
-              return (
-                <div key={slot} className="p-2 rounded-lg text-sm bg-blue-900/70 border border-blue-500 text-center">
-                  <span className="font-mono font-bold">{slot}</span>
-                  <span className="block text-xs truncate">{booked.patient.name}</span>
-                  <span className="block text-xs opacity-75">{usgStatuses[booked.status].label}</span>
+
+          <div>
+            <h3 className="text-lg font-bold text-blue-300 mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
+            {todayProgram.length === 0
+              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Dnes nie sú objednaní žiadni pacienti.</p>
+              : (
+                <div className="space-y-2">
+                  {todayProgram.map((o) => (
+                    <div key={o.id} className="flex items-center gap-3 bg-slate-700 rounded-lg px-4 py-2">
+                      <span className="font-mono font-bold text-lg text-blue-300 w-16">{o.time}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
+                        <p className="text-xs text-slate-400 truncate">{o.exam.label}</p>
+                      </div>
+                      <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
+                      {o.status === "confirmed" && (
+                        <button onClick={() => onSetStatus(o.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              );
-            }
-            return (
+              )}
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
+            {pending.length === 0
+              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne žiadosti nečakajú na spracovanie.</p>
+              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+          </div>
+        </div>
+      )}
+
+      {tab === "calendar" && (
+        <div className="space-y-5">
+          <div>
+            <h3 className="text-lg font-bold text-blue-300 mb-2">Najbližších 14 dní</h3>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {strip.map((d) => (
+                <button
+                  key={d.iso}
+                  onClick={() => setSelectedDate(d.iso)}
+                  title={d.iso}
+                  className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold text-center transition-colors border ${
+                    selectedDate === d.iso ? "border-[#e2001a]" : "border-transparent"
+                  } ${d.open === 0 ? "bg-slate-800 text-slate-500" : d.free > 0 ? "bg-green-900/40 text-green-200" : "bg-blue-900/40 text-blue-200"}`}
+                >
+                  {formatDateShort(d.iso)}
+                  <span className="block font-normal">{d.open === 0 ? "zatvorené" : `${d.booked}/${d.open} obsadené`}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+            <h3 className="text-sm font-bold text-green-300">Hromadné otvorenie termínov</h3>
+            <p className="text-xs text-slate-400">Otvorí všetky časy v pracovných dňoch (víkendy preskočí) vo zvolenom rozsahu.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
+              <span className="text-slate-400">—</span>
+              <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
               <button
-                key={slot}
-                type="button"
-                onClick={() => onToggleSlot(selectedDate, slot)}
-                className={`p-2 rounded-lg text-sm font-semibold transition-colors ${
-                  isOpen ? "bg-green-600 hover:bg-green-500 text-white" : "bg-slate-800 hover:bg-slate-600 text-slate-400"
-                }`}
+                onClick={() => onOpenRange(rangeFrom, rangeTo)}
+                className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
               >
-                {slot}
-                <span className="block text-xs font-normal">{isOpen ? "otvorený" : "zatvorený"}</span>
+                Otvoriť pracovné dni
               </button>
-            );
-          })}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h3 className="text-lg font-bold text-blue-300">Deň: {formatDateHuman(selectedDate)}</h3>
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
+            </div>
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => onOpenDay(selectedDate)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+                Otvoriť celý deň
+              </button>
+              <button onClick={() => onCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+                Zavrieť voľné termíny
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {allDaySlots.map((slot) => {
+                const isOpen = dayOpen.includes(slot);
+                const booked = dayOrders.get(slot);
+                if (booked) {
+                  return (
+                    <div key={slot} className="p-2 rounded-lg text-sm bg-blue-900/70 border border-blue-500 text-center">
+                      <span className="font-mono font-bold">{slot}</span>
+                      <span className="block text-xs truncate">{booked.patient.name}</span>
+                      <span className="block text-xs opacity-75">{usgStatuses[booked.status].label}</span>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => onToggleSlot(selectedDate, slot)}
+                    className={`p-2 rounded-lg text-sm font-semibold transition-colors ${
+                      isOpen ? "bg-green-600 hover:bg-green-500 text-white" : "bg-slate-800 hover:bg-slate-600 text-slate-400"
+                    }`}
+                  >
+                    {slot}
+                    <span className="block text-xs font-normal">{isOpen ? "otvorený" : "zatvorený"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
+      {tab === "orders" && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={fText}
+              onChange={(e) => setFText(e.target.value)}
+              placeholder="Hľadať: meno, telefón, číslo objednávky…"
+              className="flex-1 min-w-48 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+            />
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm">
+              <option value="all">Všetky stavy</option>
+              {Object.entries(usgStatuses).map(([key, st]) => (<option key={key} value={key}>{st.label}</option>))}
+            </select>
+            <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm" />
+            {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-white">✕ dátum</button>}
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">{filteredOrders.length} objednávok</p>
+            <button onClick={exportCsv} className="bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold px-3 py-2 rounded transition-colors">
+              ⬇ Export CSV
+            </button>
+          </div>
+          {filteredOrders.length === 0
+            ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
+            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+        </div>
+      )}
 
-      <div className="bg-slate-700 p-4 rounded-lg space-y-3">
-        <h3 className="text-lg font-bold text-blue-300">Nastavenia platby</h3>
+      {tab === "settings" && (
+        <div className="space-y-5">
+          <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
+          <div className="bg-slate-700 p-4 rounded-lg space-y-3">
+            <h3 className="text-lg font-bold text-blue-300">Nastavenia platby</h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-200">IBAN pracoviska</label>
+                <input value={ibanDraft} onChange={(e) => setIbanDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white font-mono text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-200">Názov príjemcu</label>
+                <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white" />
+              </div>
+            </div>
+            <button
+              onClick={() => onSaveSettings({ iban: ibanDraft.trim(), beneficiary: beneficiaryDraft.trim() })}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+            >
+              Uložiť nastavenia
+            </button>
+            {settings.iban === defaultSettings.iban && (
+              <p className="text-yellow-300 text-sm bg-yellow-900/40 p-2 rounded">⚠ Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Overenie / zrušenie objednávky pacientom (podľa čísla objednávky + telefónu)
+const OrderLookup = ({ orders, onCancelOrder }) => {
+  const [orderId, setOrderId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  const norm = (v) => v.replace(/\D/g, "").slice(-9);
+  const found = searched
+    ? orders.find((o) => o.id.toUpperCase() === orderId.trim().toUpperCase() && norm(o.patient.phone) === norm(phone) && norm(phone).length >= 9)
+    : null;
+
+  const canCancel = found && (found.status === "new" || found.status === "confirmed");
+
+  return (
+    <details className="bg-white rounded-2xl shadow-xl mt-4 text-slate-800">
+      <summary className="p-5 font-bold text-[#003d7c] cursor-pointer select-none">Už máte objednávku? Overiť stav alebo zrušiť</summary>
+      <div className="px-5 pb-5 space-y-3">
         <div className="grid md:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-semibold text-slate-200">IBAN pracoviska</label>
-            <input value={ibanDraft} onChange={(e) => setIbanDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white font-mono text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-200">Názov príjemcu</label>
-            <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white" />
-          </div>
+          <input
+            value={orderId}
+            onChange={(e) => { setOrderId(e.target.value); setSearched(false); }}
+            placeholder="Číslo objednávky (USG-…)"
+            className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005ca9] outline-none"
+          />
+          <input
+            value={phone}
+            onChange={(e) => { setPhone(e.target.value); setSearched(false); }}
+            placeholder="Telefón zadaný pri objednávke"
+            className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#005ca9] outline-none"
+          />
         </div>
-        <button
-          onClick={() => onSaveSettings({ iban: ibanDraft.trim(), beneficiary: beneficiaryDraft.trim() })}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
-        >
-          Uložiť nastavenia
+        <button onClick={() => setSearched(true)} className="bg-[#005ca9] hover:bg-[#004a87] text-white font-bold px-5 py-2.5 rounded-lg transition-colors">
+          Vyhľadať
         </button>
-        {settings.iban === defaultSettings.iban && (
-          <p className="text-yellow-300 text-sm bg-yellow-900/40 p-2 rounded">⚠ Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
+        {searched && !found && (
+          <p className="text-sm text-red-600 font-semibold">Objednávku sme nenašli — skontrolujte číslo objednávky aj telefón.</p>
+        )}
+        {found && (
+          <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+            <p className="font-bold">{found.exam.label}</p>
+            <p className="text-sm">{formatDateHuman(found.date)} o {found.time} · {formatPrice(found.price)}{found.hasReferral ? " (doplatok so žiadankou)" : ""}</p>
+            <p className="text-sm">
+              Stav: <strong>{usgStatuses[found.status].label}</strong>
+              {found.statusNote && <span className="text-slate-500"> ({found.statusNote})</span>}
+            </p>
+            {canCancel && (
+              <button
+                onClick={() => { if (window.confirm("Naozaj chcete objednávku zrušiť?")) onCancelOrder(found.id); }}
+                className="bg-[#e2001a] hover:bg-[#c00017] text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+              >
+                Zrušiť objednávku
+              </button>
+            )}
+          </div>
         )}
       </div>
-    </div>
+    </details>
   );
 };
 
@@ -938,6 +1256,27 @@ export function useBookingData() {
 
   const openDay = (date) => setOpenSlots((prev) => ({ ...prev, [date]: [...allDaySlots] }));
 
+  const openRange = (from, to) =>
+    setOpenSlots((prev) => {
+      if (!from || !to || from > to) return prev;
+      const next = { ...prev };
+      const d = new Date(`${from}T12:00:00`);
+      const end = new Date(`${to}T12:00:00`);
+      while (d <= end) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) next[toISODate(d)] = [...allDaySlots];
+        d.setDate(d.getDate() + 1);
+      }
+      return next;
+    });
+
+  const reschedule = (orderId, date, time) =>
+    setOrders((prev) => prev.map((o) =>
+      o.id === orderId
+        ? { ...o, date, time, statusNote: `Presunuté z ${o.date} ${o.time}` }
+        : o
+    ));
+
   const closeDay = (date) =>
     setOpenSlots((prev) => {
       const bookedTimes = new Set(orders.filter((o) => o.date === date && isSlotOccupying(o)).map((o) => o.time));
@@ -949,9 +1288,9 @@ export function useBookingData() {
 
   return {
     orders, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, toggleSlot, openDay, closeDay,
+    addOrder, setStatus, toggleSlot, openDay, openRange, closeDay, reschedule,
     saveSettings: setSettings, savePricelist: setPricelist,
   };
 }
 
-export { PatientView, AdminView, UsgHero };
+export { PatientView, AdminView, UsgHero, OrderLookup };
