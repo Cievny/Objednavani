@@ -28,7 +28,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build pacientskej stránky
+        run: npm run build
+        env:
+          VITE_APP_MODE: patient
+      - name: Build interného systému
+        run: npx vite build --outDir dist-admin
+        env:
+          VITE_APP_MODE: admin
+      - name: Zložiť artefakt (admin pod /sprava/)
+        run: |
+          mkdir -p dist/sprava
+          cp -r dist-admin/* dist/sprava/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

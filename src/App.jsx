@@ -4,7 +4,12 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v8";
+const APP_VERSION = "v9";
+
+// Režim nasadenia: "patient" = verejná stránka len s objednávaním,
+// "admin" = interný systém pracoviska na samostatnej adrese,
+// bez nastavenia = kombinovaná verzia (lokálny vývoj / demo).
+const APP_MODE = import.meta.env.VITE_APP_MODE || "combined";
 
 const ADMIN_ACCESS_CODE = "nusch2026";
 const ADMIN_UNLOCK_KEY = "usgAdminUnlocked_v1";
@@ -112,7 +117,7 @@ export default function App() {
   const auth = useAuth();
   const [codeUnlocked, setCodeUnlocked] = useState(() => sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1");
 
-  const isAdminRoute = hash.startsWith("#/sprava");
+  const isAdminRoute = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/sprava");
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -161,25 +166,33 @@ export default function App() {
           </svg>
           <div>
             <p className="font-extrabold text-[#003d7c] leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
-            <p className="text-xs text-slate-500">Objednávanie na USG vyšetrenia</p>
+            <p className="text-xs text-slate-500">{APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
           </div>
         </div>
       </header>
 
       <nav className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 flex gap-6">
-          <a
-            href="#/"
-            className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${!isAdminRoute ? "text-[#e2001a] border-[#e2001a]" : "text-[#003d7c] border-transparent hover:text-[#e2001a]"}`}
-          >
-            Objednať sa
-          </a>
-          <a
-            href="#/sprava"
-            className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${isAdminRoute ? "text-[#e2001a] border-[#e2001a]" : "text-[#003d7c] border-transparent hover:text-[#e2001a]"}`}
-          >
-            Pre pracovisko{isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}
-          </a>
+          {APP_MODE === "combined" ? (
+            <>
+              <a
+                href="#/"
+                className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${!isAdminRoute ? "text-[#e2001a] border-[#e2001a]" : "text-[#003d7c] border-transparent hover:text-[#e2001a]"}`}
+              >
+                Objednať sa
+              </a>
+              <a
+                href="#/sprava"
+                className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${isAdminRoute ? "text-[#e2001a] border-[#e2001a]" : "text-[#003d7c] border-transparent hover:text-[#e2001a]"}`}
+              >
+                Pre pracovisko{isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}
+              </a>
+            </>
+          ) : (
+            <span className="py-3 text-sm font-bold text-[#e2001a] border-b-[3px] border-[#e2001a]">
+              {APP_MODE === "admin" ? `Správa objednávok${isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}` : "Objednať sa"}
+            </span>
+          )}
         </div>
       </nav>
 
