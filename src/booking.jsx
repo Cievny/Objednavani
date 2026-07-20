@@ -925,6 +925,9 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   }));
   const [rows, setRows] = useState(() => toDrafts(pricelist));
   const [saved, setSaved] = useState(false);
+  const pricelistKey = JSON.stringify(pricelist);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setRows(toDrafts(pricelist)); }, [pricelistKey]);
 
   const updateRow = (index, field, value) => {
     setSaved(false);
@@ -1037,6 +1040,39 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
   const [doctorsDraft, setDoctorsDraft] = useState((settings.doctors || []).join("\n"));
+  const [actionError, setActionError] = useState("");
+  const [actionInfo, setActionInfo] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+
+  // nastavenia sa načítavajú z databázy až po prvom vykreslení — drafty dorovnať
+  const doctorsKey = (settings.doctors || []).join("\n");
+  useEffect(() => { setIbanDraft(settings.iban); }, [settings.iban]);
+  useEffect(() => { setBeneficiaryDraft(settings.beneficiary); }, [settings.beneficiary]);
+  useEffect(() => { setDoctorsDraft(doctorsKey); }, [doctorsKey]);
+
+  // každá akcia viditeľne potvrdí úspech alebo vypíše presnú chybu
+  const run = async (fn, okMessage) => {
+    setActionError("");
+    setActionInfo("");
+    setActionBusy(true);
+    try {
+      await fn();
+      if (okMessage) {
+        setActionInfo(okMessage);
+        setTimeout(() => setActionInfo(""), 4000);
+      }
+    } catch (e) {
+      setActionError(e?.message || String(e));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+  const doSetStatus = (...args) => run(() => onSetStatus(...args), "Uložené.");
+  const doSetPaid = (...args) => run(() => onSetPaid(...args), "Platba zaznamenaná.");
+  const doReschedule = (...args) => run(() => onReschedule(...args), "Termín presunutý.");
+  const doCloseSlot = (...args) => run(() => onCloseSlot(...args), "Termín zatvorený.");
+  const doCloseDay = (...args) => run(() => onCloseDay(...args), "Voľné termíny dňa zatvorené.");
+  const doOpenAttachment = (...args) => run(() => onOpenAttachment(...args));
 
   const doctors = settings.doctors || [];
 
@@ -1103,12 +1139,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   });
 
   const handleOpenWindow = () => {
-    onOpenWindow({
+    run(() => onOpenWindow({
       dateFrom: winFrom, dateTo: winTo,
       timeFrom: winTimeFrom, timeTo: winTimeTo,
       stepMinutes: winStep, doctor: winDoctor,
       skipWeekends: winSkipWeekends,
-    });
+    }), "Termíny otvorené a uložené.");
     setSelectedDate(winFrom);
   };
 
@@ -1133,7 +1169,18 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             {t.label}
           </button>
         ))}
+        {actionBusy && <span className="self-center text-xs text-slate-400">ukladám…</span>}
       </div>
+      {actionError && (
+        <div className="bg-red-900/70 border border-red-500 text-red-100 text-sm font-semibold p-3 rounded-lg">
+          ⚠ Akcia zlyhala: {actionError}
+        </div>
+      )}
+      {actionInfo && (
+        <div className="bg-emerald-900/60 border border-emerald-500 text-emerald-100 text-sm font-semibold p-3 rounded-lg">
+          ✓ {actionInfo}
+        </div>
+      )}
 
       {tab === "overview" && (
         <div className="space-y-5">
@@ -1160,7 +1207,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <PaidBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "confirmed" && (
-                        <button onClick={() => onSetStatus(o.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
+                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
                       )}
                     </div>
                   ))}
@@ -1172,7 +1219,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
             {pending.length === 0
               ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne žiadosti nečakajú na spracovanie.</p>
-              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={onOpenAttachment} />))}</div>}
+              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
           </div>
         </div>
       )}
@@ -1249,7 +1296,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               <h3 className="text-lg font-bold text-blue-300">Deň: {formatDateHuman(selectedDate)}</h3>
               <div className="flex items-center gap-2">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={inputDark} />
-                <button onClick={() => onCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+                <button onClick={() => doCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
                   Zavrieť voľné
                 </button>
               </div>
@@ -1274,7 +1321,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                         <span className="font-mono font-bold text-green-200">{slot.time}</span>
                         <span className="block text-[10px] text-green-300 truncate">{slot.doctor || "voľný termín"}</span>
                         <button
-                          onClick={() => onCloseSlot(selectedDate, slot.time)}
+                          onClick={() => doCloseSlot(selectedDate, slot.time)}
                           title="Zavrieť termín"
                           className="absolute top-1 right-1 text-green-300 hover:text-white text-xs leading-none"
                         >
@@ -1318,7 +1365,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
           {filteredOrders.length === 0
             ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
-            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={onOpenAttachment} />))}</div>}
+            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
         </div>
       )}
 
@@ -1349,11 +1396,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               </div>
             </div>
             <button
-              onClick={() => onSaveSettings({
+              onClick={() => run(() => onSaveSettings({
                 iban: ibanDraft.trim(),
                 beneficiary: beneficiaryDraft.trim(),
                 doctors: doctorsDraft.split("\n").map((d) => d.trim()).filter(Boolean),
-              })}
+              }), "Nastavenia aj zoznam lekárov uložené.")}
               className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
               Uložiť nastavenia (vrátane lekárov)

@@ -4,6 +4,8 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
+const APP_VERSION = "v8";
+
 const ADMIN_ACCESS_CODE = "nusch2026";
 const ADMIN_UNLOCK_KEY = "usgAdminUnlocked_v1";
 
@@ -205,7 +207,8 @@ export default function App() {
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
         {data.isSupabase
           ? "Dáta sú uložené v zabezpečenej databáze v EÚ (Supabase)."
-          : "Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači."}
+          : "Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači."}{" "}
+        · {APP_VERSION}
       </footer>
     </div>
   );
