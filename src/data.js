@@ -43,6 +43,7 @@ const orderFromRow = (r) => ({
   variableSymbol: r.variable_symbol || "",
   doctor: r.doctor || "",
   paid: Boolean(r.paid),
+  attachments: Array.isArray(r.attachments) ? r.attachments : [],
 });
 
 const lookupFromJson = (j) => j && ({
@@ -184,9 +185,34 @@ export function useBookingData(isStaff) {
 
   // --- akcie ---
 
-  const addOrder = async (order) => {
-    if (!supabase) { setOrders((prev) => [...prev, order]); return; }
-    const { error } = await supabase.rpc("create_order", {
+  const readAsDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Súbor sa nepodarilo načítať."));
+      reader.readAsDataURL(file);
+    });
+
+  const addOrder = async (order, files = []) => {
+    if (!supabase) {
+      const attachments = [];
+      for (const f of files) {
+        if (f.size > 2 * 1024 * 1024) throw new Error(`Súbor ${f.name}: v demo režime je maximálna veľkosť prílohy 2 MB.`);
+        attachments.push({ name: f.name, dataUrl: await readAsDataUrl(f) });
+      }
+      setOrders((prev) => [...prev, { ...order, attachments }]);
+      return;
+    }
+    const attachments = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const safeName = f.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+      const path = `${order.id}/${i}-${safeName}`;
+      const { error: upError } = await supabase.storage.from("prilohy").upload(path, f, { contentType: f.type || undefined });
+      if (upError) throw new Error(`Prílohu ${f.name} sa nepodarilo nahrať: ${upError.message}`);
+      attachments.push({ name: f.name, path });
+    }
+    const rpcParams = {
       p_id: order.id,
       p_exam_type_id: order.exam.typeId,
       p_exam_label: order.exam.label,
@@ -203,9 +229,29 @@ export function useBookingData(isStaff) {
       p_slot_date: order.date,
       p_slot_time: order.time,
       p_variable_symbol: order.variableSymbol,
-    });
+    };
+    let { error } = await supabase.rpc("create_order", { ...rpcParams, p_attachments: attachments });
+    if (error && /create_order/i.test(error.message || "")) {
+      // server ešte bez podpory príloh (nespustená migrácia) — objednávka prejde bez nich
+      ({ error } = await supabase.rpc("create_order", rpcParams));
+    }
     throwIf(error);
     await reload();
+  };
+
+  const openAttachment = async (attachment) => {
+    if (attachment?.dataUrl) {
+      const a = document.createElement("a");
+      a.href = attachment.dataUrl;
+      a.download = attachment.name || "priloha";
+      a.click();
+      return;
+    }
+    if (attachment?.path && supabase) {
+      const { data, error } = await supabase.storage.from("prilohy").createSignedUrl(attachment.path, 300);
+      throwIf(error);
+      window.open(data.signedUrl, "_blank");
+    }
   };
 
   const setStatus = async (orderId, status, statusNote = "") => {
@@ -352,6 +398,6 @@ export function useBookingData(isStaff) {
     isSupabase: isSupabaseConfigured, loading,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
     addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
-    saveSettings, savePricelist, lookupOrder, cancelOrder,
+    saveSettings, savePricelist, lookupOrder, cancelOrder, openAttachment,
   };
 }

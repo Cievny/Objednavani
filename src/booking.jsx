@@ -343,8 +343,26 @@ const emptyForm = {
 const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
+  const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
+
+  const MAX_FILES = 3;
+  const MAX_FILE_MB = 5;
+  const handleFilePick = (e) => {
+    setError("");
+    const picked = Array.from(e.target.files || []);
+    const ok = [];
+    for (const f of picked) {
+      if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) { setError(`Súbor ${f.name}: povolené sú len PDF, JPG a PNG.`); continue; }
+      if (f.size > MAX_FILE_MB * 1024 * 1024) { setError(`Súbor ${f.name} je väčší ako ${MAX_FILE_MB} MB.`); continue; }
+      ok.push(f);
+    }
+    setFiles((prev) => [...prev, ...ok].slice(0, MAX_FILES));
+    e.target.value = "";
+  };
+  const removeFile = (index) => setFiles((prev) => prev.filter((_, i) => i !== index));
 
   const isReferral = form.hasReferral === "yes";
   const examChoices = isReferral ? pricelist.filter((t) => t.priceReferral != null) : pricelist;
@@ -445,12 +463,16 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
       date: form.date,
       time: form.time,
     };
+    setBusy(true);
     try {
-      await onSubmit(order);
+      await onSubmit(order, files);
       setCreatedOrder(order);
       setStep(4);
+      setFiles([]);
     } catch (err) {
       setError(err?.message || "Objednávku sa nepodarilo odoslať. Skúste to znova.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -616,6 +638,27 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               <textarea required rows={3} value={form.reason} onChange={(e) => setField("reason", e.target.value)} className={inputCls} placeholder="Popíšte svoje ťažkosti alebo dôvod, pre ktorý žiadate vyšetrenie…" />
             </div>
           </div>
+          <div>
+            <label className={labelCls}>Prílohy — žiadanka, lekárske správy (voliteľné)</label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              multiple
+              onChange={handleFilePick}
+              className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#eaf2fa] file:text-[#005ca9] file:font-semibold hover:file:bg-[#d8e8f6] file:cursor-pointer"
+            />
+            <p className="text-xs text-slate-400 mt-1">Najviac {MAX_FILES} súbory, každý do {MAX_FILE_MB} MB (PDF, JPG, PNG). Prílohy vidí len personál pracoviska.</p>
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="flex items-center justify-between text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                    <span className="truncate">📎 {f.name} <span className="text-slate-400 text-xs">({Math.max(1, Math.round(f.size / 1024))} kB)</span></span>
+                    <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-700 font-bold ml-2">✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           {isReferral && (
             <div className="border border-emerald-300 bg-emerald-50 rounded-xl p-3 space-y-3">
               <p className="text-emerald-700 font-semibold text-sm">Údaje zo žiadanky:</p>
@@ -632,6 +675,10 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               <p className="text-xs text-slate-500">Originál žiadanky si prineste so sebou na vyšetrenie.</p>
             </div>
           )}
+          <label className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer">
+            <input type="checkbox" required className="mt-0.5 w-4 h-4 accent-[#005ca9]" />
+            <span>Potvrdzujem, že som sa oboznámil/a s informáciami o spracúvaní osobných údajov na účely objednania a vykonania vyšetrenia. *</span>
+          </label>
         </form>
       )}
 
@@ -675,6 +722,32 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             </p>
           </div>
 
+          <button
+            onClick={() => {
+              const d = createdOrder.date.replace(/-/g, "");
+              const [h, m] = createdOrder.time.split(":").map(Number);
+              const pad = (n) => String(n).padStart(2, "0");
+              const endMin = h * 60 + m + 20;
+              const ics = [
+                "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NUSCH//USG//SK", "BEGIN:VEVENT",
+                `UID:${createdOrder.id}@nusch`, `DTSTART:${d}T${pad(h)}${pad(m)}00`,
+                `DTEND:${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`,
+                `SUMMARY:USG vyšetrenie — NÚSCH (${createdOrder.exam.label})`,
+                "LOCATION:NÚSCH\\, a.s.\\, Pod Krásnou hôrkou 1\\, Bratislava",
+                `DESCRIPTION:Objednávka ${createdOrder.id}${createdOrder.doctor ? `\\nLekár: ${createdOrder.doctor}` : ""}`,
+                "END:VEVENT", "END:VCALENDAR",
+              ].join("\r\n");
+              const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "usg-termin.ics";
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }}
+            className="w-full bg-white border-2 border-[#005ca9] text-[#005ca9] hover:bg-[#eaf2fa] font-bold py-3 px-6 rounded-xl text-lg transition duration-200"
+          >
+            📅 Pridať do kalendára
+          </button>
           <button onClick={resetWizard} className="w-full bg-[#e2001a] hover:bg-[#c00017] text-white font-bold py-3 px-6 rounded-xl text-lg shadow transition duration-200">
             Nová objednávka
           </button>
@@ -697,8 +770,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             </button>
           )}
           {step === 3 && (
-            <button type="submit" form="patient-details-form" className="bg-[#e2001a] hover:bg-[#c00017] text-white font-bold py-3 px-8 rounded-xl shadow transition duration-200">
-              Odoslať a prejsť na platbu ›
+            <button type="submit" form="patient-details-form" disabled={busy} className="bg-[#e2001a] hover:bg-[#c00017] disabled:opacity-60 text-white font-bold py-3 px-8 rounded-xl shadow transition duration-200">
+              {busy ? "Odosielam…" : "Odoslať a prejsť na platbu ›"}
             </button>
           )}
         </div>
@@ -722,7 +795,7 @@ const PaidBadge = ({ order }) => {
     : <span className="bg-amber-700 text-amber-100 text-xs font-bold px-2 py-1 rounded">NEZAPLATENÉ</span>;
 };
 
-const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor }) => {
+const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor, onOpenAttachment }) => {
   const status = usgStatuses[order.status];
   const [resched, setResched] = useState(false);
   const [reschedDate, setReschedDate] = useState(order.date);
@@ -764,6 +837,19 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         {order.variableSymbol && ` · VS ${order.variableSymbol}`} · objednávka {order.id}
       </p>
       {order.statusNote && <p className="text-xs text-amber-300">Poznámka: {order.statusNote}</p>}
+      {Array.isArray(order.attachments) && order.attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {order.attachments.map((a, i) => (
+            <button
+              key={i}
+              onClick={() => onOpenAttachment && onOpenAttachment(a)}
+              className="bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold px-2 py-1 rounded transition-colors"
+            >
+              📎 {a.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 pt-1">
         {!order.paid && order.price > 0 && canAct && (
@@ -933,7 +1019,7 @@ const StatTile = ({ label, value, accent }) => (
 
 const intervalOptions = [10, 15, 20, 30, 45, 60];
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onOpenAttachment }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1086,7 +1172,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
             {pending.length === 0
               ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne žiadosti nečakajú na spracovanie.</p>
-              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={onOpenAttachment} />))}</div>}
           </div>
         </div>
       )}
@@ -1232,7 +1318,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
           {filteredOrders.length === 0
             ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
-            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} />))}</div>}
+            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={onSetStatus} onSetPaid={onSetPaid} onReschedule={onReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={onOpenAttachment} />))}</div>}
         </div>
       )}
 

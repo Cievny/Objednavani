@@ -137,6 +137,7 @@ export default function App() {
         onReschedule={data.reschedule}
         onSaveSettings={data.saveSettings}
         onSavePricelist={data.savePricelist}
+        onOpenAttachment={data.openAttachment}
       />
     </div>
   );

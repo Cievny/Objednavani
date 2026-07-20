@@ -56,7 +56,8 @@ create table orders (
   variable_symbol text not null default '',
   doctor text not null default '',
   paid boolean not null default false,
-  paid_at timestamptz
+  paid_at timestamptz,
+  attachments jsonb not null default '[]'
 );
 
 -- Jeden aktívny pacient na termín (zamietnuté objednávky termín uvoľnia)
@@ -141,7 +142,8 @@ create or replace function create_order(
   p_id text, p_exam_type_id text, p_exam_label text, p_price numeric,
   p_has_referral boolean, p_reason text, p_referrer_name text, p_referrer_facility text,
   p_patient_name text, p_birth_date date, p_insurance text, p_phone text, p_email text,
-  p_slot_date date, p_slot_time time, p_variable_symbol text
+  p_slot_date date, p_slot_time time, p_variable_symbol text,
+  p_attachments jsonb default '[]'::jsonb
 ) returns text
 language plpgsql security definer set search_path = public as $$
 declare v_doctor text;
@@ -158,12 +160,12 @@ begin
   insert into orders (
     id, has_referral, exam_type_id, exam_label, price, reason,
     referrer_name, referrer_facility, patient_name, birth_date,
-    insurance, phone, email, slot_date, slot_time, variable_symbol, doctor
+    insurance, phone, email, slot_date, slot_time, variable_symbol, doctor, attachments
   ) values (
     p_id, p_has_referral, p_exam_type_id, p_exam_label, p_price, p_reason,
     coalesce(p_referrer_name, ''), coalesce(p_referrer_facility, ''), p_patient_name, p_birth_date,
     coalesce(p_insurance, ''), p_phone, coalesce(p_email, ''), p_slot_date, p_slot_time, p_variable_symbol,
-    coalesce(v_doctor, '')
+    coalesce(v_doctor, ''), coalesce(p_attachments, '[]'::jsonb)
   );
   return p_id;
 end $$;
@@ -200,13 +202,27 @@ begin
 end $$;
 
 revoke all on function get_booked_slots() from public;
-revoke all on function create_order(text, text, text, numeric, boolean, text, text, text, text, date, text, text, text, date, time, text) from public;
+revoke all on function create_order(text, text, text, numeric, boolean, text, text, text, text, date, text, text, text, date, time, text, jsonb) from public;
 revoke all on function lookup_order(text, text) from public;
 revoke all on function cancel_order(text, text) from public;
 grant execute on function get_booked_slots() to anon, authenticated;
-grant execute on function create_order(text, text, text, numeric, boolean, text, text, text, text, date, text, text, text, date, time, text) to anon, authenticated;
+grant execute on function create_order(text, text, text, numeric, boolean, text, text, text, text, date, text, text, text, date, time, text, jsonb) to anon, authenticated;
 grant execute on function lookup_order(text, text) to anon, authenticated;
 grant execute on function cancel_order(text, text) to anon, authenticated;
+
+-- Súkromný bucket na prílohy pacientov (žiadanky, správy)
+insert into storage.buckets (id, name, public) values ('prilohy', 'prilohy', false)
+on conflict (id) do nothing;
+
+drop policy if exists "prilohy upload" on storage.objects;
+create policy "prilohy upload" on storage.objects
+  for insert to anon, authenticated with check (bucket_id = 'prilohy');
+drop policy if exists "prilohy citanie personal" on storage.objects;
+create policy "prilohy citanie personal" on storage.objects
+  for select to authenticated using (bucket_id = 'prilohy');
+drop policy if exists "prilohy mazanie personal" on storage.objects;
+create policy "prilohy mazanie personal" on storage.objects
+  for delete to authenticated using (bucket_id = 'prilohy');
 
 -- Realtime notifikácie pre stránku pracoviska
 alter publication supabase_realtime add table orders;
