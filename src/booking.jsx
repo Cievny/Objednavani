@@ -1057,6 +1057,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [dayDetailId, setDayDetailId] = useState(null);
   const [winFrom, setWinFrom] = useState(todayIso);
   const [winTo, setWinTo] = useState(todayIso);
   const [winTimeFrom, setWinTimeFrom] = useState("07:30");
@@ -1340,12 +1341,18 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   {dayOpen.map((slot) => {
                     const booked = dayOrders.get(slot.time);
                     if (booked) {
+                      const active = dayDetailId === booked.id;
                       return (
-                        <div key={slot.time} className="p-2 rounded-lg text-sm bg-blue-900/70 border border-blue-500 text-center">
+                        <button
+                          key={slot.time}
+                          type="button"
+                          onClick={() => setDayDetailId(active ? null : booked.id)}
+                          className={`p-2 rounded-lg text-sm border text-center transition-colors ${active ? "bg-blue-700 border-blue-300 ring-2 ring-blue-300" : "bg-blue-900/70 border-blue-500 hover:bg-blue-800"}`}
+                        >
                           <span className="font-mono font-bold">{slot.time}</span>
                           <span className="block text-xs truncate">{booked.patient.name}</span>
                           <span className="block text-[10px] opacity-75">{usgStatuses[booked.status].label}{booked.paid ? " · zaplatené" : booked.price > 0 ? " · nezaplatené" : ""}</span>
-                        </div>
+                        </button>
                       );
                     }
                     return (
@@ -1364,6 +1371,16 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   })}
                 </div>
               )}
+            {dayDetailId && (() => {
+              const o = orders.find((x) => x.id === dayDetailId);
+              if (!o || o.date !== selectedDate) return null;
+              return (
+                <div className="mt-3">
+                  <p className="text-xs text-slate-400 mb-1">Detail objednávky — {o.time}</p>
+                  <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
