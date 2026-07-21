@@ -65,6 +65,7 @@ const pricelistFromRows = (rows) =>
     label: r.label,
     priceSelf: Number(r.price_self),
     priceReferral: r.price_referral == null ? null : Number(r.price_referral),
+    instructions: r.instructions || "",
   }));
 
 const groupSlots = (rows) => {
@@ -362,6 +363,7 @@ export function useBookingData(isStaff) {
     const rows = list.map((item, i) => ({
       id: item.id, label: item.label,
       price_self: item.priceSelf, price_referral: item.priceReferral,
+      instructions: item.instructions || "",
       active: true, sort_order: i,
     }));
     const { error } = await supabase.from("pricelist").upsert(rows, { onConflict: "id" });

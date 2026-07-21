@@ -922,6 +922,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
     ...r,
     priceSelf: String(r.priceSelf),
     priceReferral: r.priceReferral == null ? "" : String(r.priceReferral),
+    instructions: r.instructions || "",
   }));
   const [rows, setRows] = useState(() => toDrafts(pricelist));
   const [saved, setSaved] = useState(false);
@@ -939,7 +940,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   };
   const addRow = () => {
     setSaved(false);
-    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "" }]);
+    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "", instructions: "" }]);
   };
 
   const parsePrice = (value) => {
@@ -954,6 +955,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         label: r.label.trim(),
         priceSelf: parsePrice(r.priceSelf),
         priceReferral: r.priceReferral.trim() === "" ? null : parsePrice(r.priceReferral),
+        instructions: (r.instructions || "").trim(),
       }))
       .filter((r) => r.label && r.priceSelf != null);
     onSave(cleaned);
@@ -966,7 +968,8 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       <h3 className="text-lg font-bold text-blue-300">Cenník vyšetrení</h3>
       <p className="text-sm text-slate-400">
         Prvá cena = samoplatca (bez žiadanky), druhá = doplatok so žiadankou. Ak doplatok necháte prázdny,
-        vyšetrenie sa so žiadankou nebude ponúkať (len samoplatca).
+        vyšetrenie sa so žiadankou nebude ponúkať (len samoplatca). Do poľa <strong>Inštrukcie</strong> napíšte,
+        kam má pacient prísť a ako sa pripraviť — text sa vloží do potvrdzovacieho e-mailu daného vyšetrenia.
       </p>
       <div className="hidden sm:flex gap-2 text-xs text-slate-400 font-semibold pr-12">
         <span className="flex-1">Názov vyšetrenia</span>
@@ -975,28 +978,37 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       </div>
       <div className="space-y-2">
         {rows.map((row, i) => (
-          <div key={row.id} className="flex gap-2 items-center">
-            <input
-              value={row.label}
-              onChange={(e) => updateRow(i, "label", e.target.value)}
-              className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
-              placeholder="Názov vyšetrenia"
+          <div key={row.id} className="bg-slate-800/40 rounded-lg p-2 space-y-2">
+            <div className="flex gap-2 items-center">
+              <input
+                value={row.label}
+                onChange={(e) => updateRow(i, "label", e.target.value)}
+                className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                placeholder="Názov vyšetrenia"
+              />
+              <input
+                value={row.priceSelf}
+                onChange={(e) => updateRow(i, "priceSelf", e.target.value)}
+                className="w-20 sm:w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm text-right"
+                placeholder="Cena €"
+                inputMode="decimal"
+              />
+              <input
+                value={row.priceReferral}
+                onChange={(e) => updateRow(i, "priceReferral", e.target.value)}
+                className="w-20 sm:w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm text-right"
+                placeholder="—"
+                inputMode="decimal"
+              />
+              <button type="button" onClick={() => removeRow(i)} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
+            </div>
+            <textarea
+              value={row.instructions}
+              onChange={(e) => updateRow(i, "instructions", e.target.value)}
+              rows={2}
+              className="w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+              placeholder="Inštrukcie do e-mailu — napr. „Príďte na 2. poschodie, blok B, amb. č. 214. Buďte nalačno aspoň 6 hodín.“"
             />
-            <input
-              value={row.priceSelf}
-              onChange={(e) => updateRow(i, "priceSelf", e.target.value)}
-              className="w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm text-right"
-              placeholder="Cena €"
-              inputMode="decimal"
-            />
-            <input
-              value={row.priceReferral}
-              onChange={(e) => updateRow(i, "priceReferral", e.target.value)}
-              className="w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm text-right"
-              placeholder="—"
-              inputMode="decimal"
-            />
-            <button type="button" onClick={() => removeRow(i)} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
           </div>
         ))}
       </div>
