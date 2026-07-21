@@ -128,6 +128,24 @@ function isSlotOccupying(order) {
   return order.status !== "rejected";
 }
 
+// Lekár = { name, examTypeIds }. examTypeIds prázdne = robí všetky vyšetrenia.
+// Staršie dáta (obyčajné mená) sa znormalizujú.
+export function normalizeDoctors(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((d) => (typeof d === "string"
+      ? { name: d.trim(), examTypeIds: [] }
+      : { name: (d.name || "").trim(), examTypeIds: Array.isArray(d.examTypeIds) ? d.examTypeIds : [] }))
+    .filter((d) => d.name);
+}
+
+// Robí daný lekár (podľa mena) toto vyšetrenie? Neznámy lekár / prázdny zoznam = áno.
+export function doctorDoesExam(doctors, doctorName, examTypeId) {
+  if (!doctorName) return true;
+  const d = normalizeDoctors(doctors).find((x) => x.name === doctorName);
+  if (!d || d.examTypeIds.length === 0) return true;
+  return d.examTypeIds.includes(examTypeId);
+}
+
 // Kontrola slovenského/českého rodného čísla: formát, mesiac (+20/+50/+70),
 // platný dátum a deliteľnosť 11 (10-miestne; s historickou výnimkou do r. 1985).
 export function validateBirthNumber(input) {
@@ -384,7 +402,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
   const freeSlotsFor = (isoDate) => {
     const open = openSlots[isoDate] || [];
     const taken = takenByDate.get(isoDate) || new Set();
-    return open.filter((slot) => !taken.has(slot.time));
+    return open.filter((slot) => !taken.has(slot.time)
+      && (!examType || doctorDoesExam(settings.doctors, slot.doctor, examType.id)));
   };
 
   const todayIso = toISODate(new Date());
@@ -1051,16 +1070,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [fDate, setFDate] = useState("");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
-  const [doctorsDraft, setDoctorsDraft] = useState((settings.doctors || []).join("\n"));
+  const [doctorsDraft, setDoctorsDraft] = useState(() => normalizeDoctors(settings.doctors));
   const [actionError, setActionError] = useState("");
   const [actionInfo, setActionInfo] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
 
   // nastavenia sa načítavajú z databázy až po prvom vykreslení — drafty dorovnať
-  const doctorsKey = (settings.doctors || []).join("\n");
+  const doctorsKey = JSON.stringify(settings.doctors || []);
   useEffect(() => { setIbanDraft(settings.iban); }, [settings.iban]);
   useEffect(() => { setBeneficiaryDraft(settings.beneficiary); }, [settings.beneficiary]);
-  useEffect(() => { setDoctorsDraft(doctorsKey); }, [doctorsKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setDoctorsDraft(normalizeDoctors(settings.doctors)); }, [doctorsKey]);
 
   // každá akcia viditeľne potvrdí úspech alebo vypíše presnú chybu
   const run = async (fn, okMessage) => {
@@ -1086,7 +1106,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const doCloseDay = (...args) => run(() => onCloseDay(...args), "Voľné termíny dňa zatvorené.");
   const doOpenAttachment = (...args) => run(() => onOpenAttachment(...args));
 
-  const doctors = settings.doctors || [];
+  const doctors = normalizeDoctors(settings.doctors);
 
   const freeSlotsFor = (iso) => {
     const open = openSlots[iso] || [];
@@ -1287,7 +1307,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 <label className="block text-xs text-slate-400 mb-1">Lekár</label>
                 <select value={winDoctor} onChange={(e) => setWinDoctor(e.target.value)} className={`w-full ${inputDark}`}>
                   <option value="">— neurčený —</option>
-                  {doctors.map((d) => (<option key={d} value={d}>{d}</option>))}
+                  {doctors.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
                 </select>
               </div>
               <label className="flex items-end gap-2 text-xs text-slate-300 pb-2 cursor-pointer">
@@ -1385,14 +1405,58 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         <div className="space-y-5">
           <div className="bg-slate-700 p-4 rounded-lg space-y-3">
             <h3 className="text-lg font-bold text-blue-300">Lekári</h3>
-            <p className="text-sm text-slate-400">Jeden lekár na riadok. Ponúkajú sa pri otváraní termínov a pacient meno vidí pri výbere času.</p>
-            <textarea
-              rows={4}
-              value={doctorsDraft}
-              onChange={(e) => setDoctorsDraft(e.target.value)}
-              placeholder={"MUDr. Jana Nováková\nMUDr. Peter Kováč"}
-              className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
-            />
+            <p className="text-sm text-slate-400">
+              Ku každému lekárovi vyberte vyšetrenia, ktoré robí — pacient po zvolení vyšetrenia uvidí len
+              termíny lekárov, ktorí ho vykonávajú. Ak nevyberiete žiadne, lekár robí všetky. Pracovné dni
+              lekára nastavíte otvorením termínov preňho v záložke Kalendár.
+            </p>
+            <div className="space-y-2">
+              {doctorsDraft.map((doc, di) => (
+                <div key={di} className="bg-slate-800/40 rounded-lg p-2 space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      value={doc.name}
+                      onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, name: e.target.value } : d))}
+                      className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                      placeholder="MUDr. Meno Priezvisko"
+                    />
+                    <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
+                  </div>
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-slate-300 select-none">
+                      Vyšetrenia: {doc.examTypeIds.length === 0 ? "všetky" : `${doc.examTypeIds.length} vybraných`}
+                    </summary>
+                    <div className="grid sm:grid-cols-2 gap-1 mt-2 max-h-52 overflow-y-auto pr-1">
+                      {pricelist.map((t) => {
+                        const checked = doc.examTypeIds.includes(t.id);
+                        return (
+                          <label key={t.id} className="flex items-start gap-2 text-xs text-slate-200 cursor-pointer bg-slate-800 rounded p-1.5">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setDoctorsDraft((prev) => prev.map((d, i) => {
+                                if (i !== di) return d;
+                                const next = checked ? d.examTypeIds.filter((x) => x !== t.id) : [...d.examTypeIds, t.id];
+                                return { ...d, examTypeIds: next };
+                              }))}
+                              className="mt-0.5 w-4 h-4 accent-[#005ca9]"
+                            />
+                            <span>{t.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </details>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDoctorsDraft((prev) => [...prev, { name: "", examTypeIds: [] }])}
+              className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+            >
+              + Pridať lekára
+            </button>
           </div>
           <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
           <div className="bg-slate-700 p-4 rounded-lg space-y-3">
@@ -1411,7 +1475,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               onClick={() => run(() => onSaveSettings({
                 iban: ibanDraft.trim(),
                 beneficiary: beneficiaryDraft.trim(),
-                doctors: doctorsDraft.split("\n").map((d) => d.trim()).filter(Boolean),
+                doctors: normalizeDoctors(doctorsDraft),
               }), "Nastavenia aj zoznam lekárov uložené.")}
               className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >

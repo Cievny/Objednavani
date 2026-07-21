@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import {
   defaultSettings, defaultPricelist, normalizePricelist,
-  generateWindowSlots, isSlotOccupying, toISODate, loadJson,
+  generateWindowSlots, isSlotOccupying, toISODate, loadJson, normalizeDoctors,
   USG_ORDERS_KEY, USG_OPEN_SLOTS_KEY, USG_SETTINGS_KEY, USG_PRICELIST_KEY,
 } from "./booking.jsx";
 
@@ -148,7 +148,7 @@ export function useBookingData(isStaff) {
       setSettings({
         iban: kv.iban || defaultSettings.iban,
         beneficiary: kv.beneficiary || defaultSettings.beneficiary,
-        doctors: Array.isArray(doctors) ? doctors : [],
+        doctors: normalizeDoctors(doctors),
       });
     }
     if (isStaff) {
