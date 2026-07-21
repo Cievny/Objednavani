@@ -133,8 +133,8 @@ function isSlotOccupying(order) {
 export function normalizeDoctors(list) {
   return (Array.isArray(list) ? list : [])
     .map((d) => (typeof d === "string"
-      ? { name: d.trim(), examTypeIds: [] }
-      : { name: (d.name || "").trim(), examTypeIds: Array.isArray(d.examTypeIds) ? d.examTypeIds : [] }))
+      ? { name: d.trim(), email: "", examTypeIds: [] }
+      : { name: (d.name || "").trim(), email: (d.email || "").trim(), examTypeIds: Array.isArray(d.examTypeIds) ? d.examTypeIds : [] }))
     .filter((d) => d.name);
 }
 
@@ -1439,6 +1439,13 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                     />
                     <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
                   </div>
+                  <input
+                    type="email"
+                    value={doc.email || ""}
+                    onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, email: e.target.value } : d))}
+                    className="w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                    placeholder="E-mail lekára (naň príde upozornenie o objednávke na jeho termín)"
+                  />
                   <details className="text-sm">
                     <summary className="cursor-pointer text-slate-300 select-none">
                       Vyšetrenia: {doc.examTypeIds.length === 0 ? "všetky" : `${doc.examTypeIds.length} vybraných`}
