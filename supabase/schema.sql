@@ -12,6 +12,10 @@
 --  - personál = prihlásený používateľ (Supabase Auth; kontá
 --    zakladajte pozvánkou, verejnú registráciu vypnite v
 --    Authentication -> Sign In / Up)
+--
+-- PO TOMTO SKRIPTE spustite aj hardening-001.sql (server-side
+-- validácia cien, anti-spam limit, escapované e-maily, limity
+-- príloh v storage).
 -- ============================================================
 
 -- Cenník vyšetrení

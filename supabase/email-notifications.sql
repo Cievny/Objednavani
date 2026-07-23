@@ -1,4 +1,9 @@
 -- ============================================================
+-- POZOR: NAHRADENÉ súborom hardening-001.sql (obsahuje novšiu
+-- verziu s escapovaním, mail_from zo settings, inštrukciami
+-- z cenníka a notifikáciou lekárovi). Tento súbor ostáva len
+-- pre históriu.
+-- ============================================================
 -- E-mailové notifikácie priamo z databázy (bez Edge Function)
 -- Trigger na tabuľke orders volá Resend API cez pg_net.
 --
