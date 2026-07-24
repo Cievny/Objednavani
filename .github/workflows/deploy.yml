@@ -40,6 +40,8 @@ jobs:
         run: |
           mkdir -p dist/sprava
           cp -r dist-admin/* dist/sprava/
+          # Vlastná doména (platí pre celý web vrátane /sprava/)
+          echo "objednanie.cievny.sk" > dist/CNAME
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
