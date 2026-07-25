@@ -1156,6 +1156,101 @@ const StatTile = ({ label, value, accent }) => (
 
 const intervalOptions = [10, 15, 20, 30, 45, 60];
 
+// Správa používateľov a rolí — len pre superadmina. Kontá sa
+// zakladajú pozvánkou v Supabase; tu sa im prideľuje rola.
+const roleLabels = { superadmin: "Superadmin", sestra: "Sestra", lekar: "Lekár", "": "— bez roly (bez prístupu)" };
+
+const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) => {
+  const [rows, setRows] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const data = await onListStaff();
+      setRows(data);
+    } catch (e) {
+      setMsg(e?.message || String(e));
+      setRows([]);
+    }
+  };
+  useEffect(() => { refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const apply = async (fn, okMsg) => {
+    setBusy(true);
+    setMsg("");
+    try {
+      await fn();
+      setMsg("✓ " + okMsg);
+      await refresh();
+    } catch (e) {
+      setMsg(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (rows === null) {
+    return (
+      <div className="space-y-2">
+        <h3 className="text-lg font-bold">Používatelia a roly</h3>
+        <p className="text-slate-400">Načítavam…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold">Používatelia a roly</h3>
+      <p className="text-xs text-slate-400">
+        Nové konto najprv pozvite v Supabase (Authentication → Users → Invite user) — po prvom prihlásení sa objaví
+        v tomto zozname a tu mu priradíte rolu. Bez roly sa do správy nedostane. Superadmin vidí všetko; sestra
+        objednávky, termíny a poradie cenníka; lekár len svoje objednávky a svoju štatistiku.
+      </p>
+      {rows.length === 0 && !msg && <p className="text-slate-400">Žiadne kontá.</p>}
+      <div className="space-y-2">
+        {rows.map((u) => (
+          <div key={u.email} className="bg-slate-700/60 rounded-xl p-3 flex flex-wrap items-center gap-2">
+            <span className="flex-1 min-w-[180px] text-sm font-semibold truncate">{u.email}</span>
+            <select
+              value={u.role}
+              disabled={busy}
+              onChange={(e) => {
+                const role = e.target.value;
+                if (!role) { apply(() => onRemoveStaffRole(u.email), `Rola odobratá: ${u.email}`); return; }
+                if (role === "lekar") {
+                  setRows((prev) => prev.map((r) => (r.email === u.email ? { ...r, role, pendingDoctor: true } : r)));
+                  return;
+                }
+                apply(() => onSetStaffRole(u.email, role), `Rola uložená: ${u.email} → ${roleLabels[role]}`);
+              }}
+              className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+            >
+              {["", "superadmin", "sestra", "lekar"].map((r) => <option key={r} value={r}>{roleLabels[r]}</option>)}
+            </select>
+            {(u.role === "lekar" || u.pendingDoctor) && (
+              <select
+                value={u.doctorName || ""}
+                disabled={busy}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  if (name) apply(() => onSetStaffRole(u.email, "lekar", name), `${u.email} → Lekár (${name})`);
+                }}
+                className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                title="Ktorý lekár z Nastavení je toto konto"
+              >
+                <option value="">— vyberte lekára —</option>
+                {doctors.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+              </select>
+            )}
+          </div>
+        ))}
+      </div>
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{msg}</p>}
+    </div>
+  );
+};
+
 // Mesačná štatistika na odmeny — počíta VYKONANÉ a ZAPLATENÉ vyšetrenia.
 // Lekárovi databáza (RLS) vráti len jeho riadky, superadminovi všetko.
 const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
@@ -1283,7 +1378,7 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onOpenAttachment, role = "superadmin" }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1424,6 +1519,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     { id: "stats", label: "Štatistika", roles: ["superadmin", "lekar"] },
     { id: "order", label: "Poradie cenníka", roles: ["sestra"] },
     { id: "settings", label: "Nastavenia", roles: ["superadmin"] },
+    ...(isSupabase ? [{ id: "users", label: "Používatelia", roles: ["superadmin"] }] : []),
   ];
   const tabs = allTabs.filter((t) => t.roles.includes(role));
 
@@ -1673,6 +1769,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
       {view === "order" && (
         <PricelistOrderEditor pricelist={pricelist} onSaveOrder={onSavePricelistOrder} />
+      )}
+
+      {view === "users" && (
+        <UsersTab onListStaff={onListStaff} onSetStaffRole={onSetStaffRole} onRemoveStaffRole={onRemoveStaffRole} doctors={doctors} />
       )}
 
       {view === "settings" && (

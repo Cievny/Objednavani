@@ -453,6 +453,24 @@ export function useBookingData(isStaff) {
     }));
   };
 
+  // správa rolí (len superadmin; kontrolu vynucuje databázová funkcia)
+  const listStaff = async () => {
+    if (!supabase) return null; // demo režim správu používateľov nemá
+    const { data, error } = await supabase.rpc("list_staff");
+    throwIf(error);
+    return (data || []).map((r) => ({ email: r.email, role: r.role || "", doctorName: r.doctor_name || "" }));
+  };
+  const setStaffRole = async (email, role, doctorName = "") => {
+    if (!supabase) throw new Error("Správa používateľov funguje len v ostrej prevádzke (Supabase).");
+    const { error } = await supabase.rpc("set_staff_role", { p_email: email, p_role: role, p_doctor_name: doctorName });
+    throwIf(error);
+  };
+  const removeStaffRole = async (email) => {
+    if (!supabase) throw new Error("Správa používateľov funguje len v ostrej prevádzke (Supabase).");
+    const { error } = await supabase.rpc("remove_staff_role", { p_email: email });
+    throwIf(error);
+  };
+
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
@@ -460,6 +478,7 @@ export function useBookingData(isStaff) {
     orders, occupied, openSlots, settings, pricelist, pendingCount,
     addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
+    listStaff, setStaffRole, removeStaffRole,
     lookupOrder, cancelOrder, openAttachment,
   };
 }
