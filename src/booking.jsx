@@ -385,7 +385,7 @@ const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSele
               className={`aspect-square rounded-full text-sm font-semibold transition-colors ${
                 isSelected ? "bg-[#2B46A2] text-white"
                 : available ? "bg-[#F0F4FF] text-[#2B46A2] hover:bg-[#d8e8f6]"
-                : "text-slate-300 cursor-default"
+                : "text-[#444444] cursor-default"
               } ${isToday && !isSelected ? "ring-1 ring-[#2B46A2]" : ""}`}
             >
               {day}
@@ -899,7 +899,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
   const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate) : [];
 
   return (
-    <div className={`bg-slate-700 rounded-[10px] p-4 border-l-4 ${status.border} space-y-2`}>
+    <div className={`bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${status.border} space-y-2`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <span className="font-bold text-lg">{order.patient.name}</span>
@@ -914,7 +914,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         </div>
       </div>
       <p className="text-sm">
-        <strong className="text-blue-300">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
+        <strong className="text-[#2B46A2]">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
         {order.price != null && (
           <span className="text-yellow-300 font-bold ml-2">
             {formatPrice(order.price)}{order.hasReferral ? " (doplatok)" : ""}
@@ -922,7 +922,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         )}
       </p>
       {order.doctor && <p className="text-sm text-teal-300">Lekár: {order.doctor}</p>}
-      <p className="text-sm text-slate-300 italic">{order.exam.reason}</p>
+      <p className="text-sm text-[#444444] italic">{order.exam.reason}</p>
       {order.hasReferral && order.exam.referrerName && (
         <p className="text-xs text-slate-400">
           Žiadanka od: {order.exam.referrerName}{order.exam.referrerFacility && `, ${order.exam.referrerFacility}`}
@@ -932,14 +932,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         Tel. {order.patient.phone}{order.patient.email && ` · ${order.patient.email}`}
         {order.variableSymbol && ` · VS ${order.variableSymbol}`} · objednávka {order.id}
       </p>
-      {order.statusNote && <p className="text-xs text-amber-300">Poznámka: {order.statusNote}</p>}
+      {order.statusNote && <p className="text-xs text-[#856404]">Poznámka: {order.statusNote}</p>}
       {Array.isArray(order.attachments) && order.attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {order.attachments.map((a, i) => (
             <button
               key={i}
               onClick={() => onOpenAttachment && onOpenAttachment(a)}
-              className="bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold px-2 py-1 rounded transition-colors"
+              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
             >
               📎 {a.name}
             </button>
@@ -960,7 +960,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         )}
         {order.status === "confirmed" && (
           <>
-            <button onClick={() => onSetStatus(order.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Vykonané</button>
+            <button onClick={() => onSetStatus(order.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Vykonané</button>
             <button onClick={() => onSetStatus(order.id, "noshow")} className="bg-slate-500 hover:bg-slate-400 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Neprišiel</button>
           </>
         )}
@@ -983,14 +983,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       </div>
 
       {resched && (
-        <div className="bg-slate-800 rounded-[10px] p-3 space-y-2 border border-purple-600">
+        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-purple-600">
           <p className="text-sm font-semibold text-purple-300">Presunúť na iný termín:</p>
           <input
             type="date"
             value={reschedDate}
             min={toISODate(new Date())}
             onChange={(e) => setReschedDate(e.target.value)}
-            className="p-2 bg-slate-900 border border-slate-600 rounded-[10px] text-white text-sm"
+            className="p-2 bg-[#F0F2F5] border border-[#E0E4EF] rounded-[10px] text-white text-sm"
           />
           {reschedSlots.length === 0
             ? <p className="text-xs text-slate-400">V tento deň nie sú voľné otvorené termíny.</p>
@@ -1062,8 +1062,8 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   };
 
   return (
-    <div className="bg-slate-700 p-4 rounded-[10px] space-y-3">
-      <h3 className="text-lg font-bold text-blue-300">Cenník vyšetrení</h3>
+    <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
+      <h3 className="text-lg font-bold text-[#2B46A2]">Cenník vyšetrení</h3>
       <p className="text-sm text-slate-400">
         Prvá cena = samoplatca (bez žiadanky), druhá = doplatok so žiadankou. Ak doplatok necháte prázdny,
         vyšetrenie sa so žiadankou nebude ponúkať (len samoplatca). Do poľa <strong>Inštrukcie</strong> napíšte,
@@ -1077,22 +1077,22 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       </div>
       <div className="space-y-2">
         {rows.map((row, i) => (
-          <div key={row.id} className="bg-slate-800/40 rounded-[10px] p-2 space-y-2">
+          <div key={row.id} className="bg-white border border-[#E0E4EF] rounded-[10px] p-2 space-y-2">
             <div className="flex gap-2 items-center">
               <div className="flex flex-col gap-0.5">
-                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
-                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
+                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
+                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
               </div>
               <input
                 value={row.label}
                 onChange={(e) => updateRow(i, "label", e.target.value)}
-                className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                 placeholder="Názov vyšetrenia"
               />
               <select
                 value={row.durationSlots}
                 onChange={(e) => updateRow(i, "durationSlots", Number(e.target.value))}
-                className="w-24 p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                className="w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                 title="Trvanie vyšetrenia (násobok 5-min slotu)"
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => <option key={n} value={n}>{n * BASE_SLOT_MIN} min</option>)}
@@ -1100,31 +1100,31 @@ const PricelistEditor = ({ pricelist, onSave }) => {
               <input
                 value={row.priceSelf}
                 onChange={(e) => updateRow(i, "priceSelf", e.target.value)}
-                className="w-20 sm:w-24 p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm text-right"
+                className="w-20 sm:w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm text-right"
                 placeholder="Cena €"
                 inputMode="decimal"
               />
               <input
                 value={row.priceReferral}
                 onChange={(e) => updateRow(i, "priceReferral", e.target.value)}
-                className="w-20 sm:w-24 p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm text-right"
+                className="w-20 sm:w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm text-right"
                 placeholder="—"
                 inputMode="decimal"
               />
-              <button type="button" onClick={() => removeRow(i)} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
+              <button type="button" onClick={() => removeRow(i)} className="bg-[#D32821] hover:bg-[#B01F19] text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
             </div>
             <textarea
               value={row.instructions}
               onChange={(e) => updateRow(i, "instructions", e.target.value)}
               rows={2}
-              className="w-full p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+              className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
               placeholder="Inštrukcie do e-mailu — napr. „Príďte na 2. poschodie, blok B, amb. č. 214. Buďte nalačno aspoň 6 hodín.“"
             />
           </div>
         ))}
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={addRow} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+        <button type="button" onClick={addRow} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
           + Pridať položku
         </button>
         <button
@@ -1134,12 +1134,12 @@ const PricelistEditor = ({ pricelist, onSave }) => {
               ? { ...r, instructions: standardInstructions[r.id] }
               : r
           )))}
-          className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+          className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
           title="Doplní štandardnú prípravu len do prázdnych polí — vlastné texty neprepíše"
         >
           Predvyplniť štandardnú prípravu
         </button>
-        <button type="button" onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
+        <button type="button" onClick={handleSave} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
           Uložiť cenník
         </button>
         {saved && <span className="text-green-400 text-sm self-center">✓ Uložené</span>}
@@ -1149,7 +1149,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
 };
 
 const StatTile = ({ label, value, accent }) => (
-  <div className="bg-slate-700 rounded-[10px] p-3 text-center">
+  <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-3 text-center">
     <p className={`text-2xl font-bold ${accent || "text-white"}`}>{value}</p>
     <p className="text-xs text-slate-400">{label}</p>
   </div>
@@ -1210,7 +1210,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
       {rows.length === 0 && !msg && <p className="text-slate-400">Žiadne kontá.</p>}
       <div className="space-y-2">
         {rows.map((u) => (
-          <div key={u.email} className="bg-slate-700/60 rounded-[10px] p-3 flex flex-wrap items-center gap-2">
+          <div key={u.email} className="bg-white border border-[#E0E4EF] rounded-[10px] p-3 flex flex-wrap items-center gap-2">
             <span className="flex-1 min-w-[180px] text-sm font-semibold truncate">{u.email}</span>
             <select
               value={u.role}
@@ -1224,7 +1224,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
                 }
                 apply(() => onSetStaffRole(u.email, role), `Rola uložená: ${u.email} → ${roleLabels[role]}`);
               }}
-              className="p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+              className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
             >
               {["", "superadmin", "sestra", "lekar"].map((r) => <option key={r} value={r}>{roleLabels[r]}</option>)}
             </select>
@@ -1236,7 +1236,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
                   const name = e.target.value;
                   if (name) apply(() => onSetStaffRole(u.email, "lekar", name), `${u.email} → Lekár (${name})`);
                 }}
-                className="p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                 title="Ktorý lekár z Nastavení je toto konto"
               >
                 <option value="">— vyberte lekára —</option>
@@ -1246,7 +1246,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
           </div>
         ))}
       </div>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>}
     </div>
   );
 };
@@ -1291,11 +1291,11 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+          className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
         />
       </div>
       <p className="text-xs text-slate-400">Počítajú sa vyšetrenia so stavom Vykonané, ktoré boli zaplatené. Súčty ostávajú dostupné aj po výmaze objednávok (anonymná štatistika bez údajov pacientov).</p>
-      {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
+      {error && <p className="text-sm text-[#D32821] font-semibold">{error}</p>}
       {rows === null && !error ? (
         <p className="text-slate-400">Načítavam…</p>
       ) : byDoctor.size === 0 ? (
@@ -1303,14 +1303,14 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
       ) : (
         <div className="space-y-3">
           {[...byDoctor.entries()].sort((a, b) => b[1].eur - a[1].eur).map(([doc, d]) => (
-            <div key={doc} className="bg-slate-700/60 rounded-[10px] p-4">
+            <div key={doc} className="bg-white border border-[#E0E4EF] rounded-[10px] p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-bold">{doc}</span>
                 <span className="text-sm">
-                  <b>{d.count}</b> vyšetrení · <b className="text-emerald-400">{d.eur.toFixed(2).replace(".", ",")} €</b>
+                  <b>{d.count}</b> vyšetrení · <b className="text-[#16A34A]">{d.eur.toFixed(2).replace(".", ",")} €</b>
                 </span>
               </div>
-              <details className="mt-1 text-xs text-slate-300">
+              <details className="mt-1 text-xs text-[#444444]">
                 <summary className="cursor-pointer select-none">Rozpis podľa vyšetrení</summary>
                 <ul className="mt-1 space-y-0.5">
                   {d.exams.map((r) => (
@@ -1321,8 +1321,8 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
             </div>
           ))}
           {byDoctor.size > 1 && (
-            <p className="text-right text-sm font-bold border-t border-slate-600 pt-2">
-              Spolu: {total.count} vyšetrení · <span className="text-emerald-400">{total.eur.toFixed(2).replace(".", ",")} €</span>
+            <p className="text-right text-sm font-bold border-t border-[#E0E4EF] pt-2">
+              Spolu: {total.count} vyšetrení · <span className="text-[#16A34A]">{total.eur.toFixed(2).replace(".", ",")} €</span>
             </p>
           )}
         </div>
@@ -1362,18 +1362,18 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
       <p className="text-xs text-slate-400">Šípkami zmeňte poradie, v akom pacient vidí vyšetrenia. Ceny a texty môže meniť len správca.</p>
       <div className="space-y-1">
         {rows.map((r, i) => (
-          <div key={r.id} className="flex items-center gap-2 bg-slate-700/60 rounded-[10px] px-3 py-1.5 text-sm">
+          <div key={r.id} className="flex items-center gap-2 bg-white border border-[#E0E4EF] rounded-[10px] px-3 py-1.5 text-sm">
             <span className="w-6 text-right text-slate-400">{i + 1}.</span>
             <span className="flex-1 truncate">{r.label}</span>
-            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30" title="Posunúť vyššie">↑</button>
-            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30" title="Posunúť nižšie">↓</button>
+            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-0.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30" title="Posunúť vyššie">↑</button>
+            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="px-2 py-0.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30" title="Posunúť nižšie">↓</button>
           </div>
         ))}
       </div>
       <button type="button" onClick={save} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold px-4 py-2 rounded-[10px] text-sm transition-colors">
         Uložiť poradie
       </button>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>}
     </div>
   );
 };
@@ -1383,6 +1383,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [dayDetailId, setDayDetailId] = useState(null);
+  const [weekStart, setWeekStart] = useState(todayIso);
   const [winFrom, setWinFrom] = useState(todayIso);
   const [winTo, setWinTo] = useState(todayIso);
   const [winTimeFrom, setWinTimeFrom] = useState("07:30");
@@ -1490,12 +1491,34 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       .flatMap((o) => orderCellTimes(o).map((t) => [t, o]))
   );
 
-  const strip = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() + i);
-    const iso = toISODate(d);
-    const open = (openSlots[iso] || []).length;
+  // Týždenný prehľad: 7 dní od weekStart. Susedné 5-min bunky sa
+  // zlúčia do úsekov — obsadený úsek = jedna objednávka (klik otvorí
+  // kartu pacienta), voľný úsek = súvislé voľno jedného lekára.
+  const shiftIso = (iso, days) => {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + days);
+    return toISODate(d);
+  };
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const iso = shiftIso(weekStart, i);
+    const cells = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+    const orderByCell = new Map(
+      orders.filter((o) => o.date === iso && isSlotOccupying(o)).flatMap((o) => orderCellTimes(o).map((t) => [t, o]))
+    );
+    const segments = [];
+    cells.forEach((cell) => {
+      const order = orderByCell.get(cell.time) || null;
+      const last = segments[segments.length - 1];
+      const merges = last && last.end === cell.time && (
+        (order && last.order && last.order.id === order.id) ||
+        (!order && !last.order && last.doctor === cell.doctor)
+      );
+      if (merges) last.end = addMinutes(cell.time, 5);
+      else segments.push({ start: cell.time, end: addMinutes(cell.time, 5), order, doctor: cell.doctor });
+    });
+    const open = cells.length;
     const free = freeSlotsFor(iso).length;
-    return { iso, open, free, booked: open - free };
+    return { iso, open, free, booked: open - free, segments };
   });
 
   const handleOpenWindow = () => {
@@ -1522,11 +1545,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   ];
   const tabs = allTabs.filter((t) => t.roles.includes(role));
 
-  const inputDark = "p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm";
+  const inputDark = "p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm";
 
   if (role === "none") {
     return (
-      <p className="text-center text-slate-300 py-10">
+      <p className="text-center text-[#444444] py-10">
         Vášmu kontu zatiaľ nebola priradená rola. Kontaktujte správcu systému.
       </p>
     );
@@ -1541,7 +1564,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === t.id ? "bg-[#2B46A2] text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
+            className={`px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === t.id ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
           >
             {t.label}
           </button>
@@ -1562,21 +1585,21 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       {view === "overview" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <StatTile label="dnešný program" value={todayProgram.length} accent="text-blue-300" />
+            <StatTile label="dnešný program" value={todayProgram.length} accent="text-[#2B46A2]" />
             <StatTile label="nové žiadosti" value={pending.length} accent="text-yellow-300" />
-            <StatTile label="nezaplatené" value={unpaidCount} accent="text-amber-300" />
+            <StatTile label="nezaplatené" value={unpaidCount} accent="text-[#856404]" />
             <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-blue-300 mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
+            <h3 className="text-lg font-bold text-[#2B46A2] mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
             {todayProgram.length === 0
-              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-[10px]">Dnes nie sú objednaní žiadni pacienti.</p>
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Dnes nie sú objednaní žiadni pacienti.</p>
               : (
                 <div className="space-y-2">
                   {todayProgram.map((o) => (
-                    <div key={o.id} className="flex items-center gap-3 bg-slate-700 rounded-[10px] px-4 py-2">
-                      <span className="font-mono font-bold text-lg text-blue-300 w-16">{o.time}</span>
+                    <div key={o.id} className="flex items-center gap-3 bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] px-4 py-2">
+                      <span className="font-mono font-bold text-lg text-[#2B46A2] w-16">{o.time}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
                         <p className="text-xs text-slate-400 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
@@ -1584,7 +1607,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <PaidBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "confirmed" && (
-                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
+                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
                       )}
                     </div>
                   ))}
@@ -1595,7 +1618,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <div>
             <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
             {pending.length === 0
-              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-[10px]">Žiadne žiadosti nečakajú na spracovanie.</p>
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne žiadosti nečakajú na spracovanie.</p>
               : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
           </div>
         </div>
@@ -1604,27 +1627,57 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       {view === "calendar" && (
         <div className="space-y-5">
           <div>
-            <h3 className="text-lg font-bold text-blue-300 mb-2">Najbližších 14 dní</h3>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {strip.map((d) => (
-                <button
-                  key={d.iso}
-                  onClick={() => setSelectedDate(d.iso)}
-                  title={d.iso}
-                  className={`shrink-0 px-3 py-2 rounded-[10px] text-xs font-semibold text-center transition-colors border ${
-                    selectedDate === d.iso ? "border-[#2B46A2]" : "border-transparent"
-                  } ${d.open === 0 ? "bg-slate-800 text-slate-500" : d.free > 0 ? "bg-green-900/40 text-green-200" : "bg-blue-900/40 text-blue-200"}`}
-                >
-                  {formatDateShort(d.iso)}
-                  <span className="block font-normal">{d.open === 0 ? "zatvorené" : `${d.booked}/${d.open} obsadené`}</span>
-                </button>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-[#2B46A2]">Týždenný prehľad</h3>
+              <div className="flex gap-2">
+                <button onClick={() => setWeekStart((w) => shiftIso(w, -7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">‹ Predchádzajúci</button>
+                <button onClick={() => setWeekStart(todayIso)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">Dnes</button>
+                <button onClick={() => setWeekStart((w) => shiftIso(w, 7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">Nasledujúci ›</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-2 overflow-x-auto min-w-[640px] lg:min-w-0">
+              {week.map((d) => (
+                <div key={d.iso} className="min-w-[88px]">
+                  <button
+                    onClick={() => setSelectedDate(d.iso)}
+                    title={d.iso}
+                    className={`w-full px-1 py-2 rounded-[10px] text-xs font-semibold text-center transition-colors border ${
+                      selectedDate === d.iso ? "border-[#2B46A2] bg-[#F0F4FF] text-[#2B46A2]" : d.open === 0 ? "border-[#E0E4EF] bg-[#F0F2F5] text-[#767676]" : "border-[#E0E4EF] bg-white text-[#1A1A2E]"
+                    }`}
+                  >
+                    {formatDateShort(d.iso)}
+                    <span className="block font-normal">{d.open === 0 ? "zatvorené" : `${d.booked}/${d.open} obsadené`}</span>
+                  </button>
+                  <div className="mt-1 space-y-1">
+                    {d.segments.map((seg) => seg.order ? (
+                      <button
+                        key={seg.start}
+                        onClick={() => { setSelectedDate(d.iso); setDayDetailId(seg.order.id); }}
+                        title={`${seg.start}–${seg.end} ${seg.order.patient.name}`}
+                        className="w-full text-left bg-[#2B46A2] hover:bg-[#1E3580] text-white rounded-[8px] px-1.5 py-1 text-[11px] leading-tight transition-colors"
+                      >
+                        <span className="font-bold">{seg.start}</span>
+                        <span className="block truncate">{seg.order.patient.name}</span>
+                      </button>
+                    ) : (
+                      <div
+                        key={seg.start}
+                        title={seg.doctor || undefined}
+                        className="w-full border border-dashed border-[#2B46A2]/40 text-[#2B46A2] rounded-[8px] px-1.5 py-1 text-[11px] leading-tight bg-white"
+                      >
+                        {seg.start}–{seg.end}
+                        {seg.doctor && <span className="block truncate text-[#767676]">{seg.doctor}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-slate-700 rounded-[10px] p-4 space-y-3">
-            <h3 className="text-sm font-bold text-green-300">Otvoriť termíny</h3>
-            <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno, interval medzi termínmi a prípadne lekára.</p>
+          <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 space-y-3">
+            <h3 className="text-sm font-bold text-[#2B46A2]">Otvoriť termíny</h3>
+            <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno a prípadne lekára. Termíny sa otvoria v 5-minútovej mriežke.</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Deň od</label>
@@ -1644,7 +1697,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               </div>
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Mriežka</label>
-                <p className="text-sm text-slate-300 py-2">5 min — dĺžku určuje cenník</p>
+                <p className="text-sm text-[#444444] py-2">5 min — dĺžku určuje cenník</p>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Lekár</label>
@@ -1653,31 +1706,31 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   {doctors.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
                 </select>
               </div>
-              <label className="flex items-end gap-2 text-xs text-slate-300 pb-2 cursor-pointer">
+              <label className="flex items-end gap-2 text-xs text-[#444444] pb-2 cursor-pointer">
                 <input type="checkbox" checked={winSkipWeekends} onChange={(e) => setWinSkipWeekends(e.target.checked)} className="w-4 h-4 accent-green-500" />
                 preskočiť víkendy
               </label>
             </div>
             {doctors.length === 0 && (
-              <p className="text-xs text-amber-300">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
+              <p className="text-xs text-[#856404]">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
             )}
-            <button onClick={handleOpenWindow} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
+            <button onClick={handleOpenWindow} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors">
               Otvoriť termíny
             </button>
           </div>
 
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 className="text-lg font-bold text-blue-300">Deň: {formatDateHuman(selectedDate)}</h3>
+              <h3 className="text-lg font-bold text-[#2B46A2]">Deň: {formatDateHuman(selectedDate)}</h3>
               <div className="flex items-center gap-2">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={inputDark} />
-                <button onClick={() => doCloseDay(selectedDate)} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+                <button onClick={() => doCloseDay(selectedDate)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
                   Zavrieť voľné
                 </button>
               </div>
             </div>
             {dayOpen.length === 0
-              ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-[10px]">V tento deň nie sú otvorené žiadne termíny.</p>
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">V tento deň nie sú otvorené žiadne termíny.</p>
               : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {dayOpen.map((slot) => {
@@ -1700,11 +1753,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                     return (
                       <div key={slot.time} className="p-2 rounded-[10px] text-sm bg-green-900/40 border border-green-700 text-center relative">
                         <span className="font-mono font-bold text-green-200">{slot.time}</span>
-                        <span className="block text-[10px] text-green-300 truncate">{slot.doctor || "voľný termín"}</span>
+                        <span className="block text-[10px] text-[#16A34A] truncate">{slot.doctor || "voľný termín"}</span>
                         <button
                           onClick={() => doCloseSlot(selectedDate, slot.time)}
                           title="Zavrieť termín"
-                          className="absolute top-1 right-1 text-green-300 hover:text-white text-xs leading-none"
+                          className="absolute top-1 right-1 text-[#16A34A] hover:text-white text-xs leading-none"
                         >
                           ✕
                         </button>
@@ -1750,12 +1803,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-400">{filteredOrders.length} objednávok</p>
-            <button onClick={exportCsv} className="bg-slate-600 hover:bg-slate-500 text-white text-xs font-semibold px-3 py-2 rounded transition-colors">
+            <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-2 rounded transition-colors">
               ⬇ Export CSV
             </button>
           </div>
           {filteredOrders.length === 0
-            ? <p className="text-slate-400 bg-slate-700/50 p-4 rounded-[10px]">Žiadne objednávky nezodpovedajú filtrom.</p>
+            ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne objednávky nezodpovedajú filtrom.</p>
             : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
         </div>
       )}
@@ -1774,8 +1827,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
       {view === "settings" && (
         <div className="space-y-5">
-          <div className="bg-slate-700 p-4 rounded-[10px] space-y-3">
-            <h3 className="text-lg font-bold text-blue-300">Lekári</h3>
+          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
+            <h3 className="text-lg font-bold text-[#2B46A2]">Lekári</h3>
             <p className="text-sm text-slate-400">
               Ku každému lekárovi vyberte vyšetrenia, ktoré robí — pacient po zvolení vyšetrenia uvidí len
               termíny lekárov, ktorí ho vykonávajú. Ak nevyberiete žiadne, lekár robí všetky. Pracovné dni
@@ -1783,38 +1836,38 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </p>
             <div className="space-y-2">
               {doctorsDraft.map((doc, di) => (
-                <div key={di} className="bg-slate-800/40 rounded-[10px] p-2 space-y-2">
+                <div key={di} className="bg-white border border-[#E0E4EF] rounded-[10px] p-2 space-y-2">
                   <div className="flex gap-2 items-center">
                     <input
                       value={doc.name}
                       onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, name: e.target.value } : d))}
-                      className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                      className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                       placeholder="MUDr. Meno Priezvisko"
                     />
-                    <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
+                    <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-[#D32821] hover:bg-[#B01F19] text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
                   </div>
                   <input
                     type="email"
                     value={doc.email || ""}
                     onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, email: e.target.value } : d))}
-                    className="w-full p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                    className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                     placeholder="E-mail lekára (naň príde upozornenie o objednávke na jeho termín)"
                   />
                   <input
                     value={doc.location || ""}
                     onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, location: e.target.value } : d))}
-                    className="w-full p-2 bg-slate-800 border border-slate-600 rounded-[10px] text-white text-sm"
+                    className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                     placeholder="Ambulancia / miesto vyšetrenia (napr. Ambulancia č. 12, 2. posch., pavilón A)"
                   />
                   <details className="text-sm">
-                    <summary className="cursor-pointer text-slate-300 select-none">
+                    <summary className="cursor-pointer text-[#444444] select-none">
                       Vyšetrenia: {doc.examTypeIds.length === 0 ? "všetky" : `${doc.examTypeIds.length} vybraných`}
                     </summary>
                     <div className="grid sm:grid-cols-2 gap-1 mt-2 max-h-52 overflow-y-auto pr-1">
                       {pricelist.map((t) => {
                         const checked = doc.examTypeIds.includes(t.id);
                         return (
-                          <label key={t.id} className="flex items-start gap-2 text-xs text-slate-200 cursor-pointer bg-slate-800 rounded p-1.5">
+                          <label key={t.id} className="flex items-start gap-2 text-xs text-[#1A1A2E] cursor-pointer bg-[#F0F2F5] rounded p-1.5">
                             <input
                               type="checkbox"
                               checked={checked}
@@ -1837,22 +1890,22 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <button
               type="button"
               onClick={() => setDoctorsDraft((prev) => [...prev, { name: "", examTypeIds: [] }])}
-              className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
             >
               + Pridať lekára
             </button>
           </div>
           <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
-          <div className="bg-slate-700 p-4 rounded-[10px] space-y-3">
-            <h3 className="text-lg font-bold text-blue-300">Nastavenia platby</h3>
+          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
+            <h3 className="text-lg font-bold text-[#2B46A2]">Nastavenia platby</h3>
             <div className="grid md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-slate-200">IBAN pracoviska</label>
-                <input value={ibanDraft} onChange={(e) => setIbanDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-[10px] text-white font-mono text-sm" />
+                <label className="block text-sm font-semibold text-[#1A1A2E]">IBAN pracoviska</label>
+                <input value={ibanDraft} onChange={(e) => setIbanDraft(e.target.value)} className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] font-mono text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-200">Názov príjemcu</label>
-                <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-slate-800 border border-slate-600 rounded-[10px] text-white" />
+                <label className="block text-sm font-semibold text-[#1A1A2E]">Názov príjemcu</label>
+                <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E]" />
               </div>
             </div>
             <button
@@ -1861,7 +1914,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 beneficiary: beneficiaryDraft.trim(),
                 doctors: normalizeDoctors(doctorsDraft),
               }), "Nastavenia aj zoznam lekárov uložené.")}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+              className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
               Uložiť nastavenia (vrátane lekárov)
             </button>

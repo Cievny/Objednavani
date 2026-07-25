@@ -5,7 +5,7 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v20";
+const APP_VERSION = "v21";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -125,11 +125,11 @@ export default function App() {
   const data = useBookingData(isStaff);
 
   const adminContent = (
-    <div className="bg-slate-800 text-white rounded-[15px] p-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+    <div className="bg-white rounded-[15px] p-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
       {auth.isSupabase && (
-        <div className="flex items-center justify-between gap-2 mb-4 text-xs text-slate-400">
+        <div className="flex items-center justify-between gap-2 mb-4 text-xs text-[#767676]">
           <span>Prihlásený: {auth.session?.user?.email}</span>
-          <button onClick={auth.signOut} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-3 py-1.5 rounded transition-colors">
+          <button onClick={auth.signOut} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] font-semibold px-3 py-1.5 rounded-[8px] transition-colors">
             Odhlásiť sa
           </button>
         </div>
