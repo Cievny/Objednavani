@@ -371,7 +371,7 @@ where pricelist.id = v.id;
 --
 -- superadmin (vy):
 --   insert into staff_roles (user_id, role)
---   select id, 'superadmin' from auth.users where email = 'vincze.lukas@gmail.com'
+--   select id, 'superadmin' from auth.users where email = 'lukas.vincze@nusch.sk'
 --   on conflict (user_id) do update set role = 'superadmin';
 --
 -- sestra:

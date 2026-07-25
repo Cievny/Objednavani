@@ -94,6 +94,6 @@ grant execute on function remove_staff_role(text) to authenticated;
 -- v aplikácii to potom už robíte klikaním.
 --
 --   insert into staff_roles (user_id, role)
---   select id, 'superadmin' from auth.users where email = 'vincze.lukas@gmail.com'
+--   select id, 'superadmin' from auth.users where email = 'lukas.vincze@nusch.sk'
 --   on conflict (user_id) do update set role = 'superadmin';
 -- ============================================================

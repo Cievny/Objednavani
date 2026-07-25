@@ -9,7 +9,7 @@
 -- osobitne.
 --
 -- Na konci skriptu sa priradí superadmin kontu
--- vincze.lukas@gmail.com — ak sa prihlasujete iným e-mailom,
+-- lukas.vincze@nusch.sk — ak sa prihlasujete iným e-mailom,
 -- zmeňte ho tam.
 -- ============================================================
 
@@ -596,7 +596,7 @@ grant execute on function remove_staff_role(text) to authenticated;
 -- 11. BOOTSTRAP: prvý superadmin (zmeňte e-mail, ak treba)
 -- ------------------------------------------------------------
 insert into staff_roles (user_id, role)
-select id, 'superadmin' from auth.users where email = 'vincze.lukas@gmail.com'
+select id, 'superadmin' from auth.users where email = 'lukas.vincze@nusch.sk'
 on conflict (user_id) do update set role = 'superadmin';
 
 -- Kontrola na záver — má vrátiť vaše konto s rolou superadmin:
