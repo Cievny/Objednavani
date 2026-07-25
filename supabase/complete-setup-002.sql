@@ -357,9 +357,21 @@ grant execute on function doctor_monthly_stats(date, date) to authenticated;
 -- ------------------------------------------------------------
 -- 8. TRVANIE VYŠETRENÍ (násobky 10-min slotu)
 -- ------------------------------------------------------------
-alter table pricelist add column if not exists duration_slots int not null default 1
-  check (duration_slots between 1 and 6);
-alter table orders add column if not exists duration_min int not null default 10;
+alter table pricelist add column if not exists duration_slots int not null default 1;
+alter table pricelist drop constraint if exists pricelist_duration_slots_check;
+alter table pricelist add constraint pricelist_duration_slots_check check (duration_slots between 1 and 12);
+alter table orders add column if not exists duration_min int not null default 5;
+
+-- Základná bunka = 5 minút. Ak databáza bežala so 10-min bunkou,
+-- prepočíta trvania (×2) — len raz, stráži to settings.slot_base_min.
+do $mig$
+begin
+  if coalesce((select value from settings where key = 'slot_base_min'), '10') <> '5' then
+    update pricelist set duration_slots = least(duration_slots * 2, 12);
+    insert into settings (key, value) values ('slot_base_min', '5')
+    on conflict (key) do update set value = '5';
+  end if;
+end $mig$;
 
 drop index if exists orders_slot_unique;
 alter table orders drop constraint if exists orders_no_overlap;
@@ -375,8 +387,8 @@ alter table orders add constraint orders_no_overlap
 create or replace function get_booked_slots()
 returns table (slot_date date, slot_time time)
 language sql security definer set search_path = public as $$
-  select o.slot_date, (o.slot_time + (n * 10) * interval '1 minute')::time
-  from orders o, generate_series(0, greatest(o.duration_min / 10 - 1, 0)) n
+  select o.slot_date, (o.slot_time + (n * 5) * interval '1 minute')::time
+  from orders o, generate_series(0, greatest(o.duration_min / 5 - 1, 0)) n
   where o.status <> 'rejected' and o.slot_date >= current_date;
 $$;
 
@@ -433,7 +445,7 @@ begin
   if p_price is distinct from v_price then
     raise exception 'Cenník sa medzičasom zmenil. Obnovte stránku a skúste znova.';
   end if;
-  v_dur := coalesce(v_item.duration_slots, 1) * 10;
+  v_dur := coalesce(v_item.duration_slots, 1) * 5;
 
   select count(*) into v_active
   from orders o
@@ -453,8 +465,8 @@ begin
     raise exception 'Termín v minulosti nie je možné objednať.';
   end if;
 
-  for n in 0 .. (v_dur / 10 - 1) loop
-    v_cell := p_slot_time + (n * 10) * interval '1 minute';
+  for n in 0 .. (v_dur / 5 - 1) loop
+    v_cell := p_slot_time + (n * 5) * interval '1 minute';
     select s.doctor into v_cell_doctor
     from open_slots s
     where s.slot_date = p_slot_date and s.slot_time = v_cell;
@@ -500,13 +512,13 @@ end $$;
 
 update pricelist set duration_slots = v.d
 from (values
-  ('abdomen', 2), ('kidneys', 2), ('pelvis', 2), ('soft', 2),
-  ('thyroid', 2), ('neck', 2), ('carotid', 2),
-  ('upper1', 2), ('upper2', 3), ('lower1', 2), ('lower2', 3),
-  ('renal', 3), ('aorta', 2), ('tos', 3),
-  ('complete_vessels', 4), ('compressions', 6), ('consultation', 3)
+  ('abdomen', 4), ('kidneys', 4), ('pelvis', 4), ('soft', 4),
+  ('thyroid', 4), ('neck', 4), ('carotid', 4),
+  ('upper1', 4), ('upper2', 6), ('lower1', 4), ('lower2', 6),
+  ('renal', 6), ('aorta', 4), ('tos', 6),
+  ('complete_vessels', 8), ('compressions', 12), ('consultation', 6)
 ) as v(id, d)
-where pricelist.id = v.id and pricelist.duration_slots = 1;
+where pricelist.id = v.id and pricelist.duration_slots in (1, 2);
 
 -- ------------------------------------------------------------
 -- 9. PORADIE CENNÍKA: cievne vyšetrenia hore

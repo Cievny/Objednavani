@@ -160,6 +160,10 @@ function isSlotOccupying(order) {
   return order.status !== "rejected";
 }
 
+// Základná bunka rozvrhu v minútach. Trvanie vyšetrenia v cenníku
+// je násobkom tejto hodnoty a obsadenosť sa počíta po týchto bunkách.
+export const BASE_SLOT_MIN = 5;
+
 // posun času "HH:MM" o dané minúty
 export function addMinutes(t, mins) {
   const [h, m] = (t || "00:00").split(":").map(Number);
@@ -169,8 +173,8 @@ export function addMinutes(t, mins) {
 
 // 10-min bunky, ktoré objednávka obsadzuje (podľa trvania vyšetrenia)
 export function orderCellTimes(order) {
-  const n = Math.max(1, Math.round((order.durationMin || 10) / 10));
-  return Array.from({ length: n }, (_, i) => addMinutes(order.time, i * 10));
+  const n = Math.max(1, Math.round((order.durationMin || BASE_SLOT_MIN) / BASE_SLOT_MIN));
+  return Array.from({ length: n }, (_, i) => addMinutes(order.time, i * BASE_SLOT_MIN));
 }
 
 // Lekár = { name, email, location, examTypeIds }. examTypeIds prázdne = robí
@@ -463,7 +467,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     return open.filter((slot) => {
       if (examType && !doctorDoesExam(settings.doctors, slot.doctor, examType.id)) return false;
       for (let i = 0; i < need; i++) {
-        const cell = openByTime.get(addMinutes(slot.time, i * 10));
+        const cell = openByTime.get(addMinutes(slot.time, i * BASE_SLOT_MIN));
         if (!cell || cell.doctor !== slot.doctor || taken.has(cell.time)) return false;
       }
       return true;
@@ -522,7 +526,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     const order = {
       id: `USG-${Date.now().toString(36).toUpperCase()}`,
       variableSymbol: String(Date.now()).slice(-10),
-      durationMin: (examType?.durationSlots || 1) * 10,
+      durationMin: (examType?.durationSlots || 1) * BASE_SLOT_MIN,
       createdAt: new Date().toISOString(),
       status: "new",
       statusNote: "",
@@ -658,7 +662,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                   <>
                     <p className="font-semibold text-slate-700 mb-2 capitalize">{formatDateHuman(form.date)}</p>
                     {(examType?.durationSlots || 1) > 1 && (
-                      <p className="text-xs text-slate-500 mb-2">Toto vyšetrenie trvá približne {(examType.durationSlots || 1) * 10} minút — čas nižšie je začiatok vyšetrenia.</p>
+                      <p className="text-xs text-slate-500 mb-2">Toto vyšetrenie trvá približne {(examType.durationSlots || 1) * BASE_SLOT_MIN} minút — čas nižšie je začiatok vyšetrenia.</p>
                     )}
                     <div className="grid grid-cols-3 gap-2">
                       {freeSlotsFor(form.date).map((slot) => (
@@ -1092,9 +1096,9 @@ const PricelistEditor = ({ pricelist, onSave }) => {
                 value={row.durationSlots}
                 onChange={(e) => updateRow(i, "durationSlots", Number(e.target.value))}
                 className="w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
-                title="Trvanie vyšetrenia (násobok 10-min slotu)"
+                title="Trvanie vyšetrenia (násobok 5-min slotu)"
               >
-                {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n * 10} min</option>)}
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => <option key={n} value={n}>{n * BASE_SLOT_MIN} min</option>)}
               </select>
               <input
                 value={row.priceSelf}
@@ -1154,7 +1158,7 @@ const StatTile = ({ label, value, accent }) => (
   </div>
 );
 
-const intervalOptions = [10, 15, 20, 30, 45, 60];
+const intervalOptions = [5, 10, 15, 20, 30, 45, 60];
 
 // Správa používateľov a rolí — len pre superadmina. Kontá sa
 // zakladajú pozvánkou v Supabase; tu sa im prideľuje rola.
@@ -1387,7 +1391,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [winTo, setWinTo] = useState(todayIso);
   const [winTimeFrom, setWinTimeFrom] = useState("07:30");
   const [winTimeTo, setWinTimeTo] = useState("14:30");
-  const [winStep, setWinStep] = useState(20);
+  const [winStep, setWinStep] = useState(5);
   const [winDoctor, setWinDoctor] = useState("");
   const [winSkipWeekends, setWinSkipWeekends] = useState(true);
   const [fStatus, setFStatus] = useState("all");

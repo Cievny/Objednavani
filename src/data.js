@@ -44,7 +44,7 @@ const orderFromRow = (r) => ({
   doctor: r.doctor || "",
   paid: Boolean(r.paid),
   attachments: Array.isArray(r.attachments) ? r.attachments : [],
-  durationMin: r.duration_min == null ? 10 : Number(r.duration_min),
+  durationMin: r.duration_min == null ? 5 : Number(r.duration_min),
 });
 
 const lookupFromJson = (j) => j && ({
@@ -200,9 +200,9 @@ export function useBookingData(isStaff) {
   // všetky 10-min bunky svojho trvania
   const expandOrderCells = (o) => {
     const [h, m] = (o.time || "00:00").split(":").map(Number);
-    const n = Math.max(1, Math.round((o.durationMin || 10) / 10));
+    const n = Math.max(1, Math.round((o.durationMin || 5) / 5));
     return Array.from({ length: n }, (_, i) => {
-      const mins = h * 60 + m + i * 10;
+      const mins = h * 60 + m + i * 5;
       return { date: o.date, time: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
     });
   };
