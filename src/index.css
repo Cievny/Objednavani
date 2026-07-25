@@ -1,1 +1,30 @@
 @import "tailwindcss";
+
+/* ============================================================
+   Dizajn podľa design manuálu objednávkového systému:
+   - Roboto (self-hosted, latin + latin-ext — slovenská diakritika)
+   - modrá #2B46A2 = štruktúra a akcia; červená #D32821 = len urgencia
+   - telový text 17px / 1.8 (publikum 45+)
+   - focus ring 3px #2B46A2, offset 2px
+   - žiadne nekonečné animácie; prechody len farby do 200 ms
+   ============================================================ */
+
+body {
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #1a1a2e;
+}
+
+*:focus-visible {
+  outline: 3px solid #2b46a2;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

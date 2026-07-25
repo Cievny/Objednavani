@@ -13,7 +13,7 @@ const DraftBanner = () => (
   </div>
 );
 
-const H = ({ children }) => <h3 className="text-base font-bold text-[#003d7c] mt-5 mb-2">{children}</h3>;
+const H = ({ children }) => <h3 className="text-base font-bold text-[#2B46A2] mt-5 mb-2">{children}</h3>;
 const P = ({ children }) => <p className="text-sm text-slate-700 mb-2 leading-relaxed">{children}</p>;
 const LI = ({ children }) => <li className="text-sm text-slate-700 mb-1 leading-relaxed">{children}</li>;
 const OL = ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>;
@@ -27,13 +27,13 @@ const InfoRow = ({ k, children }) => (
 );
 
 const LegalShell = ({ title, children }) => (
-  <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+  <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6 md:p-8">
     <DraftBanner />
-    <h2 className="text-xl md:text-2xl font-extrabold text-[#003d7c] mb-1">{title}</h2>
+    <h2 className="text-xl md:text-2xl font-extrabold text-[#2B46A2] mb-1">{title}</h2>
     <p className="text-xs text-slate-400 mb-4">objednanie.cievny.sk · Národný ústav srdcových a cievnych chorôb, a.s.</p>
     {children}
     <p className="text-xs text-slate-400 mt-6">
-      <a href="#/" className="text-[#005ca9] font-semibold hover:underline">‹ Späť na objednávanie</a>
+      <a href="#/" className="text-[#2B46A2] font-semibold hover:underline">‹ Späť na objednávanie</a>
     </p>
   </div>
 );
@@ -61,7 +61,7 @@ export const VopPage = () => (
       <LI>Tieto podmienky upravujú rezerváciu termínu a úhradu ceny ultrasonografických (USG) vyšetrení objednaných prostredníctvom webovej stránky objednanie.cievny.sk.</LI>
       <LI>Vyšetrenia sa poskytujú ako výkony uhrádzané pacientom podľa platného cenníka (samoplatca), alebo s doplatkom pri predložení žiadanky od lekára, ak to cenník pri danom vyšetrení umožňuje.</LI>
       <LI>Odoslanie online objednávky je návrhom na uzavretie zmluvy o poskytnutí zdravotnej starostlivosti, resp. služieb súvisiacich s jej poskytovaním. Zmluva vzniká potvrdením termínu zo strany pracoviska po pripísaní platby; o potvrdení je pacient informovaný e-mailom, prípadne SMS.</LI>
-      <LI>Zmluva sa uzatvára v slovenskom jazyku. Údaje objednávky môže pacient pred jej odoslaním skontrolovať a opraviť. Objednávka je u poskytovateľa evidovaná po dobu uvedenú v dokumente <a href="#/osobne-udaje" className="text-[#005ca9] font-semibold hover:underline">Informácie o spracúvaní osobných údajov</a>.</LI>
+      <LI>Zmluva sa uzatvára v slovenskom jazyku. Údaje objednávky môže pacient pred jej odoslaním skontrolovať a opraviť. Objednávka je u poskytovateľa evidovaná po dobu uvedenú v dokumente <a href="#/osobne-udaje" className="text-[#2B46A2] font-semibold hover:underline">Informácie o spracúvaní osobných údajov</a>.</LI>
     </OL>
 
     <H>Článok III — Objednávka a rezervácia termínu</H>
@@ -113,7 +113,7 @@ export const VopPage = () => (
 
     <H>Článok IX — Záverečné ustanovenia</H>
     <OL>
-      <LI>Spracúvanie osobných údajov upravuje samostatný dokument <a href="#/osobne-udaje" className="text-[#005ca9] font-semibold hover:underline">Informácie o spracúvaní osobných údajov</a>, dostupný na stránke objednávania.</LI>
+      <LI>Spracúvanie osobných údajov upravuje samostatný dokument <a href="#/osobne-udaje" className="text-[#2B46A2] font-semibold hover:underline">Informácie o spracúvaní osobných údajov</a>, dostupný na stránke objednávania.</LI>
       <LI>Tieto podmienky nadobúdajú účinnosť dňom <M>[DOPLNIŤ]</M>. Poskytovateľ ich môže meniť; pre objednávku platí znenie účinné v čase jej odoslania, ktoré je pacientovi dostupné na stránke objednávania.</LI>
       <LI>Právne vzťahy neupravené týmito podmienkami sa spravujú právnym poriadkom Slovenskej republiky, najmä zákonom č. 576/2004 Z. z. a Občianskym zákonníkom.</LI>
     </OL>
