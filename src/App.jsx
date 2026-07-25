@@ -5,7 +5,7 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v14";
+const APP_VERSION = "v15";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -214,7 +214,7 @@ export default function App() {
                 onSubmit={data.addOrder}
               />
             )}
-            <OrderLookup onLookup={data.lookupOrder} onCancel={data.cancelOrder} />
+            <OrderLookup onLookup={data.lookupOrder} onCancel={data.cancelOrder} settings={data.settings} />
           </>
         )}
       </main>

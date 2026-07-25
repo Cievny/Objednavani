@@ -11,6 +11,35 @@ const USG_PRICELIST_KEY = "usgPricelist_v2";
 
 // Cenník platených USG vyšetrení v rámci doplnkových ordinačných hodín (NÚSCH, a.s., platnosť od 01.03.2026)
 // priceSelf = samoplatca cena s DPH, priceReferral = doplatok + žiadanka cena s DPH (null = so žiadankou nedostupné)
+// Štandardná príprava na vyšetrenie — predloha, ktorú si pracovisko môže
+// upraviť v Nastaveniach (cenník → stĺpec inštrukcie). Vkladá sa do
+// potvrdzovacieho e-mailu pacientovi.
+const PREP_FASTING = "Príďte nalačno (min. 6 hodín nejedzte). Deň vopred vynechajte nadúvajúce jedlá (strukoviny, kapustu, čerstvé pečivo) a sýtené nápoje. Ranné lieky zapite malým množstvom vody. 2 hodiny pred vyšetrením vypite cca 0,5 l neperlivej vody. Pred vyšetrením nefajčite a nežujte žuvačku.";
+const PREP_BLADDER = "Hodinu pred vyšetrením vypite 0,5–0,7 l tekutín a nemočte — vyšetrenie vyžaduje naplnený močový mechúr.";
+const PREP_NONE_NECK = "Osobitná príprava nie je potrebná. Zvoľte si voľný odev okolo krku (rozopínateľný golier), šperky z krku nechajte doma.";
+const PREP_NONE_LIMBS = "Osobitná príprava nie je potrebná. Zvoľte si pohodlný odev, ktorý sa dá ľahko vyzliecť z vyšetrovaných končatín.";
+const PREP_DOCS = "Prineste si všetku dostupnú zdravotnú dokumentáciu, CD/USB so snímkami z predchádzajúcich vyšetrení a aktuálny zoznam užívaných liekov.";
+
+export const standardInstructions = {
+  abdomen: PREP_FASTING,
+  kidneys: PREP_BLADDER,
+  pelvis: PREP_BLADDER,
+  soft: "Osobitná príprava nie je potrebná.",
+  thyroid: PREP_NONE_NECK,
+  neck: PREP_NONE_NECK,
+  carotid: PREP_NONE_NECK,
+  upper1: PREP_NONE_LIMBS,
+  upper2: PREP_NONE_LIMBS,
+  lower1: PREP_NONE_LIMBS,
+  lower2: PREP_NONE_LIMBS,
+  renal: PREP_FASTING,
+  aorta: PREP_FASTING,
+  tos: PREP_NONE_LIMBS,
+  complete_vessels: PREP_NONE_LIMBS,
+  compressions: PREP_FASTING + " " + PREP_DOCS,
+  consultation: PREP_DOCS,
+};
+
 const defaultPricelist = [
   { id: "abdomen", label: "USG brucha a brušnej dutiny", priceSelf: 45, priceReferral: 30 },
   { id: "kidneys", label: "USG obličiek a močového mechúra", priceSelf: 40, priceReferral: 30 },
@@ -30,6 +59,8 @@ const defaultPricelist = [
   { id: "compressions", label: "Kompletné sonografické vyšetrenie abdominálnych cievnych kompresií + konzultácia", priceSelf: 350, priceReferral: null },
   { id: "consultation", label: "USG vyšetrenie a komplexná rádiologická konzultácia prinesených materiálov", priceSelf: 90, priceReferral: null },
 ];
+// čerstvé inštalácie a demo majú štandardnú prípravu predvyplnenú
+defaultPricelist.forEach((p) => { p.instructions = standardInstructions[p.id] || ""; });
 
 function normalizePricelist(list) {
   if (Array.isArray(list) && list.length > 0 && list.every((i) => i && typeof i.priceSelf === "number")) {
@@ -128,14 +159,22 @@ function isSlotOccupying(order) {
   return order.status !== "rejected";
 }
 
-// Lekár = { name, examTypeIds }. examTypeIds prázdne = robí všetky vyšetrenia.
+// Lekár = { name, email, location, examTypeIds }. examTypeIds prázdne = robí
+// všetky vyšetrenia; location = ambulancia/miesto, kam má pacient prísť.
 // Staršie dáta (obyčajné mená) sa znormalizujú.
 export function normalizeDoctors(list) {
   return (Array.isArray(list) ? list : [])
     .map((d) => (typeof d === "string"
-      ? { name: d.trim(), email: "", examTypeIds: [] }
-      : { name: (d.name || "").trim(), email: (d.email || "").trim(), examTypeIds: Array.isArray(d.examTypeIds) ? d.examTypeIds : [] }))
+      ? { name: d.trim(), email: "", location: "", examTypeIds: [] }
+      : { name: (d.name || "").trim(), email: (d.email || "").trim(), location: (d.location || "").trim(), examTypeIds: Array.isArray(d.examTypeIds) ? d.examTypeIds : [] }))
     .filter((d) => d.name);
+}
+
+// Ambulancia daného lekára (prázdny reťazec, ak nie je vyplnená)
+export function doctorLocation(doctors, doctorName) {
+  if (!doctorName) return "";
+  const d = normalizeDoctors(doctors).find((x) => x.name === doctorName);
+  return d ? d.location : "";
 }
 
 // Robí daný lekár (podľa mena) toto vyšetrenie? Neznámy lekár / prázdny zoznam = áno.
@@ -716,6 +755,9 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               <strong>{createdOrder.exam.label}</strong><br />
               {formatDateHuman(createdOrder.date)} o {createdOrder.time}
               {createdOrder.doctor && <><br /><span className="text-sm text-slate-500">Vyšetruje: {createdOrder.doctor}</span></>}
+              {doctorLocation(settings.doctors, createdOrder.doctor) && (
+                <><br /><span className="text-sm font-semibold text-[#005ca9]">📍 {doctorLocation(settings.doctors, createdOrder.doctor)}</span></>
+              )}
             </p>
             <p className="text-xs text-slate-500">Číslo objednávky: <strong>{createdOrder.id}</strong></p>
           </div>
@@ -757,7 +799,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                 `UID:${createdOrder.id}@nusch`, `DTSTART:${d}T${pad(h)}${pad(m)}00`,
                 `DTEND:${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`,
                 `SUMMARY:USG vyšetrenie — NÚSCH (${createdOrder.exam.label})`,
-                "LOCATION:NÚSCH\\, a.s.\\, Pod Krásnou hôrkou 1\\, Bratislava",
+                `LOCATION:NÚSCH\\, a.s.\\, Pod Krásnou hôrkou 1\\, Bratislava${doctorLocation(settings.doctors, createdOrder.doctor) ? ` — ${doctorLocation(settings.doctors, createdOrder.doctor).replace(/,/g, "\\,")}` : ""}`,
                 `DESCRIPTION:Objednávka ${createdOrder.id}${createdOrder.doctor ? `\\nLekár: ${createdOrder.doctor}` : ""}`,
                 "END:VEVENT", "END:VCALENDAR",
               ].join("\r\n");
@@ -1039,6 +1081,18 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       <div className="flex gap-2">
         <button type="button" onClick={addRow} className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
           + Pridať položku
+        </button>
+        <button
+          type="button"
+          onClick={() => setRows((prev) => prev.map((r) => (
+            (r.instructions || "").trim() === "" && standardInstructions[r.id]
+              ? { ...r, instructions: standardInstructions[r.id] }
+              : r
+          )))}
+          className="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+          title="Doplní štandardnú prípravu len do prázdnych polí — vlastné texty neprepíše"
+        >
+          Predvyplniť štandardnú prípravu
         </button>
         <button type="button" onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
           Uložiť cenník
@@ -1451,6 +1505,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                     className="w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
                     placeholder="E-mail lekára (naň príde upozornenie o objednávke na jeho termín)"
                   />
+                  <input
+                    value={doc.location || ""}
+                    onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, location: e.target.value } : d))}
+                    className="w-full p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                    placeholder="Ambulancia / miesto vyšetrenia (napr. Ambulancia č. 12, 2. posch., pavilón A)"
+                  />
                   <details className="text-sm">
                     <summary className="cursor-pointer text-slate-300 select-none">
                       Vyšetrenia: {doc.examTypeIds.length === 0 ? "všetky" : `${doc.examTypeIds.length} vybraných`}
@@ -1521,7 +1581,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 };
 
 // Overenie / zrušenie objednávky pacientom (podľa čísla objednávky + telefónu)
-const OrderLookup = ({ onLookup, onCancel }) => {
+const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings }) => {
   const [orderId, setOrderId] = useState("");
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
@@ -1582,7 +1642,14 @@ const OrderLookup = ({ onLookup, onCancel }) => {
           <div className="border border-slate-200 rounded-xl p-4 space-y-2">
             <p className="font-bold">{found.exam.label}</p>
             <p className="text-sm">{formatDateHuman(found.date)} o {found.time} · {formatPrice(found.price)}{found.hasReferral ? " (doplatok so žiadankou)" : ""}</p>
-            {found.doctor && <p className="text-sm">Lekár: {found.doctor}</p>}
+            {found.doctor && (
+              <p className="text-sm">
+                Lekár: {found.doctor}
+                {doctorLocation(settings.doctors, found.doctor) && (
+                  <span className="font-semibold text-[#005ca9]"> · 📍 {doctorLocation(settings.doctors, found.doctor)}</span>
+                )}
+              </p>
+            )}
             <p className="text-sm">
               Stav: <strong>{usgStatuses[found.status].label}</strong>
               {found.statusNote && <span className="text-slate-500"> ({found.statusNote})</span>}
