@@ -200,13 +200,18 @@ declare
   v_old int := 0;
   v_scrub int := 0;
 begin
-  -- a) prílohy a údaje zo žiadanky pri nevyužitých objednávkach
-  --    (termín uplynul, objednávka nebola vykonaná): ihneď po termíne
+  -- a) prílohy a údaje zo žiadanky:
+  --    - nevyužité/zrušené: ihneď po termíne
+  --    - ostatné (aj keď personál nezmenil stav): najneskôr 7 dní
+  --      po termíne — poistka, nech sľub z verejného textu platí
+  --      aj pri zabudnutom kliknutí
   for r in
     select id from orders
-    where slot_date < current_date
-      and status in ('new', 'rejected', 'noshow')
-      and (attachments <> '[]'::jsonb or reason <> '' or referrer_name <> '')
+    where (attachments <> '[]'::jsonb or reason <> '' or referrer_name <> '')
+      and (
+        (slot_date < current_date and status in ('new', 'rejected', 'noshow'))
+        or slot_date <= current_date - 7
+      )
   loop
     perform purge_order_files(r.id);
     update orders set attachments = '[]'::jsonb, reason = '', referrer_name = '', referrer_facility = ''
@@ -214,10 +219,10 @@ begin
     v_scrub := v_scrub + 1;
   end loop;
 
-  -- b) vykonané objednávky: výmaz 7 dní po vyšetrení (+ štatistika)
+  -- b) vykonané objednávky: výmaz najneskôr 7 dní po vyšetrení (+ štatistika)
   for r in
     select id, slot_date, exam_type_id, status from orders
-    where status = 'done' and slot_date < current_date - 7
+    where status = 'done' and slot_date <= current_date - 7
   loop
     perform purge_order_files(r.id);
     insert into usg_stats (day, exam_type_id, status, cnt) values (r.slot_date, r.exam_type_id, r.status, 1)
