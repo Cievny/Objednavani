@@ -1155,7 +1155,6 @@ const StatTile = ({ label, value, accent }) => (
   </div>
 );
 
-const intervalOptions = [5, 10, 15, 20, 30, 45, 60];
 
 // Správa používateľov a rolí — len pre superadmina. Kontá sa
 // zakladajú pozvánkou v Supabase; tu sa im prideľuje rola.
@@ -1388,7 +1387,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [winTo, setWinTo] = useState(todayIso);
   const [winTimeFrom, setWinTimeFrom] = useState("07:30");
   const [winTimeTo, setWinTimeTo] = useState("14:30");
-  const [winStep, setWinStep] = useState(5);
   const [winDoctor, setWinDoctor] = useState("");
   const [winSkipWeekends, setWinSkipWeekends] = useState(true);
   const [fStatus, setFStatus] = useState("all");
@@ -1504,7 +1502,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     run(() => onOpenWindow({
       dateFrom: winFrom, dateTo: winTo,
       timeFrom: winTimeFrom, timeTo: winTimeTo,
-      stepMinutes: winStep, doctor: winDoctor,
+      doctor: winDoctor,
       skipWeekends: winSkipWeekends,
     }), "Termíny otvorené a uložené.");
     setSelectedDate(winFrom);
@@ -1645,10 +1643,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 <input type="time" value={winTimeTo} onChange={(e) => setWinTimeTo(e.target.value)} className={`w-full ${inputDark}`} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Interval</label>
-                <select value={winStep} onChange={(e) => setWinStep(Number(e.target.value))} className={`w-full ${inputDark}`}>
-                  {intervalOptions.map((m) => (<option key={m} value={m}>{m} min</option>))}
-                </select>
+                <label className="block text-xs text-slate-400 mb-1">Mriežka</label>
+                <p className="text-sm text-slate-300 py-2">5 min — dĺžku určuje cenník</p>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Lekár</label>

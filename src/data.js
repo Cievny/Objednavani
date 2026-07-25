@@ -305,9 +305,12 @@ export function useBookingData(isStaff) {
   };
 
   // otvorenie termínov: okno (deň/rozsah + čas od–do + interval + lekár)
-  const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, stepMinutes, doctor = "", skipWeekends = true }) => {
+  // Mriežka je vždy 5 minút (BASE_SLOT_MIN) — interval sa nedá zvoliť,
+  // aby nemohli vzniknúť riedke bunky, v ktorých dlhšie vyšetrenia
+  // nenájdu súvislé miesto. Dĺžku vyšetrenia určuje cenník.
+  const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, doctor = "", skipWeekends = true }) => {
     if (!dateFrom || !dateTo || dateFrom > dateTo) return;
-    const times = generateWindowSlots(timeFrom, timeTo, stepMinutes);
+    const times = generateWindowSlots(timeFrom, timeTo, 5);
     if (times.length === 0) return;
     const days = [];
     const d = new Date(`${dateFrom}T12:00:00`);
