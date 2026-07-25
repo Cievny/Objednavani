@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { PatientView, AdminView, UsgHero, OrderLookup } from "./booking.jsx";
+import { VopPage, PrivacyPage } from "./legal.jsx";
 import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v13";
+const APP_VERSION = "v14";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -118,6 +119,8 @@ export default function App() {
   const [codeUnlocked, setCodeUnlocked] = useState(() => sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1");
 
   const isAdminRoute = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/sprava");
+  // Právne stránky (VOP a ochrana osobných údajov) — dostupné z pätičky a z formulára
+  const legalPage = hash.startsWith("#/podmienky") ? "vop" : hash.startsWith("#/osobne-udaje") ? "privacy" : null;
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -197,7 +200,7 @@ export default function App() {
       </nav>
 
       <main className="max-w-3xl mx-auto p-4 md:p-6">
-        {isAdminRoute ? renderAdmin() : (
+        {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage /> : isAdminRoute ? renderAdmin() : (
           <>
             <UsgHero />
             {data.isSupabase && data.loading ? (
@@ -217,6 +220,11 @@ export default function App() {
       </main>
 
       <footer className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-slate-400">
+        <p className="mb-1">
+          <a href="#/podmienky" className="text-[#005ca9] font-semibold hover:underline">Podmienky online objednávania</a>
+          {" · "}
+          <a href="#/osobne-udaje" className="text-[#005ca9] font-semibold hover:underline">Ochrana osobných údajov</a>
+        </p>
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
         {data.isSupabase
           ? "Dáta sú uložené v zabezpečenej databáze v EÚ (Supabase)."

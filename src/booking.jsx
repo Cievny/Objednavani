@@ -696,7 +696,12 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
           )}
           <label className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer">
             <input type="checkbox" required className="mt-0.5 w-4 h-4 accent-[#005ca9]" />
-            <span>Potvrdzujem, že som sa oboznámil/a s informáciami o spracúvaní osobných údajov na účely objednania a vykonania vyšetrenia. *</span>
+            <span>
+              Oboznámil/a som sa s{" "}
+              <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-[#005ca9] font-semibold hover:underline">Podmienkami online objednávania</a>
+              {" "}a s{" "}
+              <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-[#005ca9] font-semibold hover:underline">Informáciami o spracúvaní osobných údajov</a>. *
+            </span>
           </label>
         </form>
       )}
@@ -1588,9 +1593,15 @@ const OrderLookup = ({ onLookup, onCancel }) => {
               </p>
             )}
             {canCancel && (
-              <button onClick={cancel} disabled={busy} className="bg-[#e2001a] hover:bg-[#c00017] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
-                Zrušiť objednávku
-              </button>
+              <>
+                <button onClick={cancel} disabled={busy} className="bg-[#e2001a] hover:bg-[#c00017] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
+                  Zrušiť objednávku
+                </button>
+                <p className="text-xs text-slate-500">
+                  Pri zrušení najneskôr 48 hodín pred termínom vraciame platbu v plnej výške; neskoršie zrušenie
+                  upravujú <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-[#005ca9] font-semibold hover:underline">podmienky objednávania</a>.
+                </p>
+              </>
             )}
           </div>
         )}
