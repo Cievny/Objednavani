@@ -5,7 +5,7 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v15";
+const APP_VERSION = "v16";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -147,7 +147,10 @@ export default function App() {
         onReschedule={data.reschedule}
         onSaveSettings={data.saveSettings}
         onSavePricelist={data.savePricelist}
+        onSavePricelistOrder={data.savePricelistOrder}
+        onGetMonthlyStats={data.getMonthlyStats}
         onOpenAttachment={data.openAttachment}
+        role={auth.role || "none"}
       />
     </div>
   );
@@ -155,7 +158,9 @@ export default function App() {
   const renderAdmin = () => {
     if (auth.isSupabase) {
       if (!auth.ready) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
-      return auth.session ? adminContent : <LoginGate auth={auth} />;
+      if (!auth.session) return <LoginGate auth={auth} />;
+      if (auth.role === null) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
+      return adminContent;
     }
     return codeUnlocked ? adminContent : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
   };

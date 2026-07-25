@@ -41,26 +41,27 @@ export const standardInstructions = {
 };
 
 const defaultPricelist = [
+  // cievne vyšetrenia navrchu — poradie si pracovisko mení v Nastaveniach
+  { id: "carotid", label: "Dopplerova ultrasonografia extrakraniálnych mozgových tepien (karotíd a vertebrálnych artérií)", priceSelf: 50, priceReferral: 30 },
+  { id: "lower1", label: "Dopplerova ultrasonografia žíl alebo tepien dolných končatín (jedna končatina)", priceSelf: 40, priceReferral: 30 },
+  { id: "lower2", label: "Dopplerova ultrasonografia žíl alebo tepien dolných končatín (obe končatiny)", priceSelf: 50, priceReferral: 30 },
+  { id: "upper1", label: "Dopplerova ultrasonografia žíl alebo tepien horných končatín (jedna končatina)", priceSelf: 40, priceReferral: 30 },
+  { id: "upper2", label: "Dopplerova ultrasonografia žíl alebo tepien horných končatín (obe končatiny)", priceSelf: 50, priceReferral: 30 },
+  { id: "tos", label: "Dopplerova ultrasonografia na vylúčenie TOS (žilový alebo tepnový typ)", priceSelf: 100, priceReferral: 30 },
+  { id: "renal", label: "USG brucha s vyšetrením renálnych artérií", priceSelf: 60, priceReferral: 30 },
+  { id: "aorta", label: "USG brucha s vyšetrením brušnej aorty", priceSelf: 50, priceReferral: 30 },
+  { id: "complete_vessels", label: "Kompletné sonografické vyšetrenie ciev (tepny a žily krku, dolných končatín a brušnej aorty)", priceSelf: 100, priceReferral: null },
+  { id: "compressions", label: "Kompletné sonografické vyšetrenie abdominálnych cievnych kompresií + konzultácia", priceSelf: 350, priceReferral: null },
   { id: "abdomen", label: "USG brucha a brušnej dutiny", priceSelf: 45, priceReferral: 30 },
   { id: "kidneys", label: "USG obličiek a močového mechúra", priceSelf: 40, priceReferral: 30 },
   { id: "pelvis", label: "USG orgánov malej panvy", priceSelf: 40, priceReferral: 30 },
   { id: "soft", label: "USG mäkkých tkanív", priceSelf: 40, priceReferral: 30 },
   { id: "thyroid", label: "USG štítnej žľazy", priceSelf: 40, priceReferral: 30 },
   { id: "neck", label: "USG orgánov krku (štítna žľaza, slinné žľazy, lymfatické uzliny)", priceSelf: 50, priceReferral: 30 },
-  { id: "carotid", label: "Dopplerova ultrasonografia extrakraniálnych mozgových tepien (karotíd a vertebrálnych artérií)", priceSelf: 50, priceReferral: 30 },
-  { id: "upper1", label: "Dopplerova ultrasonografia žíl alebo tepien horných končatín (jedna končatina)", priceSelf: 40, priceReferral: 30 },
-  { id: "upper2", label: "Dopplerova ultrasonografia žíl alebo tepien horných končatín (obe končatiny)", priceSelf: 50, priceReferral: 30 },
-  { id: "lower1", label: "Dopplerova ultrasonografia žíl alebo tepien dolných končatín (jedna končatina)", priceSelf: 40, priceReferral: 30 },
-  { id: "lower2", label: "Dopplerova ultrasonografia žíl alebo tepien dolných končatín (obe končatiny)", priceSelf: 50, priceReferral: 30 },
-  { id: "renal", label: "USG brucha s vyšetrením renálnych artérií", priceSelf: 60, priceReferral: 30 },
-  { id: "aorta", label: "USG brucha s vyšetrením brušnej aorty", priceSelf: 50, priceReferral: 30 },
-  { id: "tos", label: "Dopplerova ultrasonografia na vylúčenie TOS (žilový alebo tepnový typ)", priceSelf: 100, priceReferral: 30 },
-  { id: "complete_vessels", label: "Kompletné sonografické vyšetrenie ciev (tepny a žily krku, dolných končatín a brušnej aorty)", priceSelf: 100, priceReferral: null },
-  { id: "compressions", label: "Kompletné sonografické vyšetrenie abdominálnych cievnych kompresií + konzultácia", priceSelf: 350, priceReferral: null },
   { id: "consultation", label: "USG vyšetrenie a komplexná rádiologická konzultácia prinesených materiálov", priceSelf: 90, priceReferral: null },
 ];
 // čerstvé inštalácie a demo majú štandardnú prípravu predvyplnenú
-defaultPricelist.forEach((p) => { p.instructions = standardInstructions[p.id] || ""; });
+defaultPricelist.forEach((p) => { p.instructions = standardInstructions[p.id] || ""; p.durationSlots = p.durationSlots || 1; });
 
 function normalizePricelist(list) {
   if (Array.isArray(list) && list.length > 0 && list.every((i) => i && typeof i.priceSelf === "number")) {
@@ -157,6 +158,19 @@ function loadJson(key, fallback) {
 
 function isSlotOccupying(order) {
   return order.status !== "rejected";
+}
+
+// posun času "HH:MM" o dané minúty
+export function addMinutes(t, mins) {
+  const [h, m] = (t || "00:00").split(":").map(Number);
+  const total = h * 60 + m + mins;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// 10-min bunky, ktoré objednávka obsadzuje (podľa trvania vyšetrenia)
+export function orderCellTimes(order) {
+  const n = Math.max(1, Math.round((order.durationMin || 10) / 10));
+  return Array.from({ length: n }, (_, i) => addMinutes(order.time, i * 10));
 }
 
 // Lekár = { name, email, location, examTypeIds }. examTypeIds prázdne = robí
@@ -438,11 +452,22 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     return map;
   }, [occupied]);
 
+  // Voľné ZAČIATKY: vyšetrenie trvá durationSlots × 10 min, takže
+  // všetky pokryté 10-min bunky musia byť otvorené (ten istý lekár)
+  // a žiadna nesmie byť obsadená.
   const freeSlotsFor = (isoDate) => {
     const open = openSlots[isoDate] || [];
+    const openByTime = new Map(open.map((slot) => [slot.time, slot]));
     const taken = takenByDate.get(isoDate) || new Set();
-    return open.filter((slot) => !taken.has(slot.time)
-      && (!examType || doctorDoesExam(settings.doctors, slot.doctor, examType.id)));
+    const need = examType?.durationSlots || 1;
+    return open.filter((slot) => {
+      if (examType && !doctorDoesExam(settings.doctors, slot.doctor, examType.id)) return false;
+      for (let i = 0; i < need; i++) {
+        const cell = openByTime.get(addMinutes(slot.time, i * 10));
+        if (!cell || cell.doctor !== slot.doctor || taken.has(cell.time)) return false;
+      }
+      return true;
+    });
   };
 
   const todayIso = toISODate(new Date());
@@ -497,6 +522,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     const order = {
       id: `USG-${Date.now().toString(36).toUpperCase()}`,
       variableSymbol: String(Date.now()).slice(-10),
+      durationMin: (examType?.durationSlots || 1) * 10,
       createdAt: new Date().toISOString(),
       status: "new",
       statusNote: "",
@@ -631,6 +657,9 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                 {form.date ? (
                   <>
                     <p className="font-semibold text-slate-700 mb-2 capitalize">{formatDateHuman(form.date)}</p>
+                    {(examType?.durationSlots || 1) > 1 && (
+                      <p className="text-xs text-slate-500 mb-2">Toto vyšetrenie trvá približne {(examType.durationSlots || 1) * 10} minút — čas nižšie je začiatok vyšetrenia.</p>
+                    )}
                     <div className="grid grid-cols-3 gap-2">
                       {freeSlotsFor(form.date).map((slot) => (
                         <button
@@ -989,6 +1018,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
     priceSelf: String(r.priceSelf),
     priceReferral: r.priceReferral == null ? "" : String(r.priceReferral),
     instructions: r.instructions || "",
+    durationSlots: r.durationSlots || 1,
   }));
   const [rows, setRows] = useState(() => toDrafts(pricelist));
   const [saved, setSaved] = useState(false);
@@ -1006,7 +1036,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   };
   const addRow = () => {
     setSaved(false);
-    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "", instructions: "" }]);
+    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "", instructions: "", durationSlots: 1 }]);
   };
 
   const parsePrice = (value) => {
@@ -1022,6 +1052,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         priceSelf: parsePrice(r.priceSelf),
         priceReferral: r.priceReferral.trim() === "" ? null : parsePrice(r.priceReferral),
         instructions: (r.instructions || "").trim(),
+        durationSlots: Number(r.durationSlots) || 1,
       }))
       .filter((r) => r.label && r.priceSelf != null);
     onSave(cleaned);
@@ -1037,8 +1068,9 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         vyšetrenie sa so žiadankou nebude ponúkať (len samoplatca). Do poľa <strong>Inštrukcie</strong> napíšte,
         kam má pacient prísť a ako sa pripraviť — text sa vloží do potvrdzovacieho e-mailu daného vyšetrenia.
       </p>
-      <div className="hidden sm:flex gap-2 text-xs text-slate-400 font-semibold pr-12">
-        <span className="flex-1">Názov vyšetrenia</span>
+      <div className="hidden sm:flex gap-2 text-xs text-slate-400 font-semibold pr-12 pl-8">
+        <span className="flex-1">Názov vyšetrenia (šípkami meníte poradie v ponuke)</span>
+        <span className="w-24">Trvanie</span>
         <span className="w-24 text-right">Samoplatca</span>
         <span className="w-24 text-right">Doplatok</span>
       </div>
@@ -1046,12 +1078,24 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         {rows.map((row, i) => (
           <div key={row.id} className="bg-slate-800/40 rounded-lg p-2 space-y-2">
             <div className="flex gap-2 items-center">
+              <div className="flex flex-col gap-0.5">
+                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
+                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
+              </div>
               <input
                 value={row.label}
                 onChange={(e) => updateRow(i, "label", e.target.value)}
                 className="flex-1 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
                 placeholder="Názov vyšetrenia"
               />
+              <select
+                value={row.durationSlots}
+                onChange={(e) => updateRow(i, "durationSlots", Number(e.target.value))}
+                className="w-24 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                title="Trvanie vyšetrenia (násobok 10-min slotu)"
+              >
+                {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n * 10} min</option>)}
+              </select>
               <input
                 value={row.priceSelf}
                 onChange={(e) => updateRow(i, "priceSelf", e.target.value)}
@@ -1112,7 +1156,134 @@ const StatTile = ({ label, value, accent }) => (
 
 const intervalOptions = [10, 15, 20, 30, 45, 60];
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onOpenAttachment }) => {
+// Mesačná štatistika na odmeny — počíta VYKONANÉ a ZAPLATENÉ vyšetrenia.
+// Lekárovi databáza (RLS) vráti len jeho riadky, superadminovi všetko.
+const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
+  const [month, setMonth] = useState(() => toISODate(new Date()).slice(0, 7));
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setRows(null);
+    setError("");
+    const from = `${month}-01`;
+    const [y, m] = month.split("-").map(Number);
+    const to = toISODate(new Date(y, m, 0));
+    Promise.resolve(onGetMonthlyStats(from, to))
+      .then((r) => { if (alive) setRows(r); })
+      .catch((e) => { if (alive) setError(e?.message || String(e)); });
+    return () => { alive = false; };
+  }, [month, onGetMonthlyStats]);
+
+  const labelFor = (id) => pricelist.find((p) => p.id === id)?.label || id;
+  const byDoctor = new Map();
+  (rows || []).forEach((r) => {
+    const key = r.doctor || "(bez lekára)";
+    if (!byDoctor.has(key)) byDoctor.set(key, { count: 0, eur: 0, exams: [] });
+    const d = byDoctor.get(key);
+    d.count += r.count;
+    d.eur += r.eur;
+    d.exams.push(r);
+  });
+  const total = (rows || []).reduce((a, r) => ({ count: a.count + r.count, eur: a.eur + r.eur }), { count: 0, eur: 0 });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="text-lg font-bold">Štatistika vyšetrení</h3>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+        />
+      </div>
+      <p className="text-xs text-slate-400">Počítajú sa vyšetrenia so stavom Vykonané, ktoré boli zaplatené. Súčty ostávajú dostupné aj po výmaze objednávok (anonymná štatistika bez údajov pacientov).</p>
+      {error && <p className="text-sm text-red-400 font-semibold">{error}</p>}
+      {rows === null && !error ? (
+        <p className="text-slate-400">Načítavam…</p>
+      ) : byDoctor.size === 0 ? (
+        <p className="text-slate-400">Za zvolený mesiac zatiaľ nie sú žiadne vykonané a zaplatené vyšetrenia.</p>
+      ) : (
+        <div className="space-y-3">
+          {[...byDoctor.entries()].sort((a, b) => b[1].eur - a[1].eur).map(([doc, d]) => (
+            <div key={doc} className="bg-slate-700/60 rounded-xl p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-bold">{doc}</span>
+                <span className="text-sm">
+                  <b>{d.count}</b> vyšetrení · <b className="text-emerald-400">{d.eur.toFixed(2).replace(".", ",")} €</b>
+                </span>
+              </div>
+              <details className="mt-1 text-xs text-slate-300">
+                <summary className="cursor-pointer select-none">Rozpis podľa vyšetrení</summary>
+                <ul className="mt-1 space-y-0.5">
+                  {d.exams.map((r) => (
+                    <li key={r.examTypeId}>{labelFor(r.examTypeId)}: {r.count}× · {r.eur.toFixed(2).replace(".", ",")} €</li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+          ))}
+          {byDoctor.size > 1 && (
+            <p className="text-right text-sm font-bold border-t border-slate-600 pt-2">
+              Spolu: {total.count} vyšetrení · <span className="text-emerald-400">{total.eur.toFixed(2).replace(".", ",")} €</span>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Editor LEN poradia cenníka (pre sestru) — ceny a texty needituje
+const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
+  const [rows, setRows] = useState(pricelist);
+  const [msg, setMsg] = useState("");
+  const priceKey = pricelist.map((p) => p.id).join("|");
+  useEffect(() => { setRows(pricelist); }, [priceKey]);
+
+  const move = (i, delta) => setRows((prev) => {
+    const j = i + delta;
+    if (j < 0 || j >= prev.length) return prev;
+    const next = [...prev];
+    [next[i], next[j]] = [next[j], next[i]];
+    return next;
+  });
+
+  const save = async () => {
+    setMsg("");
+    try {
+      await onSaveOrder(rows);
+      setMsg("✓ Poradie uložené.");
+    } catch (e) {
+      setMsg(e?.message || String(e));
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-lg font-bold">Poradie vyšetrení v ponuke</h3>
+      <p className="text-xs text-slate-400">Šípkami zmeňte poradie, v akom pacient vidí vyšetrenia. Ceny a texty môže meniť len správca.</p>
+      <div className="space-y-1">
+        {rows.map((r, i) => (
+          <div key={r.id} className="flex items-center gap-2 bg-slate-700/60 rounded-lg px-3 py-1.5 text-sm">
+            <span className="w-6 text-right text-slate-400">{i + 1}.</span>
+            <span className="flex-1 truncate">{r.label}</span>
+            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30" title="Posunúť vyššie">↑</button>
+            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="px-2 py-0.5 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30" title="Posunúť nižšie">↓</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={save} className="bg-[#e2001a] hover:bg-[#c00017] text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">
+        Uložiť poradie
+      </button>
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{msg}</p>}
+    </div>
+  );
+};
+
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1170,7 +1341,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
   const freeSlotsFor = (iso) => {
     const open = openSlots[iso] || [];
-    const taken = new Set(orders.filter((o) => o.date === iso && isSlotOccupying(o)).map((o) => o.time));
+    const taken = new Set(orders.filter((o) => o.date === iso && isSlotOccupying(o)).flatMap(orderCellTimes));
     return open.filter((slot) => !taken.has(slot.time));
   };
 
@@ -1218,8 +1389,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   };
 
   const dayOpen = (openSlots[selectedDate] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+  // objednávka obsadzuje všetky bunky svojho trvania — každá vedie na pacienta
   const dayOrders = new Map(
-    orders.filter((o) => o.date === selectedDate && isSlotOccupying(o)).map((o) => [o.time, o])
+    orders
+      .filter((o) => o.date === selectedDate && isSlotOccupying(o))
+      .flatMap((o) => orderCellTimes(o).map((t) => [t, o]))
   );
 
   const strip = Array.from({ length: 14 }, (_, i) => {
@@ -1240,14 +1414,30 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     setSelectedDate(winFrom);
   };
 
-  const tabs = [
-    { id: "overview", label: `Prehľad${pending.length > 0 ? ` (${pending.length})` : ""}` },
-    { id: "calendar", label: "Kalendár" },
-    { id: "orders", label: "Objednávky" },
-    { id: "settings", label: "Nastavenia" },
+  // Záložky podľa roly: superadmin všetko; sestra bez štatistiky a
+  // nastavení (poradie cenníka má vlastnú záložku); lekár len svoje
+  // objednávky (filtruje databáza) a svoju štatistiku.
+  const allTabs = [
+    { id: "overview", label: `Prehľad${pending.length > 0 ? ` (${pending.length})` : ""}`, roles: ["superadmin", "sestra", "lekar"] },
+    { id: "calendar", label: "Kalendár", roles: ["superadmin", "sestra"] },
+    { id: "orders", label: "Objednávky", roles: ["superadmin", "sestra", "lekar"] },
+    { id: "stats", label: "Štatistika", roles: ["superadmin", "lekar"] },
+    { id: "order", label: "Poradie cenníka", roles: ["sestra"] },
+    { id: "settings", label: "Nastavenia", roles: ["superadmin"] },
   ];
+  const tabs = allTabs.filter((t) => t.roles.includes(role));
 
   const inputDark = "p-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm";
+
+  if (role === "none") {
+    return (
+      <p className="text-center text-slate-300 py-10">
+        Vášmu kontu zatiaľ nebola priradená rola. Kontaktujte správcu systému.
+      </p>
+    );
+  }
+  // ak rola nemá zvolenú záložku, spadne na prvú povolenú
+  const view = tabs.some((t) => t.id === tab) ? tab : (tabs[0]?.id ?? "overview");
 
   return (
     <div className="space-y-5">
@@ -1256,7 +1446,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.id ? "bg-[#e2001a] text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${view === t.id ? "bg-[#e2001a] text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
           >
             {t.label}
           </button>
@@ -1274,7 +1464,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         </div>
       )}
 
-      {tab === "overview" && (
+      {view === "overview" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <StatTile label="dnešný program" value={todayProgram.length} accent="text-blue-300" />
@@ -1316,7 +1506,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         </div>
       )}
 
-      {tab === "calendar" && (
+      {view === "calendar" && (
         <div className="space-y-5">
           <div>
             <h3 className="text-lg font-bold text-blue-300 mb-2">Najbližších 14 dní</h3>
@@ -1444,7 +1634,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         </div>
       )}
 
-      {tab === "orders" && (
+      {view === "orders" && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <input
@@ -1477,7 +1667,15 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         </div>
       )}
 
-      {tab === "settings" && (
+      {view === "stats" && (
+        <StatsTab onGetMonthlyStats={onGetMonthlyStats} pricelist={pricelist} />
+      )}
+
+      {view === "order" && (
+        <PricelistOrderEditor pricelist={pricelist} onSaveOrder={onSavePricelistOrder} />
+      )}
+
+      {view === "settings" && (
         <div className="space-y-5">
           <div className="bg-slate-700 p-4 rounded-lg space-y-3">
             <h3 className="text-lg font-bold text-blue-300">Lekári</h3>

@@ -44,6 +44,7 @@ const orderFromRow = (r) => ({
   doctor: r.doctor || "",
   paid: Boolean(r.paid),
   attachments: Array.isArray(r.attachments) ? r.attachments : [],
+  durationMin: r.duration_min == null ? 10 : Number(r.duration_min),
 });
 
 const lookupFromJson = (j) => j && ({
@@ -66,6 +67,7 @@ const pricelistFromRows = (rows) =>
     priceSelf: Number(r.price_self),
     priceReferral: r.price_referral == null ? null : Number(r.price_referral),
     instructions: r.instructions || "",
+    durationSlots: r.duration_slots == null ? 1 : Number(r.duration_slots),
   }));
 
 const groupSlots = (rows) => {
@@ -99,6 +101,11 @@ const throwIf = (error) => { const e = friendlyDbError(error); if (e) throw e; }
 export function useAuth() {
   const [session, setSession] = useState(null);
   const [ready, setReady] = useState(!isSupabaseConfigured);
+  // rola personálu: superadmin / sestra / lekar; "none" = konto bez
+  // priradenej roly (prístup odmietne aj databáza cez RLS).
+  // Demo režim bez Supabase sa správa ako superadmin.
+  const [role, setRole] = useState(isSupabaseConfigured ? null : "superadmin");
+  const [doctorName, setDoctorName] = useState("");
 
   useEffect(() => {
     if (!supabase) return;
@@ -107,13 +114,23 @@ export function useAuth() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!supabase) return;
+    if (!session) { setRole(null); setDoctorName(""); return; }
+    supabase.from("staff_roles").select("role, doctor_name").eq("user_id", session.user.id).maybeSingle()
+      .then(({ data }) => {
+        setRole(data?.role || "none");
+        setDoctorName(data?.doctor_name || "");
+      });
+  }, [session]);
+
   const signIn = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error("Nesprávny e-mail alebo heslo.");
   };
   const signOut = () => supabase?.auth.signOut();
 
-  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut };
+  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut, role, doctorName };
 }
 
 // --- hlavný hook s dátami a akciami ---
@@ -179,10 +196,19 @@ export function useBookingData(isStaff) {
     return () => { clearInterval(interval); window.removeEventListener("focus", reload); };
   }, [isStaff, reload]);
 
-  // obsadené termíny pre pacientsky kalendár
+  // obsadené termíny pre pacientsky kalendár — objednávka obsadzuje
+  // všetky 10-min bunky svojho trvania
+  const expandOrderCells = (o) => {
+    const [h, m] = (o.time || "00:00").split(":").map(Number);
+    const n = Math.max(1, Math.round((o.durationMin || 10) / 10));
+    return Array.from({ length: n }, (_, i) => {
+      const mins = h * 60 + m + i * 10;
+      return { date: o.date, time: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
+    });
+  };
   const occupied = isSupabaseConfigured && !isStaff
     ? occupiedRemote
-    : orders.filter(isSlotOccupying).map((o) => ({ date: o.date, time: o.time }));
+    : orders.filter(isSlotOccupying).flatMap(expandOrderCells);
 
   // --- akcie ---
 
@@ -364,6 +390,7 @@ export function useBookingData(isStaff) {
       id: item.id, label: item.label,
       price_self: item.priceSelf, price_referral: item.priceReferral,
       instructions: item.instructions || "",
+      duration_slots: item.durationSlots || 1,
       active: true, sort_order: i,
     }));
     const { error } = await supabase.from("pricelist").upsert(rows, { onConflict: "id" });
@@ -394,12 +421,45 @@ export function useBookingData(isStaff) {
     await reload();
   };
 
+  // len poradie cenníka (povolené aj sestre — RPC update_pricelist_order)
+  const savePricelistOrder = async (list) => {
+    if (!supabase) { setPricelist(list); return; }
+    const payload = list.map((item, i) => ({ id: item.id, sort_order: i }));
+    const { error } = await supabase.rpc("update_pricelist_order", { p_order: payload });
+    throwIf(error);
+    await reload();
+  };
+
+  // mesačná štatistika na odmeny: vykonané + zaplatené vyšetrenia.
+  // Supabase: RPC (RLS obmedzí lekára na jeho riadky); demo: z localStorage.
+  const getMonthlyStats = async (fromIso, toIso) => {
+    if (!supabase) {
+      const map = {};
+      orders.forEach((o) => {
+        if (o.status !== "done" || !o.paid) return;
+        if (o.date < fromIso || o.date > toIso) return;
+        const key = `${o.doctor}||${o.exam.typeId}`;
+        map[key] = map[key] || { doctor: o.doctor || "", examTypeId: o.exam.typeId, count: 0, eur: 0 };
+        map[key].count += 1;
+        map[key].eur += o.price || 0;
+      });
+      return Object.values(map);
+    }
+    const { data, error } = await supabase.rpc("doctor_monthly_stats", { p_from: fromIso, p_to: toIso });
+    throwIf(error);
+    return (data || []).map((r) => ({
+      doctor: r.doctor || "", examTypeId: r.exam_type_id,
+      count: Number(r.done_paid_cnt), eur: Number(r.paid_eur),
+    }));
+  };
+
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
     isSupabase: isSupabaseConfigured, loading,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
     addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
-    saveSettings, savePricelist, lookupOrder, cancelOrder, openAttachment,
+    saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
+    lookupOrder, cancelOrder, openAttachment,
   };
 }
