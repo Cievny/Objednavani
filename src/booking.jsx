@@ -1251,6 +1251,78 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
   );
 };
 
+// Ručné overenie platieb z Prehľadu: spustí párovanie s Fio bankou
+// a ukáže stav všetkých aktívnych objednávok. Automat beží aj sám
+// každých 5 minút — toto je kontrola „teraz hneď".
+const PaymentsCheck = ({ onCheckPayments }) => {
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      setRows(await onCheckPayments());
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="text-sm font-bold text-[#2B46A2]">Platby</h3>
+        <button
+          onClick={run}
+          disabled={busy}
+          className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors"
+        >
+          {busy ? "Overujem…" : "Overiť platby"}
+        </button>
+        <span className="text-xs text-[#767676]">Párovanie s bankou beží automaticky každých 5 minút — tlačidlo je okamžitá kontrola. Pri čerstvej platbe overte o pol minúty ešte raz.</span>
+      </div>
+      {error && <p className="text-sm text-[#D32821] font-semibold">{error}</p>}
+      {rows !== null && (
+        rows.length === 0 ? (
+          <p className="text-sm text-[#767676]">Žiadne aktívne objednávky.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]">
+                  <th className="py-1.5 pr-3">Termín</th>
+                  <th className="py-1.5 pr-3">Pacient</th>
+                  <th className="py-1.5 pr-3">Cena</th>
+                  <th className="py-1.5 pr-3">Stav</th>
+                  <th className="py-1.5">Platba</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-b border-[#F0F2F5]">
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{r.when}</td>
+                    <td className="py-1.5 pr-3">{r.patient}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{r.price.toFixed(2).replace(".", ",")} €</td>
+                    <td className="py-1.5 pr-3">
+                      {r.paid
+                        ? <span className="font-bold text-[#16A34A]">Zaplatené</span>
+                        : <span className="font-bold text-[#856404]">Čaká</span>}
+                    </td>
+                    <td className="py-1.5 text-xs text-[#444444]">{r.payment}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+};
+
 // Mesačná štatistika na odmeny — počíta VYKONANÉ a ZAPLATENÉ vyšetrenia.
 // Lekárovi databáza (RLS) vráti len jeho riadky, superadminovi všetko.
 const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
@@ -1378,7 +1450,7 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1590,6 +1662,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <StatTile label="nezaplatené" value={unpaidCount} accent="text-[#856404]" />
             <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
           </div>
+
+          {isSupabase && ["superadmin", "sestra"].includes(role) && (
+            <PaymentsCheck onCheckPayments={onCheckPayments} />
+          )}
 
           <div>
             <h3 className="text-lg font-bold text-[#2B46A2] mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>

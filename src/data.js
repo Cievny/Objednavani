@@ -474,6 +474,24 @@ export function useBookingData(isStaff) {
     throwIf(error);
   };
 
+  // ručné overenie platieb (RPC check_payments: spustí párovanie s bankou
+  // a vráti stav všetkých aktívnych objednávok)
+  const checkPayments = async () => {
+    if (!supabase) throw new Error("Overenie platieb funguje len v ostrej prevádzke (Supabase + Fio).");
+    const { data, error } = await supabase.rpc("check_payments");
+    throwIf(error);
+    await reload();
+    return (data || []).map((r) => ({
+      id: r.objednavka,
+      patient: r.pacient,
+      when: r.termin,
+      price: Number(r.cena),
+      vs: r.vs,
+      paid: Boolean(r.zaplatene),
+      payment: r.platba || "",
+    }));
+  };
+
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
@@ -481,7 +499,7 @@ export function useBookingData(isStaff) {
     orders, occupied, openSlots, settings, pricelist, pendingCount,
     addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
-    listStaff, setStaffRole, removeStaffRole,
+    listStaff, setStaffRole, removeStaffRole, checkPayments,
     lookupOrder, cancelOrder, openAttachment,
   };
 }
