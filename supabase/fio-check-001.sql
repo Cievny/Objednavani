@@ -27,7 +27,9 @@ returns table (
 )
 language plpgsql security definer set search_path = public as $$
 begin
-  if my_role() not in ('superadmin', 'sestra') then
+  -- SQL editor (bez prihláseného používateľa) prejde; z aplikácie
+  -- len superadmin a sestra. Anon nemá na funkciu execute vôbec.
+  if auth.uid() is not null and my_role() not in ('superadmin', 'sestra') then
     raise exception 'Kontrola platieb je dostupná len pre superadmina a sestru.';
   end if;
 
