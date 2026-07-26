@@ -884,6 +884,17 @@ function formatBirth(patient) {
   return "";
 }
 
+// rýchly filter so súčtom — používa záložka Objednávky
+const FilterChip = ({ active, onClick, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors ${active ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
+  >
+    {label}
+  </button>
+);
+
 const PaidBadge = ({ order }) => {
   if (order.price == null || order.price <= 0) return null;
   return order.paid
@@ -1515,6 +1526,9 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const pending = orders
     .filter((o) => o.status === "new")
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  // rozdelenie žiadostí: zaplatené (pripravené na potvrdenie) vs. čakajúce na platbu
+  const pendingPaid = pending.filter((o) => o.paid || !(o.price > 0));
+  const pendingUnpaid = pending.filter((o) => !o.paid && o.price > 0);
 
   const todayProgram = orders
     .filter((o) => o.date === todayIso && (o.status === "confirmed" || o.status === "new"))
@@ -1528,16 +1542,28 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
   const unpaidCount = orders.filter((o) => isSlotOccupying(o) && !o.paid && o.price > 0 && (o.status === "new" || o.status === "confirmed")).length;
 
-  const filteredOrders = orders
-    .filter((o) => fStatus === "all" || o.status === fStatus)
-    .filter((o) => fPaid === "all" || (fPaid === "paid" ? o.paid : !o.paid))
+  // text a dátum filtrujú základ; počty na čipoch stavov/platby sa
+  // počítajú z tohto základu, aby sedeli s tým, čo personál vidí
+  const textDateFiltered = orders
     .filter((o) => !fDate || o.date === fDate)
     .filter((o) => {
       const q = fText.trim().toLowerCase();
       if (!q) return true;
       return o.patient.name.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.patient.phone.replace(/\s/g, "").includes(q.replace(/\s/g, "")) || (o.doctor || "").toLowerCase().includes(q);
-    })
+    });
+  const statusCounts = textDateFiltered.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
+  const paidCount = textDateFiltered.filter((o) => o.paid).length;
+  const filteredOrders = textDateFiltered
+    .filter((o) => fStatus === "all" || o.status === fStatus)
+    .filter((o) => fPaid === "all" || (fPaid === "paid" ? o.paid : !o.paid))
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+  // zoskupenie podľa dňa — hlavička dňa + objednávky zoradené podľa času
+  const ordersByDay = [];
+  filteredOrders.forEach((o) => {
+    const last = ordersByDay[ordersByDay.length - 1];
+    if (last && last.date === o.date) last.items.push(o);
+    else ordersByDay.push({ date: o.date, items: [o] });
+  });
 
   const exportCsv = () => {
     const rows = [["Dátum", "Čas", "Lekár", "Stav", "Zaplatené", "Pacient", "Narodený", "Telefón", "E-mail", "Vyšetrenie", "Cena €", "Žiadanka", "VS", "Objednávka", "Poznámka"]];
@@ -1555,24 +1581,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     URL.revokeObjectURL(a.href);
   };
 
-  const dayOpen = (openSlots[selectedDate] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
-  // objednávka obsadzuje všetky bunky svojho trvania — každá vedie na pacienta
-  const dayOrders = new Map(
-    orders
-      .filter((o) => o.date === selectedDate && isSlotOccupying(o))
-      .flatMap((o) => orderCellTimes(o).map((t) => [t, o]))
-  );
-
-  // Týždenný prehľad: 7 dní od weekStart. Susedné 5-min bunky sa
-  // zlúčia do úsekov — obsadený úsek = jedna objednávka (klik otvorí
-  // kartu pacienta), voľný úsek = súvislé voľno jedného lekára.
   const shiftIso = (iso, days) => {
     const d = new Date(`${iso}T12:00:00`);
     d.setDate(d.getDate() + days);
     return toISODate(d);
   };
-  const week = Array.from({ length: 7 }, (_, i) => {
-    const iso = shiftIso(weekStart, i);
+
+  // Zlúčené úseky dňa: susedné 5-min bunky jednej objednávky (resp.
+  // súvislé voľno jedného lekára) tvoria jeden blok. Voľný blok si
+  // pamätá svoje bunky, aby sa dal zavrieť naraz. Používa týždenný
+  // aj denný pohľad.
+  const daySegmentsFor = (iso) => {
     const cells = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
     const orderByCell = new Map(
       orders.filter((o) => o.date === iso && isSlotOccupying(o)).flatMap((o) => orderCellTimes(o).map((t) => [t, o]))
@@ -1585,13 +1604,25 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         (order && last.order && last.order.id === order.id) ||
         (!order && !last.order && last.doctor === cell.doctor)
       );
-      if (merges) last.end = addMinutes(cell.time, 5);
-      else segments.push({ start: cell.time, end: addMinutes(cell.time, 5), order, doctor: cell.doctor });
+      if (merges) {
+        last.end = addMinutes(cell.time, BASE_SLOT_MIN);
+        if (!order) last.cells.push(cell.time);
+      } else {
+        segments.push({ start: cell.time, end: addMinutes(cell.time, BASE_SLOT_MIN), order, doctor: cell.doctor, cells: order ? [] : [cell.time] });
+      }
     });
     const open = cells.length;
     const free = freeSlotsFor(iso).length;
     return { iso, open, free, booked: open - free, segments };
-  });
+  };
+
+  const week = Array.from({ length: 7 }, (_, i) => daySegmentsFor(shiftIso(weekStart, i)));
+  const daySeg = daySegmentsFor(selectedDate);
+
+  // zavrie všetky voľné 5-min bunky jedného bloku naraz
+  const doCloseSegment = (iso, cellTimes) => run(async () => {
+    for (const t of cellTimes) await onCloseSlot(iso, t);
+  }, "Voľný blok zatvorený.");
 
   const handleOpenWindow = () => {
     run(() => onOpenWindow({
@@ -1656,9 +1687,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
       {view === "overview" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             <StatTile label="dnešný program" value={todayProgram.length} accent="text-[#2B46A2]" />
-            <StatTile label="nové žiadosti" value={pending.length} accent="text-yellow-300" />
+            <StatTile label="na potvrdenie" value={pendingPaid.length} accent="text-[#16A34A]" />
+            <StatTile label="čakajú na platbu" value={pendingUnpaid.length} accent="text-[#856404]" />
             <StatTile label="nezaplatené" value={unpaidCount} accent="text-[#856404]" />
             <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
           </div>
@@ -1692,10 +1724,18 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-yellow-300 mb-2">Nové žiadosti ({pending.length})</h3>
-            {pending.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne žiadosti nečakajú na spracovanie.</p>
-              : <div className="space-y-3">{pending.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
+            <h3 className="text-lg font-bold text-[#16A34A] mb-2">Zaplatené — pripravené na potvrdenie ({pendingPaid.length})</h3>
+            {pendingPaid.length === 0
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna zaplatená žiadosť nečaká na potvrdenie.</p>
+              : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-[#856404] mb-2">Zadané — čakajú na platbu ({pendingUnpaid.length})</h3>
+            <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každých 5 minút; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
+            {pendingUnpaid.length === 0
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
+              : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
           </div>
         </div>
       )}
@@ -1719,7 +1759,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                     title={d.iso}
                     className={`w-full px-1 py-2 rounded-[10px] text-xs font-semibold text-center transition-colors border ${
                       selectedDate === d.iso ? "border-[#2B46A2] bg-[#F0F4FF] text-[#2B46A2]" : d.open === 0 ? "border-[#E0E4EF] bg-[#F0F2F5] text-[#767676]" : "border-[#E0E4EF] bg-white text-[#1A1A2E]"
-                    }`}
+                    }${d.iso === todayIso ? " ring-2 ring-[#2B46A2]/40" : ""}`}
                   >
                     {formatDateShort(d.iso)}
                     <span className="block font-normal">{d.open === 0 ? "zatvorené" : `${d.booked}/${d.open} obsadené`}</span>
@@ -1732,7 +1772,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                         title={`${seg.start}–${seg.end} ${seg.order.patient.name}`}
                         className="w-full text-left bg-[#2B46A2] hover:bg-[#1E3580] text-white rounded-[8px] px-1.5 py-1 text-[11px] leading-tight transition-colors"
                       >
-                        <span className="font-bold">{seg.start}</span>
+                        <span className="font-bold">{seg.start}–{seg.end}</span>
                         <span className="block truncate">{seg.order.patient.name}</span>
                       </button>
                     ) : (
@@ -1751,8 +1791,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </div>
           </div>
 
-          <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 space-y-3">
-            <h3 className="text-sm font-bold text-[#2B46A2]">Otvoriť termíny</h3>
+          <details className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 group">
+            <summary className="text-sm font-bold text-[#2B46A2] cursor-pointer select-none list-none flex items-center gap-2">
+              <span className="inline-block transition-transform group-open:rotate-90">▸</span> Otvoriť termíny
+            </summary>
+            <div className="space-y-3 mt-3">
             <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno a prípadne lekára. Termíny sa otvoria v 5-minútovej mriežke.</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div>
@@ -1793,7 +1836,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <button onClick={handleOpenWindow} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors">
               Otvoriť termíny
             </button>
-          </div>
+            </div>
+          </details>
 
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -1805,37 +1849,41 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 </button>
               </div>
             </div>
-            {dayOpen.length === 0
+            {daySeg.segments.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">V tento deň nie sú otvorené žiadne termíny.</p>
               : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {dayOpen.map((slot) => {
-                    const booked = dayOrders.get(slot.time);
-                    if (booked) {
-                      const active = dayDetailId === booked.id;
+                <div className="space-y-1.5">
+                  <p className="text-xs text-slate-400">{daySeg.booked}/{daySeg.open} obsadené · obsadené bloky otvoríte kliknutím, voľné bloky zavriete krížikom</p>
+                  {daySeg.segments.map((seg) => {
+                    if (seg.order) {
+                      const active = dayDetailId === seg.order.id;
                       return (
                         <button
-                          key={slot.time}
+                          key={seg.start}
                           type="button"
-                          onClick={() => setDayDetailId(active ? null : booked.id)}
-                          className={`p-2 rounded-[10px] text-sm border text-center transition-colors ${active ? "bg-blue-700 border-blue-300 ring-2 ring-blue-300" : "bg-blue-900/70 border-blue-500 hover:bg-blue-800"}`}
+                          onClick={() => setDayDetailId(active ? null : seg.order.id)}
+                          className={`w-full flex items-center gap-3 text-left px-3 py-2 rounded-[10px] border text-white transition-colors ${active ? "bg-[#1E3580] border-[#2B46A2] ring-2 ring-[#2B46A2]/50" : "bg-[#2B46A2] border-[#1E3580] hover:bg-[#1E3580]"}`}
                         >
-                          <span className="font-mono font-bold">{slot.time}</span>
-                          <span className="block text-xs truncate">{booked.patient.name}</span>
-                          <span className="block text-[10px] opacity-75">{usgStatuses[booked.status].label}{booked.paid ? " · zaplatené" : booked.price > 0 ? " · nezaplatené" : ""}</span>
+                          <span className="font-mono font-bold text-sm shrink-0 w-28 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block font-semibold truncate">{seg.order.patient.name}</span>
+                            <span className="block text-xs opacity-80 truncate">{seg.order.exam.label}{seg.order.doctor ? ` · ${seg.order.doctor}` : ""}</span>
+                          </span>
+                          <PaidBadge order={seg.order} />
+                          <span className={`${usgStatuses[seg.order.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[seg.order.status].label}</span>
                         </button>
                       );
                     }
                     return (
-                      <div key={slot.time} className="p-2 rounded-[10px] text-sm bg-green-900/40 border border-green-700 text-center relative">
-                        <span className="font-mono font-bold text-green-200">{slot.time}</span>
-                        <span className="block text-[10px] text-[#16A34A] truncate">{slot.doctor || "voľný termín"}</span>
+                      <div key={seg.start} className="w-full flex items-center gap-3 px-3 py-2 rounded-[10px] border border-dashed border-[#16A34A]/60 bg-[#F0FDF4]">
+                        <span className="font-mono font-bold text-sm text-[#16A34A] shrink-0 w-28 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                        <span className="flex-1 min-w-0 text-sm text-[#16A34A] truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
                         <button
-                          onClick={() => doCloseSlot(selectedDate, slot.time)}
+                          onClick={() => doCloseSegment(selectedDate, seg.cells)}
                           title="Zavrieť termín"
-                          className="absolute top-1 right-1 text-[#16A34A] hover:text-white text-xs leading-none"
+                          className="text-[#D32821] hover:text-[#B01F19] text-xs font-semibold shrink-0"
                         >
-                          ✕
+                          ✕ Zavrieť
                         </button>
                       </div>
                     );
@@ -1865,17 +1913,20 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               placeholder="Hľadať: meno, telefón, lekár, číslo objednávky…"
               className={`flex-1 min-w-48 ${inputDark}`}
             />
-            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={inputDark}>
-              <option value="all">Všetky stavy</option>
-              {Object.entries(usgStatuses).map(([key, st]) => (<option key={key} value={key}>{st.label}</option>))}
-            </select>
-            <select value={fPaid} onChange={(e) => setFPaid(e.target.value)} className={inputDark}>
-              <option value="all">Platba: všetko</option>
-              <option value="paid">Zaplatené</option>
-              <option value="unpaid">Nezaplatené</option>
-            </select>
             <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputDark} />
-            {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-white">✕ dátum</button>}
+            {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-[#1A1A2E]">✕ dátum</button>}
+          </div>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <FilterChip active={fStatus === "all"} onClick={() => setFStatus("all")} label={`Všetky (${textDateFiltered.length})`} />
+            {Object.entries(usgStatuses).map(([key, st]) => (
+              <FilterChip key={key} active={fStatus === key} onClick={() => setFStatus(key)} label={`${st.label} (${statusCounts[key] || 0})`} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-slate-400 mr-1">Platba:</span>
+            <FilterChip active={fPaid === "all"} onClick={() => setFPaid("all")} label="Všetko" />
+            <FilterChip active={fPaid === "paid"} onClick={() => setFPaid("paid")} label={`Zaplatené (${paidCount})`} />
+            <FilterChip active={fPaid === "unpaid"} onClick={() => setFPaid("unpaid")} label={`Nezaplatené (${textDateFiltered.length - paidCount})`} />
           </div>
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-400">{filteredOrders.length} objednávok</p>
@@ -1885,7 +1936,20 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
           {filteredOrders.length === 0
             ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne objednávky nezodpovedajú filtrom.</p>
-            : <div className="space-y-3">{filteredOrders.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
+            : (
+              <div className="space-y-4">
+                {ordersByDay.map((day) => (
+                  <div key={day.date}>
+                    <h4 className="text-sm font-bold text-[#2B46A2] border-b border-[#E0E4EF] pb-1 mb-2">
+                      {formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
+                    </h4>
+                    <div className="space-y-3">
+                      {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       )}
 
