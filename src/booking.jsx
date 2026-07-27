@@ -285,6 +285,10 @@ const PaymentQr = ({ order, settings }) => {
 
 const UsgHero = () => (
   <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 mb-4 text-slate-800">
+    <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 mb-4 text-sm font-semibold">
+      Skúšobná prevádzka: objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné
+      a pracovisko vás môže kontaktovať s upresnením. Ďakujeme za pochopenie.
+    </div>
     <p className="text-xs font-bold tracking-widest text-[#2B46A2] uppercase mb-1">Národný ústav srdcových a cievnych chorôb, a.s.</p>
     <h2 className="text-2xl md:text-3xl font-extrabold text-[#2B46A2] mb-2">
       Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie

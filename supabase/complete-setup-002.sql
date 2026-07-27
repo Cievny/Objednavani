@@ -452,7 +452,9 @@ begin
   where o.status <> 'rejected'
     and o.slot_date >= current_date
     and right(regexp_replace(o.phone, '\D', '', 'g'), 9) = v_phone9;
-  if v_active >= 3 then
+  -- testovacie číslo pracoviska je z limitu vyňaté (porovnáva sa
+  -- posledných 9 číslic, pokryje 0917911202 aj +421917911202)
+  if v_active >= 3 and v_phone9 <> '917911202' then
     raise exception 'Na toto telefónne číslo už evidujeme % aktívne objednávky. Kontaktujte pracovisko.', v_active;
   end if;
 
