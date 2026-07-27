@@ -88,8 +88,16 @@ create or replace function purge_order_files(p_order_id text)
 returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  delete from storage.objects
-  where bucket_id = 'prilohy' and name like p_order_id || '/%';
+  -- Mazanie súborov nesmie zhodiť zrušenie objednávky ani denný výmaz
+  -- (v niektorých Supabase projektoch postgres nemá právo na
+  -- storage.objects). Ak sa nepodarí, súbory ostanú v privátnom
+  -- buckete a odkaz na ne sa aj tak vyčistí.
+  begin
+    delete from storage.objects
+    where bucket_id = 'prilohy' and name like p_order_id || '/%';
+  exception when others then
+    null;
+  end;
 end $$;
 
 create or replace function scrub_on_cancel()
@@ -97,7 +105,7 @@ returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if NEW.status = 'rejected' and OLD.status <> 'rejected' then
-    perform purge_order_files(NEW.id);
+    perform purge_order_files(NEW.id); -- odolné voči chybe storage (viď vyššie)
     NEW.attachments := '[]'::jsonb;
     NEW.reason := '';
     NEW.referrer_name := '';
