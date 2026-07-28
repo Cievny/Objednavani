@@ -434,6 +434,11 @@ language sql security definer set search_path = public as $$
   where o.status <> 'rejected' and o.slot_date >= current_date;
 $$;
 
+-- Variabilný symbol sa prideľuje zo servera zo sekvencie — je vždy
+-- unikátny (na rozdiel od pôvodného klientského Date.now(), ktorý sa
+-- opakoval a mohol spôsobiť spárovanie platby na nesprávnu objednávku).
+create sequence if not exists vs_seq start 1000000000;
+
 create or replace function create_order(
   p_id text, p_exam_type_id text, p_exam_label text, p_price numeric,
   p_has_referral boolean, p_reason text, p_referrer_name text, p_referrer_facility text,
@@ -450,6 +455,7 @@ declare
   v_phone9 text;
   v_active int;
   v_dur    int;
+  v_vs     text;
   n        int;
   v_cell   time;
 begin
@@ -509,6 +515,8 @@ begin
     raise exception 'Termín v minulosti nie je možné objednať.';
   end if;
 
+  v_vs := nextval('vs_seq')::text; -- garantovane unikátny VS zo servera
+
   for n in 0 .. (v_dur / 5 - 1) loop
     v_cell := p_slot_time + (n * 5) * interval '1 minute';
     select s.doctor into v_cell_doctor
@@ -545,10 +553,10 @@ begin
   ) values (
     p_id, p_has_referral, p_exam_type_id, v_item.label, v_price, p_reason,
     coalesce(p_referrer_name, ''), coalesce(p_referrer_facility, ''), p_patient_name, p_birth_date,
-    coalesce(p_insurance, ''), p_phone, coalesce(p_email, ''), p_slot_date, p_slot_time, p_variable_symbol,
+    coalesce(p_insurance, ''), p_phone, coalesce(p_email, ''), p_slot_date, p_slot_time, v_vs,
     coalesce(v_doctor, ''), coalesce(p_attachments, '[]'::jsonb), v_dur
   );
-  return p_id;
+  return v_vs; -- klient zobrazí tento VS v QR platbe
 exception
   when exclusion_violation then
     raise exception 'Vybraný termín bol medzičasom obsadený. Vyberte iný.';

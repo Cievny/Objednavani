@@ -1,11 +1,12 @@
 -- ============================================================
 -- FIO PÁROVANIE 001 — automatické párovanie platieb cez Fio API
 --
--- Každých 5 minút: stiahnu sa nové pohyby na účte (endpoint
--- /last — Fio sám posúva zarážku, každý pohyb príde len raz),
--- podľa variabilného symbolu sa nájde objednávka, označí sa
--- zaplatená a termín sa potvrdí → pacientovi automaticky odíde
--- potvrdzovací e-mail a SMS (existujúce triggery).
+-- Každých 5 minút: stiahnu sa pohyby za posledné 3 dni (endpoint
+-- /periods — NEPOSÚVA zarážku, takže ani pri stratenej odpovedi
+-- sa žiadna platba nestratí; opakované pohyby sa preskočia podľa
+-- unikátneho tx_id). Podľa variabilného symbolu sa nájde
+-- objednávka, označí sa zaplatená a termín sa potvrdí →
+-- pacientovi automaticky odíde potvrdzovací e-mail a SMS.
 --
 -- Nespárovateľné platby (neznámy VS, nižšia suma, iná mena)
 -- sa NEPÁRUJÚ — ostanú v tabuľke fio_payments s poznámkou
@@ -142,8 +143,13 @@ begin
     update fio_requests set processed = true where request_id = r.request_id;
   end loop;
 
-  -- 2. nová požiadavka na banku (odpoveď spracuje ďalší beh)
-  select net.http_get(url := 'https://fioapi.fio.cz/v1/rest/last/' || v_token || '/transactions.json')
+  -- 2. nová požiadavka na banku za posledné 3 dni (odpoveď spracuje
+  -- ďalší beh). /periods neposúva zarážku — okná sa prekrývajú a
+  -- idempotencia cez tx_id zaručí, že sa žiadna platba nestratí ani
+  -- nespáruje dvakrát.
+  select net.http_get(url := 'https://fioapi.fio.cz/v1/rest/periods/' || v_token || '/'
+      || to_char(current_date - 3, 'YYYY-MM-DD') || '/'
+      || to_char(current_date, 'YYYY-MM-DD') || '/transactions.json')
   into v_req;
   insert into fio_requests (request_id) values (v_req);
 

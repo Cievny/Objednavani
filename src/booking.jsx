@@ -572,7 +572,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     };
     setBusy(true);
     try {
-      await onSubmit(order, files);
+      const serverVs = await onSubmit(order, files);
+      if (serverVs) order.variableSymbol = serverVs; // server pridelí unikátny VS pre QR
       setCreatedOrder(order);
       setStep(4);
       setFiles([]);

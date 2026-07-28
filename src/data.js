@@ -230,7 +230,7 @@ export function useBookingData(isStaff) {
         attachments.push({ name: f.name, dataUrl: await readAsDataUrl(f) });
       }
       setOrders((prev) => [...prev, { ...order, attachments }]);
-      return;
+      return order.variableSymbol; // demo: ponechá klientský VS
     }
     const attachments = [];
     for (let i = 0; i < files.length; i++) {
@@ -259,15 +259,17 @@ export function useBookingData(isStaff) {
       p_slot_time: order.time,
       p_variable_symbol: order.variableSymbol,
     };
-    let { error } = await supabase.rpc("create_order", { ...rpcParams, p_attachments: attachments });
+    let { data, error } = await supabase.rpc("create_order", { ...rpcParams, p_attachments: attachments });
     // Iba ak server naozaj nepozná parameter p_attachments (nespustená migrácia),
     // zopakuj bez príloh. Inak (rate-limit, validácia…) chybu NEskrývaj a NEzahoď žiadanku.
     const missingAttachParam = error && (error.code === "PGRST202" || /p_attachments/i.test(error.message || ""));
     if (missingAttachParam) {
-      ({ error } = await supabase.rpc("create_order", rpcParams));
+      ({ data, error } = await supabase.rpc("create_order", rpcParams));
     }
     throwIf(error);
     await reload();
+    // create_order vracia serverom pridelený unikátny variabilný symbol
+    return typeof data === "string" && data ? data : order.variableSymbol;
   };
 
   const openAttachment = async (attachment) => {
