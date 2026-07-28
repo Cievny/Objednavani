@@ -45,6 +45,7 @@ const orderFromRow = (r) => ({
   paid: Boolean(r.paid),
   attachments: Array.isArray(r.attachments) ? r.attachments : [],
   durationMin: r.duration_min == null ? 5 : Number(r.duration_min),
+  rejectedAt: r.rejected_at || "",
 });
 
 const lookupFromJson = (j) => j && ({
@@ -283,7 +284,9 @@ export function useBookingData(isStaff) {
 
   const setStatus = async (orderId, status, statusNote = "") => {
     if (!supabase) {
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status, statusNote } : o)));
+      setOrders((prev) => prev.map((o) => (o.id === orderId
+        ? { ...o, status, statusNote, rejectedAt: status === "rejected" ? new Date().toISOString() : "" }
+        : o)));
       return;
     }
     const { error } = await supabase.from("orders").update({ status, status_note: statusNote }).eq("id", orderId);

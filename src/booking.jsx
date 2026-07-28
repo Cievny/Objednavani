@@ -995,7 +995,22 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             Zrušiť
           </button>
         )}
+        {order.status === "rejected" && (
+          <button
+            onClick={() => onSetStatus(order.id, "new", "Obnovené z koša")}
+            className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+          >
+            Obnoviť z koša
+          </button>
+        )}
       </div>
+      {order.status === "rejected" && (
+        <p className="text-xs text-[#856404]">
+          V koši — definitívne sa vymaže {order.rejectedAt
+            ? new Date(new Date(order.rejectedAt).getTime() + 7 * 86400000).toLocaleDateString("sk-SK")
+            : "7 dní po zrušení"}. Ak je pôvodný termín medzičasom obsadený, obnovenie vypíše chybu.
+        </p>
+      )}
 
       {resched && (
         <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-purple-600">
@@ -1923,7 +1938,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <div className="flex flex-wrap gap-1.5 items-center">
             <FilterChip active={fStatus === "all"} onClick={() => setFStatus("all")} label={`Všetky (${textDateFiltered.length})`} />
             {Object.entries(usgStatuses).map(([key, st]) => (
-              <FilterChip key={key} active={fStatus === key} onClick={() => setFStatus(key)} label={`${st.label} (${statusCounts[key] || 0})`} />
+              <FilterChip key={key} active={fStatus === key} onClick={() => setFStatus(key)} label={`${key === "rejected" ? "Kôš" : st.label} (${statusCounts[key] || 0})`} />
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5 items-center">

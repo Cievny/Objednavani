@@ -100,16 +100,20 @@ begin
   end;
 end $$;
 
+-- KÔŠ: zrušená objednávka sa hneď nemaže — ostáva 7 dní obnoviteľná
+-- (definitívny výmaz robí purge_orders podľa rejected_at). Trigger len
+-- eviduje čas zrušenia; pri obnovení z koša ho vynuluje.
+alter table orders add column if not exists rejected_at timestamptz;
+update orders set rejected_at = now() where status = 'rejected' and rejected_at is null;
+
 create or replace function scrub_on_cancel()
 returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if NEW.status = 'rejected' and OLD.status <> 'rejected' then
-    perform purge_order_files(NEW.id); -- odolné voči chybe storage (viď vyššie)
-    NEW.attachments := '[]'::jsonb;
-    NEW.reason := '';
-    NEW.referrer_name := '';
-    NEW.referrer_facility := '';
+    NEW.rejected_at := now();
+  elsif NEW.status <> 'rejected' and OLD.status = 'rejected' then
+    NEW.rejected_at := null; -- obnovené z koša
   end if;
   return NEW;
 end $$;
@@ -274,8 +278,9 @@ begin
   for r in
     select id from orders
     where (attachments <> '[]'::jsonb or reason <> '' or referrer_name <> '')
+      and status <> 'rejected' -- zrušené rieši kôš (7 dní od zrušenia nižšie)
       and (
-        (slot_date < current_date and status in ('new', 'rejected', 'noshow'))
+        (slot_date < current_date and status in ('new', 'noshow'))
         or slot_date <= current_date - 7
       )
   loop
@@ -283,6 +288,19 @@ begin
     update orders set attachments = '[]'::jsonb, reason = '', referrer_name = '', referrer_facility = ''
     where id = r.id;
     v_scrub := v_scrub + 1;
+  end loop;
+
+  -- KÔŠ: zrušené objednávky sa definitívne mažú 7 dní po zrušení
+  for r in
+    select id, slot_date, exam_type_id, status, doctor from orders
+    where status = 'rejected' and coalesce(rejected_at, now()) <= now() - interval '7 days'
+  loop
+    perform purge_order_files(r.id);
+    insert into usg_stats (day, exam_type_id, status, doctor, cnt, paid_cnt, paid_eur)
+    values (r.slot_date, r.exam_type_id, r.status, coalesce(r.doctor, ''), 1, 0, 0)
+    on conflict (day, exam_type_id, status, doctor) do update set cnt = usg_stats.cnt + 1;
+    delete from orders where id = r.id;
+    v_old := v_old + 1;
   end loop;
 
   for r in
@@ -304,7 +322,7 @@ begin
 
   for r in
     select id, slot_date, exam_type_id, status, doctor from orders
-    where slot_date < current_date - 28 and status <> 'done'
+    where slot_date < current_date - 28 and status not in ('done', 'rejected')
   loop
     perform purge_order_files(r.id);
     insert into usg_stats (day, exam_type_id, status, doctor, cnt, paid_cnt, paid_eur)
