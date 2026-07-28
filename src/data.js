@@ -44,7 +44,7 @@ const orderFromRow = (r) => ({
   doctor: r.doctor || "",
   paid: Boolean(r.paid),
   attachments: Array.isArray(r.attachments) ? r.attachments : [],
-  durationMin: r.duration_min == null ? 5 : Number(r.duration_min),
+  durationMin: r.duration_min == null ? 10 : Number(r.duration_min),
   rejectedAt: r.rejected_at || "",
 });
 
@@ -68,7 +68,7 @@ const pricelistFromRows = (rows) =>
     priceSelf: Number(r.price_self),
     priceReferral: r.price_referral == null ? null : Number(r.price_referral),
     instructions: r.instructions || "",
-    durationSlots: r.duration_slots == null ? 1 : Number(r.duration_slots),
+    durationSlots: r.duration_slots == null ? 2 : Math.max(2, Number(r.duration_slots)),
   }));
 
 const groupSlots = (rows) => {
@@ -201,7 +201,7 @@ export function useBookingData(isStaff) {
   // všetky 10-min bunky svojho trvania
   const expandOrderCells = (o) => {
     const [h, m] = (o.time || "00:00").split(":").map(Number);
-    const n = Math.max(1, Math.round((o.durationMin || 5) / 5));
+    const n = Math.max(1, Math.round((o.durationMin || 10) / 5));
     return Array.from({ length: n }, (_, i) => {
       const mins = h * 60 + m + i * 5;
       return { date: o.date, time: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
@@ -376,6 +376,18 @@ export function useBookingData(isStaff) {
     await reload();
   };
 
+  // zmena lekára objednávky — termín a čas sa nemenia; e-mail/SMS
+  // pacientovi posiela databázový trigger
+  const changeDoctor = async (orderId, doctor) => {
+    if (!supabase) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, doctor } : o)));
+      return;
+    }
+    const { error } = await supabase.from("orders").update({ doctor }).eq("id", orderId);
+    throwIf(error);
+    await reload();
+  };
+
   const saveSettings = async (next) => {
     if (!supabase) { setSettings(next); return; }
     const { error } = await supabase.from("settings").upsert(
@@ -500,7 +512,7 @@ export function useBookingData(isStaff) {
   return {
     isSupabase: isSupabaseConfigured, loading,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, setPaid, reschedule, openWindow, closeSlot, closeDay,
+    addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
     listStaff, setStaffRole, removeStaffRole, checkPayments,
     lookupOrder, cancelOrder, openAttachment,

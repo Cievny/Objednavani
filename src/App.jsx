@@ -5,7 +5,7 @@ import { useAuth, useBookingData } from "./data.js";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v28";
+const APP_VERSION = "v29";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -121,6 +121,8 @@ export default function App() {
   const isAdminRoute = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/sprava");
   // Právne stránky (VOP a ochrana osobných údajov) — dostupné z pätičky a z formulára
   const legalPage = hash.startsWith("#/podmienky") ? "vop" : hash.startsWith("#/osobne-udaje") ? "privacy" : null;
+  // Deep-link z e-mailov: #/objednavka/USG-… otvorí overenie objednávky s predvyplneným číslom
+  const orderLinkId = hash.startsWith("#/objednavka/") ? decodeURIComponent(hash.slice("#/objednavka/".length)) : "";
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -145,6 +147,7 @@ export default function App() {
         onSetStatus={data.setStatus}
         onSetPaid={data.setPaid}
         onReschedule={data.reschedule}
+        onChangeDoctor={data.changeDoctor}
         onSaveSettings={data.saveSettings}
         onSavePricelist={data.savePricelist}
         onSavePricelistOrder={data.savePricelistOrder}
@@ -224,7 +227,7 @@ export default function App() {
                 onSubmit={data.addOrder}
               />
             )}
-            <OrderLookup onLookup={data.lookupOrder} onCancel={data.cancelOrder} settings={data.settings} />
+            <OrderLookup onLookup={data.lookupOrder} onCancel={data.cancelOrder} settings={data.settings} initialOrderId={orderLinkId} defaultOpen={Boolean(orderLinkId)} />
           </>
         )}
       </main>

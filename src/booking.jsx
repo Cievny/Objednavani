@@ -61,7 +61,7 @@ const defaultPricelist = [
   { id: "consultation", label: "USG vyšetrenie a komplexná rádiologická konzultácia prinesených materiálov", priceSelf: 90, priceReferral: null },
 ];
 // čerstvé inštalácie a demo majú štandardnú prípravu predvyplnenú
-defaultPricelist.forEach((p) => { p.instructions = standardInstructions[p.id] || ""; p.durationSlots = p.durationSlots || 1; });
+defaultPricelist.forEach((p) => { p.instructions = standardInstructions[p.id] || ""; p.durationSlots = Math.max(2, p.durationSlots || 2); });
 
 function normalizePricelist(list) {
   if (Array.isArray(list) && list.length > 0 && list.every((i) => i && typeof i.priceSelf === "number")) {
@@ -474,22 +474,39 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     return map;
   }, [occupied]);
 
-  // Voľné ZAČIATKY: vyšetrenie trvá durationSlots × 10 min, takže
-  // všetky pokryté 10-min bunky musia byť otvorené (ten istý lekár)
-  // a žiadna nesmie byť obsadená.
+  // Ponuka ZAČIATKOV pre pacienta: z voľných súvislých úsekov (rovnaký
+  // lekár, žiadna bunka obsadená) sa ponúkajú časy natesno od začiatku
+  // úseku (start, start+D, start+2D…) a z celého dňa len NAJSKORŠIE 3.
+  // Takto sa okná zapĺňajú od začiatku a nevznikajú diery.
+  const OFFERED_PER_DAY = 3;
   const freeSlotsFor = (isoDate) => {
-    const open = openSlots[isoDate] || [];
-    const openByTime = new Map(open.map((slot) => [slot.time, slot]));
+    const open = (openSlots[isoDate] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
     const taken = takenByDate.get(isoDate) || new Set();
-    const need = examType?.durationSlots || 1;
-    return open.filter((slot) => {
-      if (examType && !doctorDoesExam(settings.doctors, slot.doctor, examType.id)) return false;
-      for (let i = 0; i < need; i++) {
-        const cell = openByTime.get(addMinutes(slot.time, i * BASE_SLOT_MIN));
-        if (!cell || cell.doctor !== slot.doctor || taken.has(cell.time)) return false;
+    const need = examType?.durationSlots || 2;
+    const durMin = need * BASE_SLOT_MIN;
+
+    // súvislé voľné úseky jedného lekára (lekár musí robiť dané vyšetrenie)
+    const runs = [];
+    open.forEach((cell) => {
+      if (taken.has(cell.time)) return;
+      if (examType && !doctorDoesExam(settings.doctors, cell.doctor, examType.id)) return;
+      const last = runs[runs.length - 1];
+      if (last && last.doctor === cell.doctor && addMinutes(last.start, last.len * BASE_SLOT_MIN) === cell.time) {
+        last.len += 1;
+      } else {
+        runs.push({ start: cell.time, doctor: cell.doctor, len: 1 });
       }
-      return true;
     });
+
+    const candidates = [];
+    runs.forEach((run) => {
+      const runMin = run.len * BASE_SLOT_MIN;
+      for (let offset = 0; offset + durMin <= runMin; offset += durMin) {
+        candidates.push({ time: addMinutes(run.start, offset), doctor: run.doctor });
+      }
+    });
+    candidates.sort((a, b) => a.time.localeCompare(b.time));
+    return candidates.slice(0, OFFERED_PER_DAY);
   };
 
   const todayIso = toISODate(new Date());
@@ -679,9 +696,10 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                 {form.date ? (
                   <>
                     <p className="font-semibold text-slate-700 mb-2 capitalize">{formatDateHuman(form.date)}</p>
-                    {(examType?.durationSlots || 1) > 1 && (
-                      <p className="text-xs text-slate-500 mb-2">Toto vyšetrenie trvá približne {(examType.durationSlots || 1) * BASE_SLOT_MIN} minút — čas nižšie je začiatok vyšetrenia.</p>
-                    )}
+                    <p className="text-xs text-slate-500 mb-2">
+                      Vyšetrenie trvá približne {(examType?.durationSlots || 2) * BASE_SLOT_MIN} minút.
+                      Ponúkame najbližšie voľné časy dňa — po obsadení sa automaticky uvoľnia ďalšie.
+                    </p>
                     <div className="grid grid-cols-3 gap-2">
                       {freeSlotsFor(form.date).map((slot) => (
                         <button
@@ -933,12 +951,16 @@ const cancelReasons = [
   "Testovacia objednávka",
 ];
 
-const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor, onOpenAttachment }) => {
+const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor, onOpenAttachment, doctors = [], onChangeDoctor }) => {
   const status = usgStatuses[order.status];
   const [resched, setResched] = useState(false);
   const [reschedDate, setReschedDate] = useState(order.date);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelText, setCancelText] = useState("");
+  const [docOpen, setDocOpen] = useState(false);
+  const [docChoice, setDocChoice] = useState("");
+  // na výber len lekári, ktorí dané vyšetrenie robia (okrem aktuálneho)
+  const docOptions = normalizeDoctors(doctors).filter((d) => d.name !== order.doctor && doctorDoesExam(doctors, d.name, order.exam.typeId));
   const canAct = order.status === "new" || order.status === "confirmed";
   const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate) : [];
   const doCancel = (reason) => {
@@ -959,6 +981,9 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             {order.hasReferral ? "ŽIADANKA" : "SAMOPLATCA"}
           </span>
           <PaidBadge order={order} />
+          {order.status === "rejected" && order.paid && order.price > 0 && (
+            <span className="bg-[#D32821] text-white text-xs font-bold px-2 py-1 rounded">VRÁTIŤ PLATBU</span>
+          )}
           <span className={`${status.badge} text-xs font-bold px-2 py-1 rounded`}>{status.label}</span>
         </div>
       </div>
@@ -1018,6 +1043,11 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             {resched ? "Zavrieť presun" : "Presunúť"}
           </button>
         )}
+        {canAct && onChangeDoctor && docOptions.length > 0 && (
+          <button onClick={() => { setDocOpen(!docOpen); setDocChoice(""); }} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
+            {docOpen ? "Zavrieť zmenu lekára" : "Zmeniť lekára"}
+          </button>
+        )}
         {canAct && (
           <button
             onClick={() => setCancelOpen((v) => !v)}
@@ -1035,6 +1065,29 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
           </button>
         )}
       </div>
+      {docOpen && canAct && (
+        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-[#2B46A2]/40">
+          <p className="text-sm font-semibold text-[#2B46A2]">Zmeniť lekára (napr. pri PN) — termín a čas sa nemenia:</p>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={docChoice}
+              onChange={(e) => setDocChoice(e.target.value)}
+              className="flex-1 min-w-48 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+            >
+              <option value="">— vyberte nového lekára —</option>
+              {docOptions.map((d) => (<option key={d.name} value={d.name}>{d.name}{d.location ? ` (${d.location})` : ""}</option>))}
+            </select>
+            <button
+              disabled={!docChoice}
+              onClick={() => { onChangeDoctor(order.id, docChoice); setDocOpen(false); }}
+              className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors shrink-0"
+            >
+              Potvrdiť zmenu
+            </button>
+          </div>
+          <p className="text-xs text-slate-400">Pacient dostane e-mail a SMS s novým lekárom a miestom vyšetrenia — s uistením, že kvalita vyšetrenia sa nemení.</p>
+        </div>
+      )}
       {cancelOpen && canAct && (
         <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-red-300">
           <p className="text-sm font-semibold text-[#D32821]">Dôvod zrušenia (uvidí ho aj pacient pri overení objednávky):</p>
@@ -1111,7 +1164,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
     priceSelf: String(r.priceSelf),
     priceReferral: r.priceReferral == null ? "" : String(r.priceReferral),
     instructions: r.instructions || "",
-    durationSlots: r.durationSlots || 1,
+    durationSlots: Math.max(2, r.durationSlots || 2),
   }));
   const [rows, setRows] = useState(() => toDrafts(pricelist));
   const [saved, setSaved] = useState(false);
@@ -1129,7 +1182,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   };
   const addRow = () => {
     setSaved(false);
-    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "", instructions: "", durationSlots: 1 }]);
+    setRows((prev) => [...prev, { id: `item-${Date.now()}`, label: "", priceSelf: "", priceReferral: "", instructions: "", durationSlots: 2 }]);
   };
 
   const parsePrice = (value) => {
@@ -1145,7 +1198,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         priceSelf: parsePrice(r.priceSelf),
         priceReferral: r.priceReferral.trim() === "" ? null : parsePrice(r.priceReferral),
         instructions: (r.instructions || "").trim(),
-        durationSlots: Number(r.durationSlots) || 1,
+        durationSlots: Math.max(2, Number(r.durationSlots) || 2),
       }))
       .filter((r) => r.label && r.priceSelf != null);
     onSave(cleaned);
@@ -1187,7 +1240,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
                 className="w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                 title="Trvanie vyšetrenia (násobok 5-min slotu)"
               >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => <option key={n} value={n}>{n * BASE_SLOT_MIN} min</option>)}
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => <option key={n} value={n}>{n * BASE_SLOT_MIN} min</option>)}
               </select>
               <input
                 value={row.priceSelf}
@@ -1542,7 +1595,7 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1592,6 +1645,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const doSetStatus = (...args) => run(() => onSetStatus(...args), "Uložené.");
   const doSetPaid = (...args) => run(() => onSetPaid(...args), "Platba zaznamenaná.");
   const doReschedule = (...args) => run(() => onReschedule(...args), "Termín presunutý.");
+  const doChangeDoctor = (...args) => run(() => onChangeDoctor(...args), "Lekár zmenený — pacient dostane notifikáciu.");
   const doCloseSlot = (...args) => run(() => onCloseSlot(...args), "Termín zatvorený.");
   const doCloseDay = (...args) => run(() => onCloseDay(...args), "Voľné termíny dňa zatvorené.");
   const doOpenAttachment = (...args) => run(() => onOpenAttachment(...args));
@@ -1808,7 +1862,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <h3 className="text-lg font-bold text-[#16A34A] mb-2">Zaplatené — pripravené na potvrdenie ({pendingPaid.length})</h3>
             {pendingPaid.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna zaplatená žiadosť nečaká na potvrdenie.</p>
-              : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
+              : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
 
           <div>
@@ -1816,7 +1870,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každých 5 minút; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
             {pendingUnpaid.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
-              : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}</div>}
+              : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
         </div>
       )}
@@ -1990,7 +2044,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               return (
                 <div className="mt-3">
                   <p className="text-xs text-slate-400 mb-1">Detail objednávky — {o.time}</p>
-                  <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />
+                  <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />
                 </div>
               );
             })()}
@@ -2038,7 +2092,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       {formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
                     </h4>
                     <div className="space-y-3">
-                      {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} />))}
+                      {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}
                     </div>
                   </div>
                 ))}
@@ -2163,8 +2217,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 };
 
 // Overenie / zrušenie objednávky pacientom (podľa čísla objednávky + telefónu)
-const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings }) => {
-  const [orderId, setOrderId] = useState("");
+const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings, initialOrderId = "", defaultOpen = false }) => {
+  const [orderId, setOrderId] = useState(initialOrderId);
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
   const [message, setMessage] = useState("");
@@ -2197,9 +2251,12 @@ const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings }) => {
   };
 
   const canCancel = found && (found.status === "new" || found.status === "confirmed");
+  // zrušenie online je možné len do 48 hodín pred termínom (rovnaké pravidlo stráži aj databáza)
+  const hoursUntil = found ? (new Date(`${found.date}T${found.time || "00:00"}:00`) - new Date()) / 3600000 : 0;
+  const cancelAllowed = canCancel && hoursUntil >= 48;
 
   return (
-    <details className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] mt-4 text-slate-800">
+    <details open={defaultOpen || undefined} className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] mt-4 text-slate-800">
       <summary className="p-5 font-bold text-[#2B46A2] cursor-pointer select-none">Už máte objednávku? Overiť stav alebo zrušiť</summary>
       <div className="px-5 pb-5 space-y-3">
         <div className="grid md:grid-cols-2 gap-3">
@@ -2241,16 +2298,27 @@ const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings }) => {
                 Platba: <strong className={found.paid ? "text-emerald-600" : "text-amber-600"}>{found.paid ? "Zaplatené" : "Čaká na platbu"}</strong>
               </p>
             )}
-            {canCancel && (
+            {found.status === "rejected" && found.paid && found.price > 0 && (
+              <p className="text-sm bg-[#EAF0FF] border border-[#2B46A2]/30 rounded-[10px] p-2 text-[#2B46A2] font-semibold">
+                Platbu vám vrátime prevodom na účet, z ktorého prišla.
+              </p>
+            )}
+            {cancelAllowed && (
               <>
                 <button onClick={cancel} disabled={busy} className="bg-[#D32821] hover:bg-[#B01F19] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-[10px] transition-colors">
                   Zrušiť objednávku
                 </button>
                 <p className="text-xs text-slate-500">
-                  Pri zrušení najneskôr 48 hodín pred termínom vraciame platbu v plnej výške; neskoršie zrušenie
+                  Pri zrušení najneskôr 48 hodín pred termínom vraciame platbu v plnej výške; podrobnosti
                   upravujú <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-[#2B46A2] font-semibold hover:underline">podmienky objednávania</a>.
                 </p>
               </>
+            )}
+            {canCancel && !cancelAllowed && (
+              <p className="text-xs bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] p-2 text-[#856404] font-semibold">
+                Do termínu zostáva menej ako 48 hodín — online zrušenie už nie je možné.
+                Ak sa nemôžete dostaviť, kontaktujte prosím pracovisko telefonicky.
+              </p>
             )}
           </div>
         )}

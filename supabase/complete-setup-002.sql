@@ -175,9 +175,24 @@ end $$;
 create or replace function cancel_order(p_id text, p_phone text)
 returns boolean
 language plpgsql security definer set search_path = public as $$
-declare v_count int;
+declare
+  v_count int;
+  v_when timestamptz;
 begin
   perform check_lookup_limit('cancel:' || upper(coalesce(p_id, '')));
+
+  -- pacient môže online zrušiť najneskôr 48 hodín pred termínom
+  select (o.slot_date + o.slot_time)::timestamptz into v_when
+  from orders o
+  where upper(o.id) = upper(p_id)
+    and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9
+    and right(regexp_replace(o.phone, '\D', '', 'g'), 9)
+      = right(regexp_replace(p_phone, '\D', '', 'g'), 9)
+    and o.status in ('new', 'confirmed');
+  if v_when is not null and v_when - now() < interval '48 hours' then
+    raise exception 'Do termínu zostáva menej ako 48 hodín — zrušenie je možné už len telefonicky na pracovisku.';
+  end if;
+
   update orders o set status = 'rejected', status_note = 'Zrušené pacientom'
   where upper(o.id) = upper(p_id)
     and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9
@@ -471,7 +486,7 @@ begin
   if p_price is distinct from v_price then
     raise exception 'Cenník sa medzičasom zmenil. Obnovte stránku a skúste znova.';
   end if;
-  v_dur := coalesce(v_item.duration_slots, 1) * 5;
+  v_dur := greatest(coalesce(v_item.duration_slots, 2), 2) * 5; -- minimálne trvanie 10 min
 
   select count(*) into v_active
   from orders o
