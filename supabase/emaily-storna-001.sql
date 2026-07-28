@@ -36,6 +36,7 @@ returns text language sql stable set search_path = public as $$
     || '<p style="margin:0 0 6px"><a href="https://objednanie.cievny.sk/#/objednavka/' || p_order_id
     || '" style="color:#2B46A2;font-weight:bold">Spravovať alebo zrušiť objednávku</a>'
     || ' — online zrušenie je možné najneskôr 48 hodín pred termínom.</p>'
+    || '<p style="margin:0 0 6px">Kontakt: SMS na 0949 000 677 (uveďte číslo objednávky)</p>'
     || '<p style="margin:0 0 6px">Národný ústav srdcových a cievnych chorôb, a.s. · Pod Krásnou hôrkou 1, Bratislava</p>'
     || '<p style="margin:0 0 6px"><a href="https://objednanie.cievny.sk/#/podmienky" style="color:#2B46A2">Podmienky online objednávania</a> · '
     || '<a href="https://objednanie.cievny.sk/#/osobne-udaje" style="color:#2B46A2">Ochrana osobných údajov</a></p>'
@@ -343,7 +344,7 @@ begin
     and o.status in ('new', 'confirmed');
 
   if v_when is not null and v_when - now() < interval '48 hours' then
-    raise exception 'Do termínu zostáva menej ako 48 hodín — zrušenie je možné už len telefonicky na pracovisku.';
+    raise exception 'Do termínu zostáva menej ako 48 hodín — napíšte nám SMS s číslom objednávky na 0949 000 677.';
   end if;
 
   update orders o set status = 'rejected', status_note = 'Zrušené pacientom'

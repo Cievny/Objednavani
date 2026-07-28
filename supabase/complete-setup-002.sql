@@ -190,7 +190,7 @@ begin
       = right(regexp_replace(p_phone, '\D', '', 'g'), 9)
     and o.status in ('new', 'confirmed');
   if v_when is not null and v_when - now() < interval '48 hours' then
-    raise exception 'Do termínu zostáva menej ako 48 hodín — zrušenie je možné už len telefonicky na pracovisku.';
+    raise exception 'Do termínu zostáva menej ako 48 hodín — napíšte nám SMS s číslom objednávky na 0949 000 677.';
   end if;
 
   update orders o set status = 'rejected', status_note = 'Zrušené pacientom'
@@ -496,7 +496,7 @@ begin
   -- testovacie číslo pracoviska je z limitu vyňaté (porovnáva sa
   -- posledných 9 číslic, pokryje 0917911202 aj +421917911202)
   if v_active >= 3 and v_phone9 <> '917911202' then
-    raise exception 'Na toto telefónne číslo už evidujeme % aktívne objednávky. Kontaktujte pracovisko.', v_active;
+    raise exception 'Na toto telefónne číslo už evidujeme % aktívne objednávky. Ak potrebujete ďalší termín, napíšte SMS na 0949 000 677.', v_active;
   end if;
 
   if jsonb_typeof(coalesce(p_attachments, '[]'::jsonb)) <> 'array'

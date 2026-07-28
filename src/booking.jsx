@@ -2317,7 +2317,7 @@ const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings, initialOr
             {canCancel && !cancelAllowed && (
               <p className="text-xs bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] p-2 text-[#856404] font-semibold">
                 Do termínu zostáva menej ako 48 hodín — online zrušenie už nie je možné.
-                Ak sa nemôžete dostaviť, kontaktujte prosím pracovisko telefonicky.
+                Ak sa nemôžete dostaviť, pošlite nám SMS s číslom objednávky na 0949 000 677.
               </p>
             )}
           </div>
