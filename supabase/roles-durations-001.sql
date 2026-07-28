@@ -1,4 +1,6 @@
 -- ============================================================
+-- ⚠ ZASTARANÉ — NESPÚŠŤAŤ. Nahradené súborom complete-setup-002.sql,
+-- ktorý obsahuje aktuálne a správne definície. Ponechané len pre históriu.
 -- ROLES + DURATIONS 001
 --   1. Roly personálu: superadmin / sestra / lekar (RLS)
 --   2. Štatistika na odmeny: usg_stats + lekár + zaplatená suma

@@ -1,4 +1,6 @@
 -- ============================================================
+-- ⚠ ZASTARANÉ — NESPÚŠŤAŤ. Nahradené súborom complete-setup-002.sql,
+-- ktorý obsahuje aktuálne a správne definície. Ponechané len pre históriu.
 -- ADMIN USERS 001 — správa rolí priamo v aplikácii
 --
 -- Superadmin dostane v správe objednávok záložku „Používatelia":

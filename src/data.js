@@ -46,6 +46,7 @@ const orderFromRow = (r) => ({
   attachments: Array.isArray(r.attachments) ? r.attachments : [],
   durationMin: r.duration_min == null ? 10 : Number(r.duration_min),
   rejectedAt: r.rejected_at || "",
+  paidAt: r.paid_at || "",
 });
 
 const lookupFromJson = (j) => j && ({
@@ -91,7 +92,7 @@ const normalizeLocalSlots = (map) => {
 
 const friendlyDbError = (error) => {
   if (!error) return null;
-  if (error.code === "23505") return new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný.");
+  if (error.code === "23505" || error.code === "23P01") return new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný.");
   return new Error(error.message || "Operácia zlyhala. Skúste to znova.");
 };
 
@@ -259,8 +260,10 @@ export function useBookingData(isStaff) {
       p_variable_symbol: order.variableSymbol,
     };
     let { error } = await supabase.rpc("create_order", { ...rpcParams, p_attachments: attachments });
-    if (error && /create_order/i.test(error.message || "")) {
-      // server ešte bez podpory príloh (nespustená migrácia) — objednávka prejde bez nich
+    // Iba ak server naozaj nepozná parameter p_attachments (nespustená migrácia),
+    // zopakuj bez príloh. Inak (rate-limit, validácia…) chybu NEskrývaj a NEzahoď žiadanku.
+    const missingAttachParam = error && (error.code === "PGRST202" || /p_attachments/i.test(error.message || ""));
+    if (missingAttachParam) {
       ({ error } = await supabase.rpc("create_order", rpcParams));
     }
     throwIf(error);

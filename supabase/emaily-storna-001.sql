@@ -335,7 +335,7 @@ declare
 begin
   perform check_lookup_limit('cancel:' || upper(coalesce(p_id, '')));
 
-  select (o.slot_date + o.slot_time)::timestamptz into v_when
+  select ((o.slot_date + o.slot_time) at time zone 'Europe/Bratislava') into v_when
   from orders o
   where upper(o.id) = upper(p_id)
     and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9

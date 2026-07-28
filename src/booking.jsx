@@ -108,12 +108,6 @@ const defaultSettings = {
   doctors: [], // mená lekárov priraditeľných k termínom
 };
 
-// Sloty po 20 minút, ktoré môže pracovisko otvoriť
-const SLOT_START_MINUTES = 7 * 60 + 30;
-const SLOT_END_MINUTES = 14 * 60 + 30;
-const SLOT_LENGTH_MINUTES = 20;
-const EXAM_DURATION_LABEL = "20 min";
-
 export function generateWindowSlots(fromTime, toTime, stepMinutes) {
   const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const from = toMin(fromTime);
@@ -126,16 +120,6 @@ export function generateWindowSlots(fromTime, toTime, stepMinutes) {
   }
   return slots;
 }
-
-function generateDaySlots() {
-  const slots = [];
-  for (let m = SLOT_START_MINUTES; m + SLOT_LENGTH_MINUTES <= SLOT_END_MINUTES; m += SLOT_LENGTH_MINUTES) {
-    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
-  }
-  return slots;
-}
-
-const allDaySlots = generateDaySlots();
 
 // --- 2. POMOCNÉ FUNKCIE ---
 
@@ -190,7 +174,7 @@ export function addMinutes(t, mins) {
 
 // 10-min bunky, ktoré objednávka obsadzuje (podľa trvania vyšetrenia)
 export function orderCellTimes(order) {
-  const n = Math.max(1, Math.round((order.durationMin || BASE_SLOT_MIN) / BASE_SLOT_MIN));
+  const n = Math.max(1, Math.round((order.durationMin || 10) / BASE_SLOT_MIN));
   return Array.from({ length: n }, (_, i) => addMinutes(order.time, i * BASE_SLOT_MIN));
 }
 
@@ -382,9 +366,9 @@ const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSele
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <button type="button" onClick={() => onMonthChange(-1)} className="w-9 h-9 rounded-full hover:bg-slate-100 text-slate-600 font-bold text-lg transition-colors">‹</button>
+        <button type="button" aria-label="Predchádzajúci mesiac" onClick={() => onMonthChange(-1)} className="w-9 h-9 rounded-full hover:bg-slate-100 text-slate-600 font-bold text-lg transition-colors">‹</button>
         <span className="font-bold text-slate-800 capitalize">{monthLabel}</span>
-        <button type="button" onClick={() => onMonthChange(1)} className="w-9 h-9 rounded-full hover:bg-slate-100 text-slate-600 font-bold text-lg transition-colors">›</button>
+        <button type="button" aria-label="Nasledujúci mesiac" onClick={() => onMonthChange(1)} className="w-9 h-9 rounded-full hover:bg-slate-100 text-slate-600 font-bold text-lg transition-colors">›</button>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 mb-1">
         {["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].map((d) => (<span key={d} className="py-1">{d}</span>))}
@@ -561,7 +545,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     const order = {
       id: `USG-${Date.now().toString(36).toUpperCase()}`,
       variableSymbol: String(Date.now()).slice(-10),
-      durationMin: (examType?.durationSlots || 1) * BASE_SLOT_MIN,
+      durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
       createdAt: new Date().toISOString(),
       status: "new",
       statusNote: "",
@@ -656,7 +640,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                   >
                     <span>
                       <span className="font-semibold text-slate-800 text-sm">{t.label}</span>
-                      <span className="block text-xs text-slate-400 mt-0.5">⏱ {EXAM_DURATION_LABEL}</span>
+                      <span className="block text-xs text-slate-400 mt-0.5">{(t.durationSlots || 2) * BASE_SLOT_MIN} min</span>
                     </span>
                     <span className="text-[#2B46A2] font-bold whitespace-nowrap">{formatPrice(priceFor(t))}</span>
                   </button>
@@ -754,7 +738,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             </div>
             <div>
               <label className={labelCls}>Telefón *</label>
-              <input required value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
+              <input required type="tel" inputMode="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>E-mail *</label>
@@ -780,7 +764,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                 {files.map((f, i) => (
                   <li key={`${f.name}-${i}`} className="flex items-center justify-between text-sm bg-slate-50 border border-slate-200 rounded-[10px] px-3 py-1.5">
                     <span className="truncate">📎 {f.name} <span className="text-slate-400 text-xs">({Math.max(1, Math.round(f.size / 1024))} kB)</span></span>
-                    <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-700 font-bold ml-2">✕</button>
+                    <button type="button" aria-label="Odstrániť prílohu" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-700 font-bold ml-2">✕</button>
                   </li>
                 ))}
               </ul>
@@ -862,7 +846,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               const d = createdOrder.date.replace(/-/g, "");
               const [h, m] = createdOrder.time.split(":").map(Number);
               const pad = (n) => String(n).padStart(2, "0");
-              const endMin = h * 60 + m + 20;
+              const endMin = h * 60 + m + (createdOrder.durationMin || 10);
               const ics = [
                 "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NUSCH//USG//SK", "BEGIN:VEVENT",
                 `UID:${createdOrder.id}@nusch`, `DTSTART:${d}T${pad(h)}${pad(m)}00`,
@@ -990,12 +974,12 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       <p className="text-sm">
         <strong className="text-[#2B46A2]">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
         {order.price != null && (
-          <span className="text-yellow-300 font-bold ml-2">
+          <span className="text-[#2B46A2] font-bold ml-2">
             {formatPrice(order.price)}{order.hasReferral ? " (doplatok)" : ""}
           </span>
         )}
       </p>
-      {order.doctor && <p className="text-sm text-teal-300">Lekár: {order.doctor}</p>}
+      {order.doctor && <p className="text-sm text-[#2B46A2]">Lekár: {order.doctor}</p>}
       <p className="text-sm text-[#444444] italic">{order.exam.reason}</p>
       {order.hasReferral && order.exam.referrerName && (
         <p className="text-xs text-slate-400">
@@ -1039,7 +1023,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
           </>
         )}
         {canAct && onReschedule && (
-          <button onClick={() => { setResched(!resched); setReschedDate(order.date); }} className="bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+          <button onClick={() => { setResched(!resched); setReschedDate(order.date); }} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
             {resched ? "Zavrieť presun" : "Presunúť"}
           </button>
         )}
@@ -1128,14 +1112,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       )}
 
       {resched && (
-        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-purple-600">
-          <p className="text-sm font-semibold text-purple-300">Presunúť na iný termín:</p>
+        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-[#2B46A2]/40">
+          <p className="text-sm font-semibold text-[#2B46A2]">Presunúť na iný termín:</p>
           <input
             type="date"
             value={reschedDate}
             min={toISODate(new Date())}
             onChange={(e) => setReschedDate(e.target.value)}
-            className="p-2 bg-[#F0F2F5] border border-[#E0E4EF] rounded-[10px] text-white text-sm"
+            className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
           />
           {reschedSlots.length === 0
             ? <p className="text-xs text-slate-400">V tento deň nie sú voľné otvorené termíny.</p>
@@ -1145,7 +1129,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
                   <button
                     key={slot.time}
                     onClick={() => { onReschedule(order.id, reschedDate, slot.time); setResched(false); }}
-                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-2 rounded transition-colors"
+                    className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-bold px-3 py-2 rounded transition-colors"
                   >
                     {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
                   </button>
@@ -1827,7 +1811,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <StatTile label="na potvrdenie" value={pendingPaid.length} accent="text-[#16A34A]" />
             <StatTile label="čakajú na platbu" value={pendingUnpaid.length} accent="text-[#856404]" />
             <StatTile label="nezaplatené" value={unpaidCount} accent="text-[#856404]" />
-            <StatTile label="objednaní — 7 dní" value={next7} accent="text-purple-300" />
+            <StatTile label="objednaní — 7 dní" value={next7} accent="text-[#2B46A2]" />
           </div>
 
           {isSupabase && ["superadmin", "sestra"].includes(role) && (
@@ -2207,7 +2191,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               Uložiť nastavenia (vrátane lekárov)
             </button>
             {settings.iban === defaultSettings.iban && (
-              <p className="text-yellow-300 text-sm bg-yellow-900/40 p-2 rounded">⚠ Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
+              <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
             )}
           </div>
         </div>
@@ -2332,6 +2316,6 @@ const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings, initialOr
 export {
   PatientView, AdminView, UsgHero, OrderLookup, usgStatuses,
   defaultSettings, defaultPricelist, normalizePricelist,
-  allDaySlots, isSlotOccupying, toISODate, loadJson,
+  isSlotOccupying, toISODate, loadJson,
   USG_ORDERS_KEY, USG_OPEN_SLOTS_KEY, USG_SETTINGS_KEY, USG_PRICELIST_KEY,
 };

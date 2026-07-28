@@ -1,4 +1,6 @@
 -- ============================================================
+-- ⚠ ZASTARANÉ — NESPÚŠŤAŤ. Nahradené súborom complete-setup-002.sql,
+-- ktorý obsahuje aktuálne a správne definície. Ponechané len pre históriu.
 -- RETENTION 001 — automatický výmaz, štatistika, rate-limiting,
 -- auditný log. Implementuje záväzky z dokumentov:
 --   „Informácie o spracúvaní osobných údajov" a

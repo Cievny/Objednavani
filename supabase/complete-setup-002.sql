@@ -49,7 +49,7 @@ create table if not exists audit_log (
 alter table audit_log enable row level security;
 drop policy if exists "audit cita personal" on audit_log;
 create policy "audit cita personal" on audit_log
-  for select using (auth.role() = 'authenticated');
+  for select using (my_role() in ('superadmin', 'sestra'));
 
 create or replace function audit_orders()
 returns trigger
@@ -82,7 +82,8 @@ after insert or update on orders
 for each row execute function audit_orders();
 
 -- ------------------------------------------------------------
--- 3. OKAMŽITÝ VÝMAZ príloh a údajov zo žiadanky pri zrušení
+-- 3. KÔŠ: pri zrušení sa len eviduje čas (rejected_at); samotný
+--    výmaz príloh a údajov rieši purge_orders 7 dní po zrušení.
 -- ------------------------------------------------------------
 create or replace function purge_order_files(p_order_id text)
 returns void
@@ -182,7 +183,7 @@ begin
   perform check_lookup_limit('cancel:' || upper(coalesce(p_id, '')));
 
   -- pacient môže online zrušiť najneskôr 48 hodín pred termínom
-  select (o.slot_date + o.slot_time)::timestamptz into v_when
+  select ((o.slot_date + o.slot_time) at time zone 'Europe/Bratislava') into v_when
   from orders o
   where upper(o.id) = upper(p_id)
     and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9
@@ -337,7 +338,7 @@ begin
 
   for r in
     select id, slot_date, exam_type_id, status, doctor from orders
-    where slot_date < current_date - 28 and status not in ('done', 'rejected')
+    where slot_date <= current_date - 28 and status not in ('done', 'rejected')
   loop
     perform purge_order_files(r.id);
     insert into usg_stats (day, exam_type_id, status, doctor, cnt, paid_cnt, paid_eur)
