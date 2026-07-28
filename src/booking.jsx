@@ -85,6 +85,23 @@ const usgStatuses = {
   noshow: { label: "Neprišiel", badge: "bg-slate-500", border: "border-slate-400" },
 };
 
+// Jednotný farebný jazyk stavu objednávky v kalendári a prehľade:
+// jantárová = nezaplatená, svetlomodrá = zaplatená (čaká na potvrdenie),
+// plná modrá = potvrdená a zaplatená, sivá = vybavená (vykonaná/neprišiel).
+export function orderTone(order) {
+  const unpaid = !order.paid && order.price > 0;
+  if (order.status === "done" || order.status === "noshow") {
+    return { cls: "bg-[#F0F2F5] border-[#C9CFDD] text-[#767676]", accent: "border-l-[#C9CFDD]", label: "vybavená" };
+  }
+  if (unpaid) {
+    return { cls: "bg-[#FFF6E0] border-[#E0C878] text-[#856404]", accent: "border-l-[#E0A800]", label: "nezaplatená" };
+  }
+  if (order.status === "new") {
+    return { cls: "bg-[#EAF0FF] border-[#2B46A2] text-[#2B46A2]", accent: "border-l-[#7C9BE8]", label: "zaplatená — čaká na potvrdenie" };
+  }
+  return { cls: "bg-[#2B46A2] border-[#1E3580] text-white", accent: "border-l-[#2B46A2]", label: "potvrdená a zaplatená" };
+}
+
 const defaultSettings = {
   iban: "SK3112000000198742637541", // DEMO IBAN — nastavte vlastný v správe!
   beneficiary: "NÚSCH, a.s.",
@@ -1726,12 +1743,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex md:flex-wrap gap-2 overflow-x-auto md:overflow-visible pb-1 -mx-1 px-1">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === t.id ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === t.id ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
           >
             {t.label}
           </button>
@@ -1751,7 +1768,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
       {view === "overview" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
             <StatTile label="dnešný program" value={todayProgram.length} accent="text-[#2B46A2]" />
             <StatTile label="na potvrdenie" value={pendingPaid.length} accent="text-[#16A34A]" />
             <StatTile label="čakajú na platbu" value={pendingUnpaid.length} accent="text-[#856404]" />
@@ -1770,7 +1787,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               : (
                 <div className="space-y-2">
                   {todayProgram.map((o) => (
-                    <div key={o.id} className="flex items-center gap-3 bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] px-4 py-2">
+                    <div key={o.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 bg-[#F8F9FC] border border-[#E0E4EF] border-l-4 ${orderTone(o).accent} rounded-[10px] px-4 py-2`}>
                       <span className="font-mono font-bold text-lg text-[#2B46A2] w-16">{o.time}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
@@ -1807,7 +1824,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       {view === "calendar" && (
         <div className="space-y-5">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="text-lg font-bold text-[#2B46A2]">Týždenný prehľad</h3>
               <div className="flex gap-2">
                 <button onClick={() => setWeekStart((w) => shiftIso(w, -7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">‹ Predchádzajúci</button>
@@ -1815,7 +1832,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 <button onClick={() => setWeekStart((w) => shiftIso(w, 7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">Nasledujúci ›</button>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-2 overflow-x-auto min-w-[640px] lg:min-w-0">
+            <div className="overflow-x-auto pb-1 -mx-1 px-1">
+            <div className="grid grid-cols-7 gap-2 min-w-[640px] lg:min-w-0">
               {week.map((d) => (
                 <div key={d.iso} className="min-w-[88px]">
                   <button
@@ -1833,10 +1851,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <button
                         key={seg.start}
                         onClick={() => { setSelectedDate(d.iso); setDayDetailId(seg.order.id); }}
-                        title={`${seg.start}–${seg.end} ${seg.order.patient.name}`}
-                        className="w-full text-left bg-[#2B46A2] hover:bg-[#1E3580] text-white rounded-[8px] px-1.5 py-1 text-[11px] leading-tight transition-colors"
+                        title={`${seg.start}–${seg.end} ${seg.order.patient.name} (${orderTone(seg.order).label})`}
+                        className={`w-full text-left border rounded-[8px] px-1.5 py-1 text-[11px] leading-tight transition-colors hover:ring-2 hover:ring-[#2B46A2]/40 ${orderTone(seg.order).cls}`}
                       >
                         <span className="font-bold">{seg.start}–{seg.end}</span>
+                        {!seg.order.paid && seg.order.price > 0 && <span className="font-bold"> !</span>}
                         <span className="block truncate">{seg.order.patient.name}</span>
                       </button>
                     ) : (
@@ -1852,6 +1871,14 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   </div>
                 </div>
               ))}
+            </div>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-[#444444]">
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded border border-dashed border-[#16A34A]" /> voľné</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#FFF6E0] border border-[#E0C878]" /> nezaplatená (!)</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#EAF0FF] border border-[#2B46A2]" /> zaplatená — čaká na potvrdenie</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#2B46A2]" /> potvrdená a zaplatená</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F0F2F5] border border-[#C9CFDD]" /> vybavená</span>
             </div>
           </div>
 
@@ -1921,31 +1948,34 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   {daySeg.segments.map((seg) => {
                     if (seg.order) {
                       const active = dayDetailId === seg.order.id;
+                      const tone = orderTone(seg.order);
                       return (
                         <button
                           key={seg.start}
                           type="button"
                           onClick={() => setDayDetailId(active ? null : seg.order.id)}
-                          className={`w-full flex items-center gap-3 text-left px-3 py-2 rounded-[10px] border text-white transition-colors ${active ? "bg-[#1E3580] border-[#2B46A2] ring-2 ring-[#2B46A2]/50" : "bg-[#2B46A2] border-[#1E3580] hover:bg-[#1E3580]"}`}
+                          className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-left px-3 py-2.5 rounded-[10px] border transition-colors ${tone.cls} ${active ? "ring-2 ring-[#2B46A2]/60" : "hover:ring-2 hover:ring-[#2B46A2]/30"}`}
                         >
-                          <span className="font-mono font-bold text-sm shrink-0 w-28 whitespace-nowrap">{seg.start}–{seg.end}</span>
-                          <span className="flex-1 min-w-0">
+                          <span className="font-mono font-bold text-sm shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                          <span className="flex-1 min-w-0 basis-40">
                             <span className="block font-semibold truncate">{seg.order.patient.name}</span>
                             <span className="block text-xs opacity-80 truncate">{seg.order.exam.label}{seg.order.doctor ? ` · ${seg.order.doctor}` : ""}</span>
                           </span>
-                          <PaidBadge order={seg.order} />
-                          <span className={`${usgStatuses[seg.order.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[seg.order.status].label}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <PaidBadge order={seg.order} />
+                            <span className={`${usgStatuses[seg.order.status].badge} text-white text-xs font-bold px-2 py-1 rounded`}>{usgStatuses[seg.order.status].label}</span>
+                          </span>
                         </button>
                       );
                     }
                     return (
-                      <div key={seg.start} className="w-full flex items-center gap-3 px-3 py-2 rounded-[10px] border border-dashed border-[#16A34A]/60 bg-[#F0FDF4]">
-                        <span className="font-mono font-bold text-sm text-[#16A34A] shrink-0 w-28 whitespace-nowrap">{seg.start}–{seg.end}</span>
-                        <span className="flex-1 min-w-0 text-sm text-[#16A34A] truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
+                      <div key={seg.start} className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 rounded-[10px] border border-dashed border-[#16A34A]/60 bg-[#F0FDF4]">
+                        <span className="font-mono font-bold text-sm text-[#16A34A] shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                        <span className="flex-1 min-w-0 basis-32 text-sm text-[#16A34A] truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
                         <button
                           onClick={() => doCloseSegment(selectedDate, seg.cells)}
                           title="Zavrieť termín"
-                          className="text-[#D32821] hover:text-[#B01F19] text-xs font-semibold shrink-0"
+                          className="text-[#D32821] hover:text-[#B01F19] text-xs font-semibold shrink-0 py-1"
                         >
                           ✕ Zavrieť
                         </button>
@@ -1975,7 +2005,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               value={fText}
               onChange={(e) => setFText(e.target.value)}
               placeholder="Hľadať: meno, telefón, lekár, číslo objednávky…"
-              className={`flex-1 min-w-48 ${inputDark}`}
+              className={`w-full sm:w-auto sm:flex-1 min-w-0 ${inputDark}`}
             />
             <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputDark} />
             {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-[#1A1A2E]">✕ dátum</button>}
