@@ -906,12 +906,29 @@ const PaidBadge = ({ order }) => {
     : <span className="bg-amber-700 text-amber-100 text-xs font-bold px-2 py-1 rounded">NEZAPLATENÉ</span>;
 };
 
+// Klikateľné dôvody zrušenia — vyberá pracovisko pri rušení objednávky.
+// Dôvod sa uloží do poznámky a pacient ho vidí pri overení objednávky.
+const cancelReasons = [
+  "Na žiadosť pacienta",
+  "Platba neprišla",
+  "Prekážka na strane pracoviska",
+  "Duplicitná objednávka",
+  "Testovacia objednávka",
+];
+
 const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFor, onOpenAttachment }) => {
   const status = usgStatuses[order.status];
   const [resched, setResched] = useState(false);
   const [reschedDate, setReschedDate] = useState(order.date);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelText, setCancelText] = useState("");
   const canAct = order.status === "new" || order.status === "confirmed";
   const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate) : [];
+  const doCancel = (reason) => {
+    onSetStatus(order.id, "rejected", reason || "Zrušené pracoviskom");
+    setCancelOpen(false);
+    setCancelText("");
+  };
 
   return (
     <div className={`bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${status.border} space-y-2`}>
@@ -986,13 +1003,10 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         )}
         {canAct && (
           <button
-            onClick={() => {
-              const reason = window.prompt("Dôvod zrušenia (voliteľné):") ?? "";
-              onSetStatus(order.id, "rejected", reason || "Zrušené pracoviskom");
-            }}
+            onClick={() => setCancelOpen((v) => !v)}
             className="bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
           >
-            Zrušiť
+            {cancelOpen ? "Zavrieť rušenie" : "Zrušiť"}
           </button>
         )}
         {order.status === "rejected" && (
@@ -1004,6 +1018,37 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
           </button>
         )}
       </div>
+      {cancelOpen && canAct && (
+        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-red-300">
+          <p className="text-sm font-semibold text-[#D32821]">Dôvod zrušenia (uvidí ho aj pacient pri overení objednávky):</p>
+          <div className="flex flex-wrap gap-2">
+            {cancelReasons.map((r) => (
+              <button
+                key={r}
+                onClick={() => doCancel(r)}
+                className="bg-white hover:bg-red-50 border border-red-300 text-[#D32821] text-xs font-semibold px-3 py-2 rounded-[10px] transition-colors"
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={cancelText}
+              onChange={(e) => setCancelText(e.target.value)}
+              placeholder="Vlastný dôvod…"
+              className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+            />
+            <button
+              onClick={() => doCancel(cancelText.trim())}
+              className="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-2 rounded-[10px] transition-colors shrink-0"
+            >
+              Zrušiť objednávku
+            </button>
+          </div>
+          <p className="text-xs text-slate-400">Zrušená objednávka ide do koša — 7 dní sa dá obnoviť.</p>
+        </div>
+      )}
       {order.status === "rejected" && (
         <p className="text-xs text-[#856404]">
           V koši — definitívne sa vymaže {order.rejectedAt
