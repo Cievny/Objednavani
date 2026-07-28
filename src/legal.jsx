@@ -48,7 +48,7 @@ export const VopPage = () => (
       <InfoRow k="IČO">35 971 126</InfoRow>
       <InfoRow k="Registrácia">Obchodný register Mestského súdu Bratislava III, oddiel Sa, vložka č. 3774/B</InfoRow>
       <InfoRow k="Pracovisko">Špecializované sonografické pracovisko NÚSCH, a. s.</InfoRow>
-      <InfoRow k="Kontakt pre objednávky"><M>[DOPLNIŤ oficiálny e-mail]</M> · tel. <M>[DOPLNIŤ]</M></InfoRow>
+      <InfoRow k="Kontakt pre objednávky">SMS na 0949 000 677 (uveďte číslo objednávky) · e-mail <M>[DOPLNIŤ oficiálny e-mail]</M></InfoRow>
     </div>
     <P>
       Objednávkový systém technicky prevádzkuje spoločnosť FiveV s. r. o., Hrudky 4318/63, 900 25 Chorvátsky Grob,
@@ -72,6 +72,8 @@ export const VopPage = () => (
       <LI>Pracovisko si vyhradzuje právo objednávku odmietnuť alebo termín presunúť z prevádzkových alebo medicínskych dôvodov; v takom prípade pacientovi vráti prijatú platbu v plnej výške alebo mu ponúkne náhradný termín podľa jeho voľby.</LI>
       <LI>Ak objednávku vykonáva iná osoba než pacient, odoslaním objednávky vyhlasuje, že je zákonným zástupcom pacienta alebo koná s jeho vedomím a súhlasom. Zmluvnou stranou zmluvy o poskytnutí zdravotnej starostlivosti je pacient.</LI>
       <LI>Pacient je povinný uvádzať v objednávke pravdivé a úplné údaje. Ak nepravdivé alebo neúplné údaje znemožnia riadne poskytnutie vyšetrenia, pracovisko je oprávnené vyšetrenie nevykonať; úhrada sa v takom prípade posudzuje podľa článku V.</LI>
+      <LI>Na ochranu pred zneužitím systému a blokovaním kapacity možno na jedno telefónne číslo evidovať najviac 3 aktívne objednávky súčasne. Ak pacient potrebuje viac termínov, kontaktuje pracovisko SMS správou na čísle 0949 000 677.</LI>
+      <LI>Systém ponúka termíny postupne od začiatku otvorených ordinačných blokov tak, aby vyšetrenia nadväzovali; po obsadení ponúkaného času sa automaticky sprístupní nasledujúci.</LI>
     </OL>
 
     <H>Článok IV — Cena a platba</H>
@@ -84,11 +86,13 @@ export const VopPage = () => (
 
     <H>Článok V — Zmena a zrušenie termínu, storno podmienky</H>
     <OL>
-      <LI>Pacient môže objednávku zrušiť online (číslo objednávky a telefónne číslo), e-mailom alebo telefonicky.</LI>
+      <LI>Pacient môže objednávku zrušiť online najneskôr 48 hodín pred termínom, a to cez odkaz „Spravovať alebo zrušiť objednávku" v ktoromkoľvek e-maile o objednávke alebo v sekcii „Už máte objednávku?" na stránke objednávania (zadaním čísla objednávky a telefónneho čísla). Menej ako 48 hodín pred termínom je zrušenie možné už len SMS správou na čísle 0949 000 677 s uvedením čísla objednávky.</LI>
       <LI>Pri zrušení najneskôr 48 hodín pred termínom sa uhradená platba vracia v plnej výške na účet, z ktorého bola prijatá, do 14 dní od zrušenia.</LI>
       <LI>Pri zrušení menej ako 48 hodín pred termínom alebo pri nedostavení sa na vyšetrenie uhradená platba prepadá v prospech poskytovateľa ako storno poplatok zodpovedajúci rezervovanej kapacite pracoviska.</LI>
       <LI>Ak pacient preukáže, že zrušenie alebo nedostavenie sa spôsobili vážne dôvody hodné osobitného zreteľa (najmä náhle ochorenie alebo hospitalizácia), pracovisko mu namiesto uplatnenia storno poplatku ponúkne náhradný termín.</LI>
-      <LI>Ak termín zruší alebo presunie pracovisko, pacient má vždy právo na vrátenie platby v plnej výške alebo na náhradný termín podľa vlastnej voľby.</LI>
+      <LI>Ak termín zruší alebo presunie pracovisko, pacient má vždy právo na vrátenie platby v plnej výške alebo na náhradný termín podľa vlastnej voľby. O presune termínu je pacient informovaný e-mailom a SMS; ak mu nový termín nevyhovuje, môže objednávku zrušiť podľa ods. 1 s vrátením platby v plnej výške.</LI>
+      <LI>Pracovisko môže z prevádzkových dôvodov (najmä práceneschopnosť lekára) zmeniť vyšetrujúceho lekára; termín, čas, rozsah ani cena vyšetrenia sa tým nemenia a pacient je o zmene vopred informovaný e-mailom a SMS. Ak pacient so zmenou nesúhlasí, môže objednávku zrušiť podľa ods. 1 a 2.</LI>
+      <LI>Zrušená objednávka sa v systéme uchováva 7 dní od zrušenia; počas tejto lehoty ju pracovisko môže na žiadosť pacienta obnoviť (ak je pôvodný termín ešte voľný), potom sa údaje vymažú.</LI>
     </OL>
 
     <H>Článok VI — Odstúpenie od zmluvy</H>
@@ -138,8 +142,8 @@ export const PrivacyPage = () => (
     <UL>
       <LI><b>Identifikačné a kontaktné údaje</b> — meno, priezvisko, dátum narodenia, telefónne číslo, e-mailová adresa. Účel: rezervácia termínu, identifikácia pacienta, notifikácie o objednávke. Právny základ: čl. 6 ods. 1 písm. b) GDPR — plnenie zmluvy, resp. opatrenia pred jej uzavretím. Doba uchovávania: údaje sa z objednávkového systému odstraňujú bezodkladne po vykonaní vyšetrenia, najneskôr do 7 dní.</LI>
       <LI><b>Údaje o zdravotnom stave</b> — typ a dôvod vyšetrenia, údaje zo žiadanky, priložené lekárske správy. Účel: príprava a poskytnutie zdravotnej starostlivosti. Právny základ: čl. 9 ods. 2 písm. h) GDPR v spojení s čl. 6 ods. 1 písm. b) GDPR a so zákonom č. 576/2004 Z. z.; spracúvanie prebieha pod zodpovednosťou osôb viazaných povinnosťou mlčanlivosti. Doba uchovávania: prílohy sa z objednávkového systému odstraňujú najneskôr do 7 dní po vyšetrení. Údaje prevzaté do zdravotnej dokumentácie sa uchovávajú mimo tohto systému v lehote podľa zákona č. 576/2004 Z. z. <M>[OVERIŤ presné znenie a plynutie lehoty]</M></LI>
-      <LI><b>Zrušené a nevyužité objednávky</b> — identifikačné a kontaktné údaje a stav objednávky. Prílohy a údaje zo žiadanky sa vymazávajú bezodkladne pri zrušení objednávky alebo po márnom uplynutí termínu. Účel: evidencia stavu rezervácie, predchádzanie duplicitným objednávkam. Právny základ: čl. 6 ods. 1 písm. f) GDPR — oprávnený záujem na riadnej správe termínov. Doba uchovávania: 28 dní od pôvodného termínu.</LI>
-      <LI><b>Údaje o úhrade</b> — suma, variabilný symbol, stav platby. Účel: párovanie úhrady s objednávkou. Právny základ: čl. 6 ods. 1 písm. b) GDPR. Doba uchovávania: vymazávajú sa spolu s objednávkou. Účtovné doklady vedie prevádzkovateľ mimo tohto systému po dobu ustanovenú zákonom č. 431/2002 Z. z. o účtovníctve.</LI>
+      <LI><b>Zrušené objednávky</b> — úplné údaje objednávky sa po zrušení uchovávajú 7 dní od zrušenia (možnosť obnovenia objednávky na žiadosť pacienta a vybavenie vrátenia platby), potom sa vymazávajú. Účel: správa rezervácií a vrátenie platieb. Právny základ: čl. 6 ods. 1 písm. b) a f) GDPR. Nevyužité objednávky (nedostavenie sa, neuhradenie) sa vymazávajú najneskôr 28 dní od pôvodného termínu.</LI>
+      <LI><b>Údaje o úhrade</b> — suma, variabilný symbol, stav platby. Pri automatickom párovaní úhrad načítavame z výpisu bankového účtu prevádzkovateľa údaje o došlých platbách: sumu, menu, variabilný symbol, číslo protiúčtu a správu pre prijímateľa. Účel: párovanie úhrady s objednávkou a vybavenie prípadného vrátenia platby. Právny základ: čl. 6 ods. 1 písm. b) GDPR. Doba uchovávania: záznamy o platbách 90 dní; ostatné údaje sa vymazávajú spolu s objednávkou. Účtovné doklady vedie prevádzkovateľ mimo tohto systému po dobu ustanovenú zákonom č. 431/2002 Z. z. o účtovníctve. Banka prevádzkovateľa (Fio banka, a.s., pobočka zahraničnej banky) spracúva platobné údaje ako samostatný prevádzkovateľ podľa vlastných podmienok.</LI>
       <LI><b>Technické a prevádzkové údaje</b> — IP adresa, dátum a čas prístupu, typ zariadenia a prehliadača, záznamy o prihlásení personálu a o operáciách s údajmi. Účel: zabezpečenie a integrita systému, ochrana pred zneužitím a hromadným obsadzovaním termínov, preukázanie prístupov k údajom. Právny základ: čl. 6 ods. 1 písm. f) GDPR — oprávnený záujem na bezpečnosti systému; čl. 32 GDPR. Doba uchovávania: 90 dní.</LI>
       <LI><b>Údaje odporúčajúceho lekára</b> — meno a pracovisko uvedené v žiadanke. Tieto údaje nezískavame priamo od dotknutej osoby, ale z dokumentácie predloženej pacientom; informácie sa poskytujú podľa čl. 14 GDPR. Účel: overenie indikácie vyšetrenia a komunikácia o výsledku. Právny základ: čl. 6 ods. 1 písm. f) GDPR — oprávnený záujem na overení indikácie. Doba uchovávania: zhodná s dobou uchovávania príslušnej objednávky.</LI>
     </UL>
@@ -157,7 +161,7 @@ export const PrivacyPage = () => (
     <UL>
       <LI>Supabase, Inc. — databáza a úložisko systému; dáta sú uložené v dátovom centre v Európskej únii <M>[OVERIŤ región projektu]</M></LI>
       <LI>Resend (Plus Five Five, Inc., USA) — odosielanie e-mailových notifikácií (e-mailová adresa a obsah notifikácie)</LI>
-      <LI><M>[DOPLNIŤ po výbere: BulkGate s.r.o. (ČR) / EuroSMS s.r.o. (SR)]</M> — odosielanie SMS notifikácií (telefónne číslo a text SMS)</LI>
+      <LI>BulkGate (prevádzkovateľ platformy so sídlom v Českej republike <M>[OVERIŤ presné obchodné meno podľa zmluvy/faktúry]</M>) — odosielanie SMS notifikácií (telefónne číslo a text SMS)</LI>
       <LI>Zoho Corporation — e-mailové schránky domény cievny.sk <M>[OVERIŤ EÚ dátové centrum]</M></LI>
       <LI>GitHub, Inc. — hosting statickej webovej stránky; údaje o pacientoch sa na ňom neuchovávajú, spracúvajú sa technické záznamy vrátane IP adresy</LI>
     </UL>
