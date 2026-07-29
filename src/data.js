@@ -268,8 +268,10 @@ export function useBookingData(isStaff) {
     }
     throwIf(error);
     await reload();
-    // create_order vracia serverom pridelený unikátny variabilný symbol
-    return typeof data === "string" && data ? data : order.variableSymbol;
+    // Nová verzia create_order vracia serverom pridelený ČÍSELNÝ variabilný
+    // symbol. Stará verzia (pred migráciou fio-parovanie-002) vracia číslo
+    // objednávky USG-… — to VS nie je, vtedy ostáva klientský číselný VS.
+    return typeof data === "string" && /^\d{1,10}$/.test(data) ? data : order.variableSymbol;
   };
 
   const openAttachment = async (attachment) => {
