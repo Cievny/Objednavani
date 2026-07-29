@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 
@@ -1585,6 +1585,14 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [dayDetailId, setDayDetailId] = useState(null);
+  // klik na termín v týždennom prehľade / dennom rozpise presunie
+  // obrazovku na kartu objednávky (inak je pod rozpisom a nevidno ju)
+  const dayDetailRef = useRef(null);
+  useEffect(() => {
+    if (!dayDetailId || !dayDetailRef.current) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    dayDetailRef.current.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }, [dayDetailId]);
   const [weekStart, setWeekStart] = useState(todayIso);
   const [winFrom, setWinFrom] = useState(todayIso);
   const [winTo, setWinTo] = useState(todayIso);
@@ -2046,7 +2054,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               const o = orders.find((x) => x.id === dayDetailId);
               if (!o || o.date !== selectedDate) return null;
               return (
-                <div className="mt-3">
+                <div className="mt-3 scroll-mt-24" ref={dayDetailRef}>
                   <p className="text-xs text-slate-400 mb-1">Detail objednávky — {o.time}</p>
                   <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />
                 </div>
