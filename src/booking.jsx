@@ -947,7 +947,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
   // na výber len lekári, ktorí dané vyšetrenie robia (okrem aktuálneho)
   const docOptions = normalizeDoctors(doctors).filter((d) => d.name !== order.doctor && doctorDoesExam(doctors, d.name, order.exam.typeId));
   const canAct = order.status === "new" || order.status === "confirmed";
-  const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate) : [];
+  const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate, order.durationMin || 10, order.id) : [];
   const doCancel = (reason) => {
     onSetStatus(order.id, "rejected", reason || "Zrušené pracoviskom");
     setCancelOpen(false);
@@ -1643,6 +1643,25 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     return open.filter((slot) => !taken.has(slot.time));
   };
 
+  // Začiatky pre PRESUN objednávky: ponúknu sa len časy, kde sa zmestí
+  // celé trvanie vyšetrenia do súvislých otvorených buniek jedného
+  // lekára (bunky presúvanej objednávky sa nepočítajú ako obsadené).
+  const reschedStartsFor = (iso, durationMin = 10, excludeId = null) => {
+    const open = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+    const openByTime = new Map(open.map((s) => [s.time, s]));
+    const taken = new Set(
+      orders.filter((o) => o.date === iso && o.id !== excludeId && isSlotOccupying(o)).flatMap(orderCellTimes)
+    );
+    const need = Math.max(1, Math.round(durationMin / BASE_SLOT_MIN));
+    return open.filter((slot) => {
+      for (let i = 0; i < need; i++) {
+        const cell = openByTime.get(addMinutes(slot.time, i * BASE_SLOT_MIN));
+        if (!cell || cell.doctor !== slot.doctor || taken.has(cell.time)) return false;
+      }
+      return true;
+    });
+  };
+
   const pending = orders
     .filter((o) => o.status === "new")
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
@@ -1847,7 +1866,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <h3 className="text-lg font-bold text-[#16A34A] mb-2">Zaplatené — pripravené na potvrdenie ({pendingPaid.length})</h3>
             {pendingPaid.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna zaplatená žiadosť nečaká na potvrdenie.</p>
-              : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
+              : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
 
           <div>
@@ -1855,7 +1874,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každých 5 minút; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
             {pendingUnpaid.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
-              : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
+              : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
         </div>
       )}
@@ -2029,7 +2048,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               return (
                 <div className="mt-3">
                   <p className="text-xs text-slate-400 mb-1">Detail objednávky — {o.time}</p>
-                  <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />
+                  <UsgOrderCard order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />
                 </div>
               );
             })()}
@@ -2077,7 +2096,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       {formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
                     </h4>
                     <div className="space-y-3">
-                      {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={freeSlotsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}
+                      {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}
                     </div>
                   </div>
                 ))}

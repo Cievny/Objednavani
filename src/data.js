@@ -304,10 +304,16 @@ export function useBookingData(isStaff) {
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, date, time, statusNote: `Presunuté z ${o.date} ${o.time}` } : o)));
       return;
     }
-    const prev = orders.find((o) => o.id === orderId);
-    const { error } = await supabase.from("orders")
-      .update({ slot_date: date, slot_time: time, status_note: prev ? `Presunuté z ${prev.date} ${prev.time}` : "Presunuté" })
-      .eq("id", orderId);
+    // reschedule_order kontroluje, či sa celé trvanie zmestí do otvorených
+    // súvislých buniek (rovnako ako pri vytvorení objednávky)
+    let { error } = await supabase.rpc("reschedule_order", { p_id: orderId, p_slot_date: date, p_slot_time: time });
+    if (error && error.code === "PGRST202") {
+      // migrácia reschedule-001 ešte nie je v databáze — pôvodný priamy update
+      const prev = orders.find((o) => o.id === orderId);
+      ({ error } = await supabase.from("orders")
+        .update({ slot_date: date, slot_time: time, status_note: prev ? `Presunuté z ${prev.date} ${prev.time}` : "Presunuté" })
+        .eq("id", orderId));
+    }
     throwIf(error);
     await reload();
   };
