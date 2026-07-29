@@ -2151,7 +2151,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                     value={doc.email || ""}
                     onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, email: e.target.value } : d))}
                     className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
-                    placeholder="E-mail lekára (naň príde upozornenie o objednávke na jeho termín)"
+                    placeholder="E-mail lekára (voliteľné — interný kontakt)"
                   />
                   <input
                     value={doc.location || ""}

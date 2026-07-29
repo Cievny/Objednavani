@@ -60,7 +60,6 @@ declare
   v_html    text;
   v_instr   text;
   v_instr_html text := '';
-  v_docmail text;
   v_name    text;
   v_exam    text;
   v_doc     text;
@@ -139,24 +138,6 @@ begin
       );
     end if;
 
-    if NEW.doctor <> '' then
-      select d->>'email' into v_docmail
-      from settings s, jsonb_array_elements(s.value::jsonb) d
-      where s.key = 'doctors' and d->>'name' = NEW.doctor
-      limit 1;
-      if v_docmail is not null and v_docmail <> '' and lower(v_docmail) <> lower(coalesce(v_notify, '')) then
-        perform net.http_post(
-          url := 'https://api.resend.com/emails',
-          headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
-          body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(v_docmail),
-            'subject', 'Objednávka na Váš termín — ' || v_termin,
-            'html', '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto">'
-              || '<h2 style="color:#003d7c">Nová objednávka na Váš termín</h2>'
-              || '<p><b>' || v_name || '</b><br>' || v_exam || '<br>' || v_termin
-              || '<br>Tel.: ' || html_escape(NEW.phone)
-              || '</p></div>')
-        );
-      end if;
     end if;
     return NEW;
   end if;
