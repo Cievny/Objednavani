@@ -1226,15 +1226,15 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       <div className="space-y-2">
         {rows.map((row, i) => (
           <div key={row.id} className="bg-white border border-[#E0E4EF] rounded-[10px] p-2 space-y-2">
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               <div className="flex flex-col gap-0.5">
-                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
-                <button type="button" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
+                <button type="button" aria-label="Posunúť vyššie" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 py-1 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
+                <button type="button" aria-label="Posunúť nižšie" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 py-1 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
               </div>
               <input
                 value={row.label}
                 onChange={(e) => updateRow(i, "label", e.target.value)}
-                className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                className="flex-1 min-w-[9rem] p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
                 placeholder="Názov vyšetrenia"
               />
               <select
@@ -2205,13 +2205,26 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setDoctorsDraft((prev) => [...prev, { name: "", examTypeIds: [] }])}
-              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
-            >
-              + Pridať lekára
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDoctorsDraft((prev) => [...prev, { name: "", examTypeIds: [] }])}
+                className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
+              >
+                + Pridať lekára
+              </button>
+              <button
+                type="button"
+                onClick={() => run(() => onSaveSettings({
+                  iban: settings.iban,
+                  beneficiary: settings.beneficiary,
+                  doctors: normalizeDoctors(doctorsDraft),
+                }), "Lekári uložení.")}
+                className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+              >
+                Uložiť lekárov
+              </button>
+            </div>
           </div>
           <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
           <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
@@ -2230,11 +2243,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               onClick={() => run(() => onSaveSettings({
                 iban: ibanDraft.trim(),
                 beneficiary: beneficiaryDraft.trim(),
-                doctors: normalizeDoctors(doctorsDraft),
-              }), "Nastavenia aj zoznam lekárov uložené.")}
+                doctors: normalizeDoctors(settings.doctors),
+              }), "Nastavenia platby uložené.")}
               className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
-              Uložiť nastavenia (vrátane lekárov)
+              Uložiť nastavenia platby
             </button>
             {settings.iban === defaultSettings.iban && (
               <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
