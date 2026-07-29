@@ -54,7 +54,8 @@ const lookupFromJson = (j) => j && ({
   status: j.status,
   statusNote: j.status_note || "",
   hasReferral: j.has_referral,
-  exam: { label: j.exam_label },
+  exam: { label: j.exam_label, typeId: j.exam_type_id || null },
+  durationMin: j.duration_min == null ? 10 : Number(j.duration_min),
   price: j.price == null ? null : Number(j.price),
   date: j.slot_date,
   time: (j.slot_time || "").slice(0, 5),
@@ -445,6 +446,17 @@ export function useBookingData(isStaff) {
     return lookupFromJson(data);
   };
 
+  // zmena termínu pacientom (48 h pravidlo a obsadenosť stráži databáza)
+  const patientReschedule = async (orderId, phone, date, time) => {
+    if (!supabase) {
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, date, time, statusNote: "Presunuté pacientom" } : o)));
+      return;
+    }
+    const { error } = await supabase.rpc("patient_reschedule", { p_id: orderId, p_phone: phone, p_slot_date: date, p_slot_time: time });
+    throwIf(error);
+    await reload();
+  };
+
   const cancelOrder = async (orderId, phone) => {
     if (!supabase) { await setStatus(orderId, "rejected", "Zrušené pacientom"); return; }
     const { error } = await supabase.rpc("cancel_order", { p_id: orderId, p_phone: phone });
@@ -528,6 +540,6 @@ export function useBookingData(isStaff) {
     addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
     listStaff, setStaffRole, removeStaffRole, checkPayments,
-    lookupOrder, cancelOrder, openAttachment,
+    lookupOrder, cancelOrder, patientReschedule, openAttachment,
   };
 }

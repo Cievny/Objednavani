@@ -176,6 +176,39 @@ export function normalizePhone(input) {
   return (input || "").trim();
 }
 
+// Ponuka ZAČIATKOV pre pacienta: z voľných súvislých úsekov (rovnaký
+// lekár, žiadna bunka obsadená) sa ponúkajú časy natesno od začiatku
+// úseku (start, start+D, start+2D…) a z celého dňa len NAJSKORŠIE 3.
+// Takto sa okná zapĺňajú od začiatku a nevznikajú diery. Používa nová
+// objednávka aj zmena termínu pacientom.
+export const OFFERED_PER_DAY = 3;
+export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso }) {
+  const open = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+  const durMin = Math.max(10, durationMin || 10);
+
+  const runs = [];
+  open.forEach((cell) => {
+    if (takenSet.has(cell.time)) return;
+    if (examTypeId && !doctorDoesExam(doctors, cell.doctor, examTypeId)) return;
+    const last = runs[runs.length - 1];
+    if (last && last.doctor === cell.doctor && addMinutes(last.start, last.len * BASE_SLOT_MIN) === cell.time) {
+      last.len += 1;
+    } else {
+      runs.push({ start: cell.time, doctor: cell.doctor, len: 1 });
+    }
+  });
+
+  const candidates = [];
+  runs.forEach((run) => {
+    const runMin = run.len * BASE_SLOT_MIN;
+    for (let offset = 0; offset + durMin <= runMin; offset += durMin) {
+      candidates.push({ time: addMinutes(run.start, offset), doctor: run.doctor });
+    }
+  });
+  candidates.sort((a, b) => a.time.localeCompare(b.time));
+  return candidates.slice(0, OFFERED_PER_DAY);
+}
+
 // posun času "HH:MM" o dané minúty
 export function addMinutes(t, mins) {
   const [h, m] = (t || "00:00").split(":").map(Number);
@@ -469,40 +502,14 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     return map;
   }, [occupied]);
 
-  // Ponuka ZAČIATKOV pre pacienta: z voľných súvislých úsekov (rovnaký
-  // lekár, žiadna bunka obsadená) sa ponúkajú časy natesno od začiatku
-  // úseku (start, start+D, start+2D…) a z celého dňa len NAJSKORŠIE 3.
-  // Takto sa okná zapĺňajú od začiatku a nevznikajú diery.
-  const OFFERED_PER_DAY = 3;
-  const freeSlotsFor = (isoDate) => {
-    const open = (openSlots[isoDate] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
-    const taken = takenByDate.get(isoDate) || new Set();
-    const need = examType?.durationSlots || 2;
-    const durMin = need * BASE_SLOT_MIN;
-
-    // súvislé voľné úseky jedného lekára (lekár musí robiť dané vyšetrenie)
-    const runs = [];
-    open.forEach((cell) => {
-      if (taken.has(cell.time)) return;
-      if (examType && !doctorDoesExam(settings.doctors, cell.doctor, examType.id)) return;
-      const last = runs[runs.length - 1];
-      if (last && last.doctor === cell.doctor && addMinutes(last.start, last.len * BASE_SLOT_MIN) === cell.time) {
-        last.len += 1;
-      } else {
-        runs.push({ start: cell.time, doctor: cell.doctor, len: 1 });
-      }
-    });
-
-    const candidates = [];
-    runs.forEach((run) => {
-      const runMin = run.len * BASE_SLOT_MIN;
-      for (let offset = 0; offset + durMin <= runMin; offset += durMin) {
-        candidates.push({ time: addMinutes(run.start, offset), doctor: run.doctor });
-      }
-    });
-    candidates.sort((a, b) => a.time.localeCompare(b.time));
-    return candidates.slice(0, OFFERED_PER_DAY);
-  };
+  const freeSlotsFor = (isoDate) => computeOfferedSlots({
+    openSlots,
+    takenSet: takenByDate.get(isoDate) || new Set(),
+    doctors: settings.doctors,
+    examTypeId: examType?.id || null,
+    durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
+    iso: isoDate,
+  });
 
   const todayIso = toISODate(new Date());
   const isDayAvailable = (iso) => iso >= todayIso && freeSlotsFor(iso).length > 0;
@@ -2240,12 +2247,45 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 };
 
 // Overenie / zrušenie objednávky pacientom (podľa čísla objednávky + telefónu)
-const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings, initialOrderId = "", defaultOpen = false }) => {
+const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupied = [], settings = defaultSettings, initialOrderId = "", defaultOpen = false }) => {
   const [orderId, setOrderId] = useState(initialOrderId);
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resched, setResched] = useState(false);
+  const [reschedDate, setReschedDate] = useState("");
+  const [info, setInfo] = useState("");
+
+  // ponuka časov pre zmenu termínu — rovnaké pravidlo ako pri objednávaní
+  // (najbližšie 3 časy natesno); bunky vlastnej objednávky sa nepočítajú
+  const offeredFor = (iso) => {
+    if (!found) return [];
+    const own = new Set(found.date === iso ? orderCellTimes(found) : []);
+    const takenSet = new Set(occupied.filter((o) => o.date === iso && !own.has(o.time)).map((o) => o.time));
+    return computeOfferedSlots({
+      openSlots,
+      takenSet,
+      doctors: settings.doctors,
+      examTypeId: found.exam?.typeId || null,
+      durationMin: found.durationMin || 10,
+      iso,
+    });
+  };
+
+  const doReschedule = async (date, time) => {
+    setBusy(true); setMessage(""); setInfo("");
+    try {
+      await onReschedule(found.id, phone, date, time);
+      setFound({ ...found, date, time, statusNote: "Presunuté pacientom" });
+      setResched(false);
+      setInfo("Termín je zmenený — potvrdenie vám príde e-mailom.");
+    } catch (e) {
+      setMessage(e?.message || "Zmena termínu zlyhala. Skúste to znova.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const search = async () => {
     setBusy(true); setMessage(""); setFound(null);
@@ -2325,6 +2365,49 @@ const OrderLookup = ({ onLookup, onCancel, settings = defaultSettings, initialOr
               <p className="text-sm bg-[#EAF0FF] border border-[#2B46A2]/30 rounded-[10px] p-2 text-[#2B46A2] font-semibold">
                 Platbu vám vrátime prevodom na účet, z ktorého prišla.
               </p>
+            )}
+            {info && <p className="text-sm text-emerald-700 font-semibold">{info}</p>}
+            {cancelAllowed && onReschedule && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => { setResched(!resched); setReschedDate(found.date); setInfo(""); }}
+                  disabled={busy}
+                  className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-[10px] transition-colors"
+                >
+                  {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
+                </button>
+                {resched && (
+                  <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-3 space-y-2">
+                    <p className="text-sm font-semibold text-[#2B46A2]">Vyberte nový deň a čas (platba zostáva v platnosti):</p>
+                    <input
+                      type="date"
+                      value={reschedDate}
+                      min={toISODate(new Date())}
+                      onChange={(e) => setReschedDate(e.target.value)}
+                      className="p-2 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-sm"
+                    />
+                    {reschedDate && (
+                      offeredFor(reschedDate).length === 0
+                        ? <p className="text-xs text-slate-500">V tento deň nie sú voľné termíny — vyberte iný deň.</p>
+                        : (
+                          <div className="flex flex-wrap gap-2">
+                            {offeredFor(reschedDate).map((slot) => (
+                              <button
+                                key={slot.time}
+                                disabled={busy}
+                                onClick={() => doReschedule(reschedDate, slot.time)}
+                                className="bg-white hover:bg-[#F0F4FF] border-2 border-[#2B46A2] text-[#2B46A2] text-sm font-bold px-3 py-2 rounded-[10px] transition-colors"
+                              >
+                                {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                    )}
+                    <p className="text-xs text-slate-500">Ponúkame najbližšie voľné časy dňa. Zmena termínu je možná najneskôr 48 hodín pred pôvodným termínom.</p>
+                  </div>
+                )}
+              </div>
             )}
             {cancelAllowed && (
               <>
