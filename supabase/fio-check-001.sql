@@ -11,7 +11,7 @@
 -- čakáte na platbu z poslednej chvíle, spustite o pol minúty
 -- ešte raz.
 --
--- Automatické párovanie beží ďalej samo každých 5 minút —
+-- Automatické párovanie beží ďalej samo každú minútu —
 -- toto je len kontrola na požiadanie.
 -- ============================================================
 

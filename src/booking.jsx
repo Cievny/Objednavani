@@ -1383,7 +1383,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
 
 // Ručné overenie platieb z Prehľadu: spustí párovanie s Fio bankou
 // a ukáže stav všetkých aktívnych objednávok. Automat beží aj sám
-// každých 5 minút — toto je kontrola „teraz hneď".
+// každú minútu — toto je kontrola „teraz hneď".
 const PaymentsCheck = ({ onCheckPayments }) => {
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -1412,7 +1412,7 @@ const PaymentsCheck = ({ onCheckPayments }) => {
         >
           {busy ? "Overujem…" : "Overiť platby"}
         </button>
-        <span className="text-xs text-[#767676]">Párovanie s bankou beží automaticky každých 5 minút — tlačidlo je okamžitá kontrola. Pri čerstvej platbe overte o pol minúty ešte raz.</span>
+        <span className="text-xs text-[#767676]">Párovanie s bankou beží automaticky každú minútu — tlačidlo je okamžitá kontrola (trvá ~10 sekúnd, kým banka odpovie).</span>
       </div>
       {error && <p className="text-sm text-[#D32821] font-semibold">{error}</p>}
       {rows !== null && (
@@ -1879,7 +1879,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
           <div>
             <h3 className="text-lg font-bold text-[#856404] mb-2">Zadané — čakajú na platbu ({pendingUnpaid.length})</h3>
-            <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každých 5 minút; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
+            <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každú minútu; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
             {pendingUnpaid.length === 0
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
               : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
