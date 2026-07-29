@@ -22,13 +22,15 @@ create extension if not exists pg_cron;
 
 alter table orders add column if not exists reminder_sent_at timestamptz;
 
--- Telefón do medzinárodného tvaru (0903... -> 421903...)
+-- Telefón do medzinárodného tvaru (0903... -> 421903...; zvládne aj
+-- zadanie bez úvodnej nuly: 903... -> 421903...)
 create or replace function sms_number(p_phone text)
 returns text language sql immutable as $$
   select case
     when d like '00%'  then substring(d from 3)
     when d like '421%' then d
     when d like '0%'   then '421' || substring(d from 2)
+    when length(d) = 9 and d like '9%' then '421' || d
     else d
   end
   from (select regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') as d) x;

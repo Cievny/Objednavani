@@ -165,6 +165,17 @@ function isSlotOccupying(order) {
 // je násobkom tejto hodnoty a obsadenosť sa počíta po týchto bunkách.
 export const BASE_SLOT_MIN = 5;
 
+// Telefón do jednotného tvaru +421… — pacienti zadávajú číslo aj bez
+// úvodnej nuly či predvoľby; SMS brána potrebuje medzinárodný formát.
+export function normalizePhone(input) {
+  const d = (input || "").replace(/\D/g, "");
+  if (d.startsWith("00")) return "+" + d.slice(2);
+  if (d.startsWith("421") || d.startsWith("420")) return "+" + d;
+  if (d.length === 10 && d.startsWith("0")) return "+421" + d.slice(1);
+  if (d.length === 9 && d.startsWith("9")) return "+421" + d;
+  return (input || "").trim();
+}
+
 // posun času "HH:MM" o dané minúty
 export function addMinutes(t, mins) {
   const [h, m] = (t || "00:00").split(":").map(Number);
@@ -564,7 +575,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
         name: form.patientName.trim(),
         birthDate: form.birthDate,
         insurance: form.insurance,
-        phone: form.phone.trim(),
+        phone: normalizePhone(form.phone),
         email: form.email.trim(),
       },
       date: form.date,
