@@ -113,12 +113,14 @@ export const VopPage = () => (
     <OL>
       <LI>Reklamácie súvisiace s objednávaním a platbou vybavuje pracovisko na adrese <M>[DOPLNIŤ oficiálny reklamačný kontakt]</M>; lehota na vybavenie je 30 dní od doručenia.</LI>
       <LI>Podnety týkajúce sa poskytnutej zdravotnej starostlivosti možno podať poskytovateľovi postupom podľa § 17 zákona č. 576/2004 Z. z. Dohľad nad poskytovaním zdravotnej starostlivosti vykonáva Úrad pre dohľad nad zdravotnou starostlivosťou, Žellova 2, 829 24 Bratislava (udzs-sk.sk).</LI>
+      <LI>Dozor nad spotrebiteľskými aspektmi online objednávania a platieb vykonáva Slovenská obchodná inšpekcia, Inšpektorát SOI pre Bratislavský kraj, Bajkalská 21/A, 820 07 Bratislava (soi.sk).</LI>
       <LI>Možnosť obrátiť sa na subjekt alternatívneho riešenia sporov podľa zákona č. 391/2015 Z. z. <M>[OVERIŤ aplikovateľnosť na zdravotné výkony s právnym oddelením; v prípade neaplikovateľnosti odsek vypustiť]</M>.</LI>
     </OL>
 
     <H>Článok IX — Záverečné ustanovenia</H>
     <OL>
       <LI>Spracúvanie osobných údajov upravuje samostatný dokument <a href="#/osobne-udaje" className="text-[#2B46A2] font-semibold hover:underline">Informácie o spracúvaní osobných údajov</a>, dostupný na stránke objednávania.</LI>
+      <LI>Poskytovateľ negarantuje nepretržitú dostupnosť objednávkového systému; plánovaná údržba a krátkodobé výpadky nemajú vplyv na už vytvorené objednávky. Ak systém nie je dostupný, objednávku, jej zmenu alebo zrušenie možno vybaviť SMS správou na čísle 0949 000 677.</LI>
       <LI>Tieto podmienky nadobúdajú účinnosť dňom <M>[DOPLNIŤ]</M>. Poskytovateľ ich môže meniť; pre objednávku platí znenie účinné v čase jej odoslania, ktoré je pacientovi dostupné na stránke objednávania.</LI>
       <LI>Právne vzťahy neupravené týmito podmienkami sa spravujú právnym poriadkom Slovenskej republiky, najmä zákonom č. 576/2004 Z. z. a Občianskym zákonníkom.</LI>
     </OL>
