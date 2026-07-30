@@ -151,7 +151,6 @@ begin
       );
     end if;
 
-    end if;
     return NEW;
   end if;
 
