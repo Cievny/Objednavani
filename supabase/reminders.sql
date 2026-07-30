@@ -36,6 +36,18 @@ returns text language sql immutable as $$
   from (select regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') as d) x;
 $$;
 
+-- Hlavička s logom NÚSCH — rovnaká definícia ako v emaily-storna-001.sql
+-- (create or replace, takže je jedno, ktorý skript sa spustí prvý)
+create or replace function email_header()
+returns text language sql stable set search_path = public as $$
+  select '<div style="border-bottom:3px solid #e2001a;padding-bottom:12px;margin-bottom:16px">'
+    || '<table role="presentation" style="border-collapse:collapse"><tr>'
+    || '<td style="padding:0;vertical-align:middle"><img src="https://objednanie.cievny.sk/logo-nusch.png" width="46" height="46" alt="NÚSCH" style="display:block;border:0"></td>'
+    || '<td style="padding:0 0 0 10px;vertical-align:middle"><b style="color:#003d7c">Národný ústav srdcových a cievnych chorôb, a.s.</b><br>'
+    || '<span style="color:#64748b;font-size:12px">Objednávanie na USG</span></td>'
+    || '</tr></table></div>';
+$$;
+
 create or replace function send_reminders()
 returns int
 language plpgsql security definer set search_path = public as $func$
@@ -81,9 +93,7 @@ begin
       end if;
       v_html :=
         '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
-        || '<div style="border-bottom:3px solid #e2001a;padding-bottom:12px;margin-bottom:16px">'
-        || '<b style="color:#003d7c">Národný ústav srdcových a cievnych chorôb, a.s.</b><br>'
-        || '<span style="color:#64748b;font-size:12px">Objednávanie na USG</span></div>'
+        || email_header()
         || '<h2 style="color:#003d7c">Pripomienka: zajtra máte vyšetrenie</h2>'
         || '<p><b>' || html_escape(r.exam_label) || '</b><br>' || v_termin
         || case when r.doctor <> '' then '<br>Lekár: ' || html_escape(r.doctor) else '' end || '</p>'

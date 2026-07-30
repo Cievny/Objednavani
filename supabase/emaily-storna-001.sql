@@ -28,6 +28,20 @@
 update pricelist set duration_slots = 2 where coalesce(duration_slots, 1) < 2;
 
 -- ------------------------------------------------------------
+-- 1a. Spoločná hlavička e-mailov s oficiálnym logom NÚSCH
+--     (logo sa načítava z verejnej adresy aplikácie)
+-- ------------------------------------------------------------
+create or replace function email_header()
+returns text language sql stable set search_path = public as $$
+  select '<div style="border-bottom:3px solid #e2001a;padding-bottom:12px;margin-bottom:16px">'
+    || '<table role="presentation" style="border-collapse:collapse"><tr>'
+    || '<td style="padding:0;vertical-align:middle"><img src="https://objednanie.cievny.sk/logo-nusch.png" width="46" height="46" alt="NÚSCH" style="display:block;border:0"></td>'
+    || '<td style="padding:0 0 0 10px;vertical-align:middle"><b style="color:#003d7c">Národný ústav srdcových a cievnych chorôb, a.s.</b><br>'
+    || '<span style="color:#64748b;font-size:12px">Objednávanie na USG</span></td>'
+    || '</tr></table></div>';
+$$;
+
+-- ------------------------------------------------------------
 -- 1. Spoločná pätička pacientskych e-mailov
 -- ------------------------------------------------------------
 create or replace function email_footer(p_order_id text)
@@ -95,9 +109,7 @@ begin
     if NEW.email <> '' then
       v_html :=
         '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
-        || '<div style="border-bottom:3px solid #e2001a;padding-bottom:12px;margin-bottom:16px">'
-        || '<b style="color:#003d7c">Národný ústav srdcových a cievnych chorôb, a.s.</b><br>'
-        || '<span style="color:#64748b;font-size:12px">Objednávanie na USG</span></div>'
+        || email_header()
         || '<h2 style="color:#003d7c">Rezervácia prijatá — čaká na platbu</h2>'
         || '<p>Ďakujeme za objednávku. Termín je rezervovaný a bude potvrdený po prijatí platby.</p>'
         || '<table style="font-size:14px;border-collapse:collapse">'
@@ -129,6 +141,7 @@ begin
         body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(v_notify),
           'subject', 'Nová objednávka: ' || NEW.patient_name || ' — ' || v_termin,
           'html', '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto">'
+            || email_header()
             || '<h2 style="color:#003d7c">Nová objednávka na USG</h2>'
             || '<p><b>' || v_name || '</b><br>' || v_exam || '<br>' || v_termin
             || case when NEW.doctor <> '' then ' · ' || v_doc else '' end
@@ -146,6 +159,7 @@ begin
     if OLD.status <> 'confirmed' and NEW.status = 'confirmed' then
       -- POTVRDENIE: kompletné informácie vrátane pokynov a miesta
       v_html := '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
+        || email_header()
         || '<h2 style="color:#003d7c">Váš termín je potvrdený</h2>'
         || '<p>Platbu sme prijali a termín vyšetrenia je záväzne potvrdený.</p>'
         || '<table style="font-size:14px;border-collapse:collapse">'
@@ -173,6 +187,7 @@ begin
         body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(NEW.email),
           'subject', 'Objednávka USG zrušená — ' || v_termin,
           'html', '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
+            || email_header()
             || '<h2 style="color:#003d7c">Objednávka bola zrušená</h2>'
             || '<p>' || html_escape(coalesce(NEW.status_note, '')) || '</p>'
             || '<p><b>' || v_exam || '</b><br>' || v_termin || '</p>'
@@ -193,6 +208,7 @@ begin
         body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(NEW.email),
           'subject', 'Zmena termínu USG — nový termín ' || v_termin,
           'html', '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
+            || email_header()
             || '<h2 style="color:#003d7c">Váš termín bol presunutý</h2>'
             || '<p>Nový termín: <b>' || v_termin || '</b><br>' || v_exam
             || case when NEW.doctor <> '' then '<br>Lekár: ' || v_doc else '' end
@@ -213,6 +229,7 @@ begin
         body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(NEW.email),
           'subject', 'Zmena lekára pri vašom USG vyšetrení — ' || v_termin,
           'html', '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
+            || email_header()
             || '<h2 style="color:#003d7c">Zmena lekára pri vašom vyšetrení</h2>'
             || '<p>Z prevádzkových dôvodov vaše vyšetrenie vykoná <b>' || v_doc || '</b>.</p>'
             || '<p><b>Termín, čas aj rozsah vyšetrenia sa nemenia:</b><br>'
