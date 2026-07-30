@@ -66,6 +66,10 @@ begin
     raise exception 'Termín v minulosti nie je možné vybrať.';
   end if;
 
+  -- doplatkové termíny (so žiadankou) až od nastaveného času
+  -- (assert_referral_window definuje doplnkove-hodiny-001.sql / complete-setup)
+  perform assert_referral_window(v_order.has_referral, p_slot_time);
+
   for n in 0 .. (greatest(v_order.duration_min, 10) / 5 - 1) loop
     v_cell := p_slot_time + (n * 5) * interval '1 minute';
     select s.doctor into v_cell_doctor

@@ -106,6 +106,9 @@ const defaultSettings = {
   iban: "SK3112000000198742637541", // DEMO IBAN — nastavte vlastný v správe!
   beneficiary: "NÚSCH, a.s.",
   doctors: [], // mená lekárov priraditeľných k termínom
+  // doplatkové termíny (so žiadankou) sa ponúkajú až od tohto času;
+  // prázdne = bez obmedzenia
+  referralFrom: "",
   // fakturačné údaje dodávateľa — kým nie sú vyplnené, faktúry sa nevystavujú
   invoiceName: "",
   invoiceAddress: "",
@@ -189,7 +192,9 @@ export function normalizePhone(input) {
 // Takto sa okná zapĺňajú od začiatku a nevznikajú diery. Používa nová
 // objednávka aj zmena termínu pacientom.
 export const OFFERED_PER_DAY = 3;
-export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso }) {
+// minTime: doplatkové termíny (so žiadankou) sa ponúkajú až od času
+// nastaveného pracoviskom (doplnkové ordinačné hodiny); prázdne = bez obmedzenia
+export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso, minTime = "" }) {
   const open = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
   const durMin = Math.max(10, durationMin || 10);
 
@@ -213,7 +218,8 @@ export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, 
     }
   });
   candidates.sort((a, b) => a.time.localeCompare(b.time));
-  return candidates.slice(0, OFFERED_PER_DAY);
+  const eligible = minTime ? candidates.filter((c) => c.time >= minTime) : candidates;
+  return eligible.slice(0, OFFERED_PER_DAY);
 }
 
 // posun času "HH:MM" o dané minúty
@@ -516,6 +522,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     examTypeId: examType?.id || null,
     durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
     iso: isoDate,
+    minTime: isReferral ? (settings.referralFrom || "") : "",
   });
 
   const todayIso = toISODate(new Date());
@@ -530,7 +537,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSlots, takenByDate]);
+  }, [openSlots, takenByDate, isReferral, settings.referralFrom]);
 
   const [monthDate, setMonthDate] = useState(() => {
     const base = firstAvailableIso ? new Date(`${firstAvailableIso}T12:00:00`) : new Date();
@@ -636,7 +643,10 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
                 }`}
               >
                 <span className="font-bold text-slate-800">Áno, mám žiadanku</span>
-                <span className="block text-xs text-slate-500 mt-1">platí sa doplatok podľa cenníka</span>
+                <span className="block text-xs text-slate-500 mt-1">
+                  platí sa doplatok podľa cenníka
+                  {settings.referralFrom ? ` · termíny od ${settings.referralFrom} h` : ""}
+                </span>
               </button>
               <button
                 type="button"
@@ -1829,6 +1839,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [fDate, setFDate] = useState("");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
+  const [referralFromDraft, setReferralFromDraft] = useState(settings.referralFrom || "");
   const [doctorsDraft, setDoctorsDraft] = useState(() => normalizeDoctors(settings.doctors));
   const [invDraft, setInvDraft] = useState({
     name: settings.invoiceName || "", address: settings.invoiceAddress || "",
@@ -1843,6 +1854,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const doctorsKey = JSON.stringify(settings.doctors || []);
   useEffect(() => { setIbanDraft(settings.iban); }, [settings.iban]);
   useEffect(() => { setBeneficiaryDraft(settings.beneficiary); }, [settings.beneficiary]);
+  useEffect(() => { setReferralFromDraft(settings.referralFrom || ""); }, [settings.referralFrom]);
   useEffect(() => {
     setInvDraft({
       name: settings.invoiceName || "", address: settings.invoiceAddress || "",
@@ -2460,12 +2472,26 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 <label className="block text-sm font-semibold text-[#1A1A2E]">Názov príjemcu</label>
                 <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E]" />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#1A1A2E]">Termíny so žiadankou (doplatok) najskôr od</label>
+                <input
+                  type="time"
+                  value={referralFromDraft}
+                  onChange={(e) => setReferralFromDraft(e.target.value)}
+                  className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Pacientom so žiadankou (doplnkové ordinačné hodiny) sa ponúknu len časy od tejto hodiny.
+                  Samoplatcovia vidia všetky otvorené termíny. Nechajte prázdne, ak bez obmedzenia.
+                </p>
+              </div>
             </div>
             <button
               onClick={() => run(() => onSaveSettings({
                 iban: ibanDraft.trim(),
                 beneficiary: beneficiaryDraft.trim(),
                 doctors: normalizeDoctors(settings.doctors),
+                referralFrom: referralFromDraft,
               }), "Nastavenia platby uložené.")}
               className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
@@ -2554,6 +2580,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
       examTypeId: found.exam?.typeId || null,
       durationMin: found.durationMin || 10,
       iso,
+      minTime: found.hasReferral ? (settings.referralFrom || "") : "",
     });
   };
 

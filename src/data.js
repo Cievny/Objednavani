@@ -230,6 +230,7 @@ export function useBookingData(isStaff) {
         iban: kv.iban || defaultSettings.iban,
         beneficiary: kv.beneficiary || defaultSettings.beneficiary,
         doctors: normalizeDoctors(doctors),
+        referralFrom: kv.referral_from || "",
         invoiceName: kv.invoice_name || "",
         invoiceAddress: kv.invoice_address || "",
         invoiceIco: kv.invoice_ico || "",
@@ -487,6 +488,10 @@ export function useBookingData(isStaff) {
       { key: "beneficiary", value: next.beneficiary },
       { key: "doctors", value: JSON.stringify(next.doctors || []) },
     ];
+    // doplatkové hodiny posiela len sekcia „Nastavenia platby"
+    if (next.referralFrom !== undefined) {
+      rows.push({ key: "referral_from", value: next.referralFrom || "" });
+    }
     // fakturačné údaje posiela len sekcia „Fakturačné údaje"
     if (next.invoiceName !== undefined) {
       rows.push(

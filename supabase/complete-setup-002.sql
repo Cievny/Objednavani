@@ -206,6 +206,26 @@ begin
 end $$;
 
 -- Zmena termínu pacientom (samoobsluha, 48 h pravidlo)
+-- Doplatkové termíny (so žiadankou = doplnkové ordinačné hodiny) sa smú
+-- objednať až od času v settings.referral_from; prázdne = bez obmedzenia.
+-- Zlý formát času objednávanie nezablokuje (kontrola sa preskočí).
+create or replace function assert_referral_window(p_has_referral boolean, p_slot_time time)
+returns void
+language plpgsql set search_path = public as $$
+declare
+  v_from time;
+begin
+  if not coalesce(p_has_referral, false) then return; end if;
+  begin
+    v_from := nullif((select value from settings where key = 'referral_from'), '')::time;
+  exception when others then
+    v_from := null;
+  end;
+  if v_from is not null and p_slot_time < v_from then
+    raise exception 'Termíny so žiadankou (doplatok v doplnkových ordinačných hodinách) sú dostupné až od % h. Vyberte neskorší čas.', to_char(v_from, 'HH24:MI');
+  end if;
+end $$;
+
 create or replace function patient_reschedule(p_id text, p_phone text, p_slot_date date, p_slot_time time)
 returns boolean
 language plpgsql security definer set search_path = public as $$
@@ -234,6 +254,9 @@ begin
   if p_slot_date < current_date then
     raise exception 'Termín v minulosti nie je možné vybrať.';
   end if;
+
+  -- doplatkové termíny (so žiadankou) až od nastaveného času
+  perform assert_referral_window(v_order.has_referral, p_slot_time);
 
   for n in 0 .. (greatest(v_order.duration_min, 10) / 5 - 1) loop
     v_cell := p_slot_time + (n * 5) * interval '1 minute';
@@ -588,6 +611,10 @@ begin
   if p_slot_date < current_date then
     raise exception 'Termín v minulosti nie je možné objednať.';
   end if;
+
+  -- doplatkové termíny (so žiadankou) až od nastaveného času
+  -- (assert_referral_window definuje doplnkove-hodiny-001.sql / complete-setup)
+  perform assert_referral_window(p_has_referral, p_slot_time);
 
   v_vs := nextval('vs_seq')::text; -- garantovane unikátny VS zo servera
 

@@ -1,26 +1,43 @@
 -- ============================================================
--- FIO PÁROVANIE 002 — spoľahlivé párovanie platieb (audit vlna 2)
+-- DOPLNKOVÉ HODINY 001 — doplatkové termíny až od nastaveného času
 --
--- Rieši dva nálezy auditu:
---  1. Variabilný symbol sa teraz prideľuje zo SERVERA zo sekvencie
---     (vs_seq) — je vždy unikátny. Predtým ho generoval prehliadač
---     ako Date.now(), čo sa opakovalo a mohlo spárovať platbu na
---     nesprávnu objednávku.
---  2. Fio sťahovanie prešlo z /last na /periods (posledné 3 dni) —
---     zarážka sa neposúva, takže ani pri stratenej odpovedi banky
---     sa žiadna platba nestratí; opakované pohyby sa preskočia
---     podľa unikátneho tx_id.
+-- Pacient SO ŽIADANKOU (doplatok = doplnkové ordinačné hodiny) si
+-- môže vybrať len termín od času nastaveného v správe (Nastavenia →
+-- Nastavenia platby → „Termíny so žiadankou najskôr od"). Samoplatca
+-- (plná cena) vidí všetky otvorené termíny.
 --
--- PRED SPUSTENÍM: vo funkcii fio_poll nahraďte SEM_VLOZTE_FIO_TOKEN
--- vaším Fio tokenom. (create_order token nepotrebuje.)
--- Idempotentné — možno spustiť opakovane.
+-- Frontend časy filtruje v ponuke; táto migrácia pridáva rovnaké
+-- pravidlo aj na server (create_order + patient_reschedule), aby ho
+-- nebolo možné obísť. Personál v správe obmedzený nie je.
+--
+-- Nastavenie: settings.referral_from (napr. '14:00'); prázdne alebo
+-- chýbajúce = bez obmedzenia. Zle zadaná hodnota objednávanie
+-- NEZABLOKUJE (kontrola sa vtedy preskočí).
+--
+-- Bez kľúčov. Idempotentné — možno spúšťať opakovane.
 -- ============================================================
 
--- Variabilný symbol sa prideľuje zo servera zo sekvencie — je vždy
--- unikátny (na rozdiel od pôvodného klientského Date.now(), ktorý sa
--- opakoval a mohol spôsobiť spárovanie platby na nesprávnu objednávku).
-create sequence if not exists vs_seq start 1000000000;
+create or replace function assert_referral_window(p_has_referral boolean, p_slot_time time)
+returns void
+language plpgsql set search_path = public as $$
+declare
+  v_from time;
+begin
+  if not coalesce(p_has_referral, false) then return; end if;
+  begin
+    v_from := nullif((select value from settings where key = 'referral_from'), '')::time;
+  exception when others then
+    v_from := null; -- pokazený formát času v nastaveniach nesmie zablokovať objednávanie
+  end;
+  if v_from is not null and p_slot_time < v_from then
+    raise exception 'Termíny so žiadankou (doplatok v doplnkových ordinačných hodinách) sú dostupné až od % h. Vyberte neskorší čas.', to_char(v_from, 'HH24:MI');
+  end if;
+end $$;
 
+-- ------------------------------------------------------------
+-- create_order — plná aktuálna verzia (fio-parovanie-002)
+-- + kontrola doplnkových hodín pre objednávky so žiadankou
+-- ------------------------------------------------------------
 create or replace function create_order(
   p_id text, p_exam_type_id text, p_exam_label text, p_price numeric,
   p_has_referral boolean, p_reason text, p_referrer_name text, p_referrer_facility text,
@@ -98,7 +115,6 @@ begin
   end if;
 
   -- doplatkové termíny (so žiadankou) až od nastaveného času
-  -- (assert_referral_window definuje doplnkove-hodiny-001.sql / complete-setup)
   perform assert_referral_window(p_has_referral, p_slot_time);
 
   v_vs := nextval('vs_seq')::text; -- garantovane unikátny VS zo servera
@@ -148,115 +164,88 @@ exception
     raise exception 'Vybraný termín bol medzičasom obsadený. Vyberte iný.';
 end $$;
 
-create or replace function fio_poll()
-returns int
-language plpgsql security definer set search_path = public as $func$
+-- ------------------------------------------------------------
+-- patient_reschedule — plná aktuálna verzia (pacient-presun-001)
+-- + kontrola doplnkových hodín podľa žiadanky na objednávke
+-- ------------------------------------------------------------
+create or replace function patient_reschedule(p_id text, p_phone text, p_slot_date date, p_slot_time time)
+returns boolean
+language plpgsql security definer set search_path = public as $$
 declare
-  v_token text := 'SEM_VLOZTE_FIO_TOKEN';
-  r      record;
-  tx     jsonb;
-  v_json jsonb;
-  v_req  bigint;
-  v_cnt  int := 0;
-  v_txid text;
-  v_amt  numeric;
-  v_cur  text;
-  v_vs   text;
-  v_msg  text;
-  v_acct text;
   v_order orders%rowtype;
+  v_doctor text;
+  v_cell_doctor text;
+  n int;
+  v_cell time;
 begin
-  if v_token like 'SEM_%' then
-    return 0; -- token ešte nie je nastavený
+  perform check_lookup_limit('resched:' || upper(coalesce(p_id, '')));
+
+  select * into v_order from orders o
+  where upper(o.id) = upper(p_id)
+    and length(regexp_replace(p_phone, '\D', '', 'g')) >= 9
+    and right(regexp_replace(o.phone, '\D', '', 'g'), 9)
+      = right(regexp_replace(p_phone, '\D', '', 'g'), 9)
+    and o.status in ('new', 'confirmed');
+  if not found then
+    raise exception 'Objednávku sme nenašli alebo ju nemožno presunúť.';
   end if;
 
-  -- 1. spracovať odpovede na predchádzajúce požiadavky
-  for r in select fr.request_id, fr.requested_at from fio_requests fr where not fr.processed loop
-    select content::jsonb into v_json
-    from net._http_response
-    where id = r.request_id and status_code = 200;
+  if ((v_order.slot_date + v_order.slot_time) at time zone 'Europe/Bratislava') - now() < interval '48 hours' then
+    raise exception 'Do termínu zostáva menej ako 48 hodín — napíšte nám SMS s číslom objednávky na 0949 000 677.';
+  end if;
+  if p_slot_date < current_date then
+    raise exception 'Termín v minulosti nie je možné vybrať.';
+  end if;
 
-    if v_json is null then
-      -- odpoveď ešte nedorazila alebo zlyhala; po hodine to vzdaj
-      if r.requested_at < now() - interval '1 hour' then
-        update fio_requests set processed = true where request_id = r.request_id;
-      end if;
-      continue;
+  -- doplatkové termíny (so žiadankou) až od nastaveného času
+  perform assert_referral_window(v_order.has_referral, p_slot_time);
+
+  for n in 0 .. (greatest(v_order.duration_min, 10) / 5 - 1) loop
+    v_cell := p_slot_time + (n * 5) * interval '1 minute';
+    select s.doctor into v_cell_doctor
+    from open_slots s
+    where s.slot_date = p_slot_date and s.slot_time = v_cell;
+    if not found then
+      raise exception 'Vybraný čas už nie je dostupný. Vyberte iný.';
     end if;
-
-    for tx in
-      select * from jsonb_array_elements(
-        coalesce(v_json #> '{accountStatement,transactionList,transaction}', '[]'::jsonb))
-    loop
-      v_txid := tx #>> '{column22,value}';  -- ID pohybu
-      v_amt  := nullif(tx #>> '{column1,value}', '')::numeric;   -- objem
-      v_cur  := coalesce(tx #>> '{column14,value}', '');         -- mena
-      v_vs   := coalesce(tx #>> '{column5,value}', '');          -- variabilný symbol
-      v_msg  := coalesce(tx #>> '{column16,value}', '');         -- správa pre príjemcu
-      v_acct := coalesce(tx #>> '{column2,value}', '');          -- protiúčet
-
-      -- len došlé platby (kladné sumy)
-      if v_txid is null or v_amt is null or v_amt <= 0 then
-        continue;
-      end if;
-
-      -- idempotencia: každý pohyb spracuj len raz
-      begin
-        insert into fio_payments (tx_id, vs, amount, currency, counter_account, message)
-        values (v_txid, v_vs, v_amt, v_cur, v_acct, left(v_msg, 200));
-      exception when unique_violation then
-        continue;
-      end;
-
-      select * into v_order from orders o
-      where o.variable_symbol = v_vs and o.variable_symbol <> '' and o.status <> 'rejected'
-      order by o.created_at desc limit 1;
-
-      if not found then
-        update fio_payments set note = 'nespárované — objednávka s týmto VS neexistuje' where tx_id = v_txid;
-        continue;
-      end if;
-      if v_order.paid then
-        update fio_payments set matched_order_id = v_order.id, note = 'objednávka už bola zaplatená' where tx_id = v_txid;
-        continue;
-      end if;
-      if v_cur <> '' and v_cur <> 'EUR' then
-        update fio_payments set matched_order_id = v_order.id, note = 'iná mena (' || v_cur || ') — preveriť ručne' where tx_id = v_txid;
-        continue;
-      end if;
-      if v_amt + 0.005 < v_order.price then
-        update fio_payments set matched_order_id = v_order.id,
-          note = 'nižšia suma (' || v_amt || ' z ' || v_order.price || ' €) — preveriť ručne' where tx_id = v_txid;
-        continue;
-      end if;
-
-      -- spárované: zaplatené + potvrdenie termínu (spustí e-mail a SMS)
-      update orders set
-        paid = true,
-        paid_at = now(),
-        status = case when status = 'new' then 'confirmed' else status end
-      where id = v_order.id;
-      update fio_payments set matched_order_id = v_order.id, note = 'spárované automaticky' where tx_id = v_txid;
-      v_cnt := v_cnt + 1;
-    end loop;
-
-    update fio_requests set processed = true where request_id = r.request_id;
+    if n = 0 then
+      v_doctor := v_cell_doctor;
+    elsif v_cell_doctor is distinct from v_doctor then
+      raise exception 'Vybraný čas už nie je dostupný. Vyberte iný.';
+    end if;
   end loop;
 
-  -- 2. nová požiadavka na banku za posledné 3 dni (odpoveď spracuje
-  -- ďalší beh). /periods neposúva zarážku — okná sa prekrývajú a
-  -- idempotencia cez tx_id zaručí, že sa žiadna platba nestratí ani
-  -- nespáruje dvakrát.
-  select net.http_get(url := 'https://fioapi.fio.cz/v1/rest/periods/' || v_token || '/'
-      || to_char(current_date - 3, 'YYYY-MM-DD') || '/'
-      || to_char(current_date, 'YYYY-MM-DD') || '/transactions.json')
-  into v_req;
-  insert into fio_requests (request_id) values (v_req);
+  if exists (
+    select 1 from orders o
+    where o.slot_date = p_slot_date and o.status <> 'rejected' and o.id <> v_order.id
+      and int4range(
+            (extract(hour from o.slot_time) * 60 + extract(minute from o.slot_time))::int,
+            (extract(hour from o.slot_time) * 60 + extract(minute from o.slot_time))::int + o.duration_min
+          ) && int4range(
+            (extract(hour from p_slot_time) * 60 + extract(minute from p_slot_time))::int,
+            (extract(hour from p_slot_time) * 60 + extract(minute from p_slot_time))::int + v_order.duration_min
+          )
+  ) then
+    raise exception 'Vybraný termín bol medzičasom obsadený. Vyberte iný.';
+  end if;
 
-  -- 3. upratovanie (finančné logy držíme 90 dní ako ostatné logy)
-  delete from fio_payments where received_at < now() - interval '90 days';
-  delete from fio_requests where requested_at < now() - interval '7 days';
+  update orders set
+    slot_date = p_slot_date,
+    slot_time = p_slot_time,
+    doctor = coalesce(v_doctor, ''),
+    status_note = 'Presunuté pacientom z ' || to_char(v_order.slot_date, 'DD.MM.YYYY') || ' ' || to_char(v_order.slot_time, 'HH24:MI')
+  where id = v_order.id;
+  return true;
+exception
+  when exclusion_violation then
+    raise exception 'Vybraný termín bol medzičasom obsadený. Vyberte iný.';
+end $$;
 
-  return v_cnt;
-end $func$;
+grant execute on function patient_reschedule(text, text, date, time) to anon, authenticated;
+
+-- Kontrola po spustení:
+--   insert into settings (key, value) values ('referral_from', '14:00')
+--     on conflict (key) do update set value = excluded.value;   -- alebo cez správu
+--   select assert_referral_window(true, '10:00'::time);          -- má vyhodiť chybu
+--   select assert_referral_window(false, '10:00'::time);         -- prejde (samoplatca)
 -- ============================================================
