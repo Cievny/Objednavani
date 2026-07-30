@@ -95,14 +95,17 @@ revoke all on function next_invoice_number() from public, anon, authenticated;
 -- ------------------------------------------------------------
 -- 3. Fakturačné údaje — faktúry sa vystavujú až po ich vyplnení
 -- ------------------------------------------------------------
+-- POZOR: subselect na neexistujúci riadok vracia NULL — preto je
+-- coalesce OKOLO subselectu, inak by funkcia vrátila NULL namiesto
+-- FALSE a poistka „bez údajov nefakturovať" by sa preskočila.
 create or replace function invoice_supplier_ready()
 returns boolean language sql stable set search_path = public as $$
-  select (select coalesce(value, '') <> '' from settings where key = 'invoice_name')
-     and (select coalesce(value, '') <> '' from settings where key = 'invoice_address')
-     and (select coalesce(value, '') <> '' from settings where key = 'invoice_ico')
-     and (select coalesce(value, '') <> '' from settings where key = 'invoice_dic')
-     and (select coalesce(value, '') <> '' from settings where key = 'invoice_or')
-     and (select coalesce(value, '') <> '' from settings where key = 'invoice_pzs');
+  select coalesce((select value from settings where key = 'invoice_name'), '') <> ''
+     and coalesce((select value from settings where key = 'invoice_address'), '') <> ''
+     and coalesce((select value from settings where key = 'invoice_ico'), '') <> ''
+     and coalesce((select value from settings where key = 'invoice_dic'), '') <> ''
+     and coalesce((select value from settings where key = 'invoice_or'), '') <> ''
+     and coalesce((select value from settings where key = 'invoice_pzs'), '') <> '';
 $$;
 
 -- hlavička e-mailov s logom — rovnaká definícia ako v emaily-storna-001,
@@ -138,7 +141,7 @@ declare
 begin
   -- bez fakturačných údajov sa doklad nevystavuje (dovystaví ich
   -- issue_missing_invoices po ich doplnení v Nastaveniach)
-  if not invoice_supplier_ready() then return; end if;
+  if not coalesce(invoice_supplier_ready(), false) then return; end if;
   if o.price is null or o.price <= 0 then return; end if;
 
   -- poistky proti duplicite (napr. platba odznačená a znova označená)
@@ -180,8 +183,9 @@ begin
     o.patient_name, coalesce(o.email, ''), v_desc, v_amount,
     current_date, o.slot_date, coalesce(o.paid_at::date, current_date),
     coalesce(o.variable_symbol, ''), false,
-    s->>'invoice_name', s->>'invoice_address', s->>'invoice_ico', s->>'invoice_dic',
-    s->>'invoice_or', s->>'invoice_pzs', coalesce(s->>'iban', '')
+    coalesce(s->>'invoice_name', ''), coalesce(s->>'invoice_address', ''),
+    coalesce(s->>'invoice_ico', ''), coalesce(s->>'invoice_dic', ''),
+    coalesce(s->>'invoice_or', ''), coalesce(s->>'invoice_pzs', ''), coalesce(s->>'iban', '')
   );
 
   -- e-mail pacientovi s kompletným dokladom
@@ -248,15 +252,22 @@ revoke all on function issue_invoice(orders, text) from public, anon, authentica
 -- ------------------------------------------------------------
 -- 5. Trigger: platba prijatá → faktúra; storno zaplatenej → dobropis
 -- ------------------------------------------------------------
+-- Fakturácia NIKDY nesmie zablokovať zapísanie platby ani storno —
+-- prípadná chyba sa len zaloguje a doklad sa dovystaví neskôr
+-- tlačidlom „Dovystaviť chýbajúce faktúry".
 create or replace function orders_invoice_trigger()
 returns trigger
 language plpgsql security definer set search_path = public as $fn$
 begin
-  if not coalesce(OLD.paid, false) and NEW.paid then
-    perform issue_invoice(NEW, 'faktura');
-  elsif OLD.status <> 'rejected' and NEW.status = 'rejected' and NEW.paid then
-    perform issue_invoice(NEW, 'dobropis');
-  end if;
+  begin
+    if not coalesce(OLD.paid, false) and NEW.paid then
+      perform issue_invoice(NEW, 'faktura');
+    elsif OLD.status <> 'rejected' and NEW.status = 'rejected' and NEW.paid then
+      perform issue_invoice(NEW, 'dobropis');
+    end if;
+  exception when others then
+    raise warning 'Vystavenie faktúry k % zlyhalo: %', NEW.id, sqlerrm;
+  end;
   return NEW;
 end $fn$;
 
