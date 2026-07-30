@@ -106,6 +106,13 @@ const defaultSettings = {
   iban: "SK3112000000198742637541", // DEMO IBAN — nastavte vlastný v správe!
   beneficiary: "NÚSCH, a.s.",
   doctors: [], // mená lekárov priraditeľných k termínom
+  // fakturačné údaje dodávateľa — kým nie sú vyplnené, faktúry sa nevystavujú
+  invoiceName: "",
+  invoiceAddress: "",
+  invoiceIco: "",
+  invoiceDic: "",
+  invoiceOr: "",
+  invoicePzs: "",
 };
 
 export function generateWindowSlots(fromTime, toTime, stepMinutes) {
@@ -1598,7 +1605,205 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
+// suma na doklade — aj záporná (dobropis)
+const fmtEur = (n) => `${(Number(n) || 0).toFixed(2).replace(".", ",")} €`;
+
+// Tlačový náhľad faktúry (A4) — presne podľa vzoru v internom poučení.
+// Používa fakturačné údaje uložené NA faktúre (platné v čase vystavenia).
+const invoicePrintHtml = (inv) => {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const d = (iso) => (iso ? iso.split("-").reverse().join(".") : "—");
+  const title = inv.kind === "dobropis" ? `DOBROPIS č. ${inv.number}` : `FAKTÚRA č. ${inv.number}`;
+  return `<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; margin: 0; }
+  .page { max-width: 720px; margin: 0 auto; padding: 40px 32px; font-size: 13px; }
+  h1 { font-size: 20px; text-align: center; margin: 0 0 24px; }
+  .cols { display: flex; gap: 24px; margin-bottom: 20px; }
+  .cols > div { flex: 1; }
+  .lbl { font-size: 10px; color: #666; letter-spacing: 0.08em; margin-bottom: 4px; }
+  table.items { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  table.items th, table.items td { padding: 6px 4px; text-align: left; }
+  table.items th { border-bottom: 1px solid #333; font-size: 11px; }
+  table.items td.num, table.items th.num { text-align: right; }
+  tr.total td { border-top: 2px solid #111; font-weight: bold; }
+  .meta td { padding: 2px 12px 2px 0; color: #444; }
+  .note { margin-top: 24px; font-size: 12px; color: #333; }
+  .paid { margin-top: 12px; font-weight: bold; ${""}color: #166534; }
+  @media print { .page { padding: 0; } }
+</style></head><body><div class="page">
+  <h1>${esc(title)}</h1>
+  ${inv.kind === "dobropis" && inv.relatedNumber ? `<p style="text-align:center;margin:-16px 0 20px">k faktúre č. ${esc(inv.relatedNumber)}</p>` : ""}
+  <div class="cols">
+    <div>
+      <div class="lbl">DODÁVATEĽ</div>
+      <b>${esc(inv.supplier?.name)}</b><br>
+      ${esc(inv.supplier?.address)}<br>
+      IČO: ${esc(inv.supplier?.ico)} &nbsp; DIČ: ${esc(inv.supplier?.dic)}<br>
+      Zápis: ${esc(inv.supplier?.or)}<br>
+      Kód PZS: ${esc(inv.supplier?.pzs)}<br>
+      IBAN: ${esc(inv.supplier?.iban)}
+    </div>
+    <div>
+      <div class="lbl">ODBERATEĽ</div>
+      <b>${esc(inv.patientName)}</b>
+      <table class="meta" style="margin-top:14px">
+        <tr><td>Dátum vystavenia</td><td>${d(inv.issueDate)}</td></tr>
+        <tr><td>Dátum dodania</td><td>${d(inv.deliveryDate)}</td></tr>
+        <tr><td>Dátum úhrady</td><td>${d(inv.paymentDate)}</td></tr>
+        <tr><td>VS platby</td><td>${esc(inv.paymentVs) || "—"}</td></tr>
+        <tr><td>Objednávka</td><td>${esc(inv.orderId)}</td></tr>
+      </table>
+    </div>
+  </div>
+  <table class="items">
+    <tr><th>P.č.</th><th>Popis</th><th class="num">Množ.</th><th class="num">Cena/j.</th><th class="num">Spolu</th></tr>
+    <tr><td>1</td><td>${esc(inv.itemDesc)}</td><td class="num">1</td><td class="num">${fmtEur(inv.amount)}</td><td class="num">${fmtEur(inv.amount)}</td></tr>
+    <tr class="total"><td></td><td>${inv.kind === "dobropis" ? "SUMA NA VRÁTENIE" : "SPOLU K ÚHRADE"}</td><td></td><td></td><td class="num">${fmtEur(inv.amount)}</td></tr>
+  </table>
+  ${inv.kind === "dobropis" ? "" : `<p class="paid">Stav: UHRADENÉ (${d(inv.paymentDate)})</p>`}
+  <p class="note">Dodávateľ nie je platiteľom DPH.<br>Forma úhrady: online / prevodom na účet.</p>
+</div></body></html>`;
+};
+
+const printInvoice = (inv) => {
+  const w = window.open("", "_blank", "width=820,height=1000");
+  if (!w) return;
+  w.document.write(invoicePrintHtml(inv));
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 400);
+};
+
+// Záložka Faktúry — kniha vydaných faktúr (len superadmin; v Supabase
+// to vynucuje RLS). Sleduje aj ročný súčet zdaniteľných plnení kvôli
+// limitu 50 000 € pre povinnú registráciu DPH.
+const InvoicesTab = ({ onList, onIssueMissing }) => {
+  const [invoices, setInvoices] = useState([]);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try { setInvoices(await onList()); } catch (e) { setMsg(e?.message || String(e)); }
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
+
+  const years = [...new Set([new Date().getFullYear(), ...invoices.map((i) => i.year)])].sort((a, b) => b - a);
+  const shown = invoices.filter((i) => i.year === year).sort((a, b) => b.seq - a.seq);
+  const totalSum = shown.reduce((s, i) => s + i.amount, 0);
+  const taxableSum = shown.filter((i) => i.taxable).reduce((s, i) => s + i.amount, 0);
+
+  const issueMissing = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const n = await onIssueMissing();
+      setMsg(`✓ Dovystavené faktúry: ${n}`);
+      await load();
+    } catch (e) {
+      setMsg(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportCsv = () => {
+    const rows = [["Číslo", "Druh", "K faktúre", "Vystavená", "Dodanie", "Úhrada", "Pacient", "Popis", "Suma €", "VS platby", "Zdaniteľné", "Objednávka"]];
+    shown.slice().reverse().forEach((i) => rows.push([
+      i.number, i.kind === "dobropis" ? "dobropis" : "faktúra", i.relatedNumber || "",
+      i.issueDate, i.deliveryDate, i.paymentDate, i.patientName, i.itemDesc,
+      String(i.amount).replace(".", ","), i.paymentVs, i.taxable ? "áno" : "nie", i.orderId,
+    ]));
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kniha-faktur-${year}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-bold text-[#2B46A2] mr-auto">Kniha faktúr</h3>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="p-2 bg-white border border-[#767676] rounded-[10px] text-sm">
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded-[10px] transition-colors">
+          ⬇ Export CSV
+        </button>
+        <button onClick={issueMissing} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-semibold px-3 py-2 rounded-[10px] transition-colors">
+          {busy ? "Pracujem…" : "Dovystaviť chýbajúce faktúry"}
+        </button>
+      </div>
+      {msg && (
+        <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>
+      )}
+      <div className="flex flex-wrap gap-3 text-sm">
+        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2">Dokladov: <b>{shown.length}</b></span>
+        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2">Spolu {year}: <b>{fmtEur(totalSum)}</b></span>
+        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2" title="Diagnostické USG je oslobodené a do obratu pre DPH sa nepočíta.">
+          Zdaniteľné plnenia {year}: <b>{fmtEur(taxableSum)}</b> / 50 000 €
+        </span>
+      </div>
+      {taxableSum >= 45000 && (
+        <p className="text-sm font-semibold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-3 rounded-[10px]">
+          ⚠ Zdaniteľné plnenia sa blížia k 50 000 € — hrozí povinná registrácia pre DPH. Poraďte sa s účtovníkom.
+        </p>
+      )}
+      {shown.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          Za rok {year} zatiaľ nie sú žiadne faktúry. Faktúra sa vystaví automaticky pri prijatí platby —
+          ale až po vyplnení fakturačných údajov v Nastaveniach.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[560px]">
+            <thead>
+              <tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]">
+                <th className="py-2 pr-3">Číslo</th>
+                <th className="py-2 pr-3">Vystavená</th>
+                <th className="py-2 pr-3">Pacient</th>
+                <th className="py-2 pr-3 text-right">Suma</th>
+                <th className="py-2 pr-3">VS platby</th>
+                <th className="py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((i) => (
+                <tr key={i.number} className="border-b border-[#F0F2F5]">
+                  <td className="py-2 pr-3 font-mono font-semibold whitespace-nowrap">
+                    {i.number}
+                    {i.kind === "dobropis" && (
+                      <span className="ml-1 text-[10px] font-sans font-bold text-white bg-[#D32821] rounded px-1.5 py-0.5 align-middle">DOBROPIS</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 whitespace-nowrap">{i.issueDate?.split("-").reverse().join(".")}</td>
+                  <td className="py-2 pr-3">{i.patientName}</td>
+                  <td className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${i.amount < 0 ? "text-[#D32821]" : ""}`}>{fmtEur(i.amount)}</td>
+                  <td className="py-2 pr-3 font-mono">{i.paymentVs || "—"}</td>
+                  <td className="py-2 text-right">
+                    <button onClick={() => printInvoice(i)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2.5 py-1.5 rounded transition-colors whitespace-nowrap">
+                      Zobraziť / PDF
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-slate-400">
+        Faktúry sa uchovávajú 10 rokov a mažú sa nezávisle od objednávok. Dobropis sa vystaví automaticky
+        pri stornovaní zaplatenej objednávky. Na dokladoch nie sú žiadne zdravotné údaje.
+      </p>
+    </div>
+  );
+};
+
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, onListInvoices, onIssueMissingInvoices, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -1625,6 +1830,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
   const [doctorsDraft, setDoctorsDraft] = useState(() => normalizeDoctors(settings.doctors));
+  const [invDraft, setInvDraft] = useState({
+    name: settings.invoiceName || "", address: settings.invoiceAddress || "",
+    ico: settings.invoiceIco || "", dic: settings.invoiceDic || "",
+    or: settings.invoiceOr || "", pzs: settings.invoicePzs || "",
+  });
   const [actionError, setActionError] = useState("");
   const [actionInfo, setActionInfo] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
@@ -1633,6 +1843,13 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const doctorsKey = JSON.stringify(settings.doctors || []);
   useEffect(() => { setIbanDraft(settings.iban); }, [settings.iban]);
   useEffect(() => { setBeneficiaryDraft(settings.beneficiary); }, [settings.beneficiary]);
+  useEffect(() => {
+    setInvDraft({
+      name: settings.invoiceName || "", address: settings.invoiceAddress || "",
+      ico: settings.invoiceIco || "", dic: settings.invoiceDic || "",
+      or: settings.invoiceOr || "", pzs: settings.invoicePzs || "",
+    });
+  }, [settings.invoiceName, settings.invoiceAddress, settings.invoiceIco, settings.invoiceDic, settings.invoiceOr, settings.invoicePzs]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setDoctorsDraft(normalizeDoctors(settings.doctors)); }, [doctorsKey]);
 
@@ -1807,6 +2024,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     { id: "calendar", label: "Kalendár", roles: ["superadmin", "sestra"] },
     { id: "orders", label: "Objednávky", roles: ["superadmin", "sestra", "lekar"] },
     { id: "stats", label: "Štatistika", roles: ["superadmin", "lekar"] },
+    { id: "invoices", label: "Faktúry", roles: ["superadmin"] },
     { id: "order", label: "Poradie cenníka", roles: ["sestra"] },
     { id: "settings", label: "Nastavenia", roles: ["superadmin"] },
     ...(isSupabase ? [{ id: "users", label: "Používatelia", roles: ["superadmin"] }] : []),
@@ -2135,6 +2353,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         <StatsTab onGetMonthlyStats={onGetMonthlyStats} pricelist={pricelist} />
       )}
 
+      {view === "invoices" && (
+        <InvoicesTab onList={onListInvoices} onIssueMissing={onIssueMissingInvoices} />
+      )}
+
       {view === "order" && (
         <PricelistOrderEditor pricelist={pricelist} onSaveOrder={onSavePricelistOrder} />
       )}
@@ -2251,6 +2473,55 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </button>
             {settings.iban === defaultSettings.iban && (
               <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
+            )}
+          </div>
+          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
+            <h3 className="text-lg font-bold text-[#2B46A2]">Fakturačné údaje</h3>
+            <p className="text-sm text-slate-400">
+              Údaje dodávateľa na faktúrach. Faktúra sa pacientovi vystaví a pošle automaticky po prijatí
+              platby — ale až keď sú vyplnené všetky polia. IBAN sa preberá z Nastavení platby.
+            </p>
+            <div className="grid md:grid-cols-2 gap-3">
+              {[
+                ["name", "Obchodné meno", "Obchodné meno s.r.o."],
+                ["address", "Sídlo", "Ulica 1, 831 01 Bratislava"],
+                ["ico", "IČO", "12 345 678"],
+                ["dic", "DIČ", "2020xxxxxx"],
+                ["or", "Zápis v Obchodnom registri", "OR MS Bratislava III, odd. Sro, vložka č. …"],
+                ["pzs", "Kód poskytovateľa ZS (ÚDZS)", "P99999…"],
+              ].map(([key, label, placeholder]) => (
+                <div key={key}>
+                  <label className="block text-sm font-semibold text-[#1A1A2E]">{label}</label>
+                  <input
+                    value={invDraft[key]}
+                    onChange={(e) => setInvDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => run(() => onSaveSettings({
+                iban: settings.iban,
+                beneficiary: settings.beneficiary,
+                doctors: normalizeDoctors(settings.doctors),
+                invoiceName: invDraft.name.trim(),
+                invoiceAddress: invDraft.address.trim(),
+                invoiceIco: invDraft.ico.trim(),
+                invoiceDic: invDraft.dic.trim(),
+                invoiceOr: invDraft.or.trim(),
+                invoicePzs: invDraft.pzs.trim(),
+              }), "Fakturačné údaje uložené.")}
+              className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+            >
+              Uložiť fakturačné údaje
+            </button>
+            {[invDraft.name, invDraft.address, invDraft.ico, invDraft.dic, invDraft.or, invDraft.pzs].some((v) => !v.trim()) && (
+              <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">
+                Faktúry sa zatiaľ nevystavujú — vyplňte všetky fakturačné údaje. Skôr zaplatené objednávky
+                potom dovystavíte tlačidlom v záložke Faktúry.
+              </p>
             )}
           </div>
         </div>

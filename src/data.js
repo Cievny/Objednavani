@@ -63,6 +63,67 @@ const lookupFromJson = (j) => j && ({
   paid: Boolean(j.paid),
 });
 
+// kniha faktúr — riadok DB → tvar aplikácie (faktúra si nesie kópiu
+// fakturačných údajov dodávateľa platných v čase vystavenia)
+const invoiceFromRow = (r) => ({
+  number: r.number,
+  year: Number(r.year),
+  seq: Number(r.seq),
+  kind: r.kind,
+  relatedNumber: r.related_number || "",
+  orderId: r.order_id,
+  patientName: r.patient_name,
+  patientEmail: r.patient_email || "",
+  itemDesc: r.item_desc,
+  amount: Number(r.amount),
+  issueDate: r.issue_date,
+  deliveryDate: r.delivery_date || "",
+  paymentDate: r.payment_date || "",
+  paymentVs: r.payment_vs || "",
+  taxable: Boolean(r.taxable),
+  supplier: {
+    name: r.supplier_name || "", address: r.supplier_address || "",
+    ico: r.supplier_ico || "", dic: r.supplier_dic || "",
+    or: r.supplier_or || "", pzs: r.supplier_pzs || "", iban: r.supplier_iban || "",
+  },
+});
+
+// demo režim: lokálna kniha faktúr zrkadlí logiku databázového triggeru
+const DEMO_INVOICES_KEY = "usgInvoices_v1";
+const invoiceSettingsReady = (s) =>
+  ["invoiceName", "invoiceAddress", "invoiceIco", "invoiceDic", "invoiceOr", "invoicePzs"]
+    .every((k) => ((s && s[k]) || "").trim() !== "");
+
+const demoIssueInvoice = (order, kind, s) => {
+  if (!invoiceSettingsReady(s) || !(order.price > 0)) return;
+  const list = loadJson(DEMO_INVOICES_KEY, []);
+  const has = (k) => list.some((i) => i.orderId === order.id && i.kind === k);
+  let related = "";
+  if (kind === "faktura" && has("faktura")) return;
+  if (kind === "dobropis") {
+    const f = list.find((i) => i.orderId === order.id && i.kind === "faktura");
+    if (!f || has("dobropis")) return;
+    related = f.number;
+  }
+  const year = new Date().getFullYear();
+  const seq = list.filter((i) => i.year === year).length + 1;
+  list.push({
+    number: `${year}/${String(seq).padStart(4, "0")}`, year, seq, kind, relatedNumber: related,
+    orderId: order.id, patientName: order.patient.name, patientEmail: order.patient.email || "",
+    itemDesc: order.hasReferral
+      ? "Doplatok za poskytnutie USG vyšetrenia v doplnkových ordinačných hodinách"
+      : "USG vyšetrenie",
+    amount: kind === "dobropis" ? -order.price : order.price,
+    issueDate: toISODate(new Date()), deliveryDate: order.date, paymentDate: toISODate(new Date()),
+    paymentVs: order.variableSymbol || "", taxable: false,
+    supplier: {
+      name: s.invoiceName, address: s.invoiceAddress, ico: s.invoiceIco,
+      dic: s.invoiceDic, or: s.invoiceOr, pzs: s.invoicePzs, iban: s.iban || "",
+    },
+  });
+  localStorage.setItem(DEMO_INVOICES_KEY, JSON.stringify(list));
+};
+
 const pricelistFromRows = (rows) =>
   rows.map((r) => ({
     id: r.id,
@@ -169,6 +230,12 @@ export function useBookingData(isStaff) {
         iban: kv.iban || defaultSettings.iban,
         beneficiary: kv.beneficiary || defaultSettings.beneficiary,
         doctors: normalizeDoctors(doctors),
+        invoiceName: kv.invoice_name || "",
+        invoiceAddress: kv.invoice_address || "",
+        invoiceIco: kv.invoice_ico || "",
+        invoiceDic: kv.invoice_dic || "",
+        invoiceOr: kv.invoice_or || "",
+        invoicePzs: kv.invoice_pzs || "",
       });
     }
     if (isStaff) {
@@ -292,6 +359,11 @@ export function useBookingData(isStaff) {
 
   const setStatus = async (orderId, status, statusNote = "") => {
     if (!supabase) {
+      // demo: storno zaplatenej objednávky vystaví dobropis (ako DB trigger)
+      if (status === "rejected") {
+        const o = orders.find((x) => x.id === orderId);
+        if (o && o.paid && o.price > 0) demoIssueInvoice(o, "dobropis", settings);
+      }
       setOrders((prev) => prev.map((o) => (o.id === orderId
         ? { ...o, status, statusNote, rejectedAt: status === "rejected" ? new Date().toISOString() : "" }
         : o)));
@@ -382,6 +454,11 @@ export function useBookingData(isStaff) {
   const setPaid = async (orderId, paid = true) => {
     const paidAt = paid ? new Date().toISOString() : null;
     if (!supabase) {
+      // demo: prijatie platby vystaví faktúru (ako DB trigger)
+      if (paid) {
+        const o = orders.find((x) => x.id === orderId);
+        if (o) demoIssueInvoice(o, "faktura", settings);
+      }
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid, paidAt } : o)));
       return;
     }
@@ -403,15 +480,25 @@ export function useBookingData(isStaff) {
   };
 
   const saveSettings = async (next) => {
-    if (!supabase) { setSettings(next); return; }
-    const { error } = await supabase.from("settings").upsert(
-      [
-        { key: "iban", value: next.iban },
-        { key: "beneficiary", value: next.beneficiary },
-        { key: "doctors", value: JSON.stringify(next.doctors || []) },
-      ],
-      { onConflict: "key" }
-    );
+    // demo: merge — sekcie ukladajú len svoje polia, ostatné sa nesmú stratiť
+    if (!supabase) { setSettings((prev) => ({ ...prev, ...next })); return; }
+    const rows = [
+      { key: "iban", value: next.iban },
+      { key: "beneficiary", value: next.beneficiary },
+      { key: "doctors", value: JSON.stringify(next.doctors || []) },
+    ];
+    // fakturačné údaje posiela len sekcia „Fakturačné údaje"
+    if (next.invoiceName !== undefined) {
+      rows.push(
+        { key: "invoice_name", value: next.invoiceName || "" },
+        { key: "invoice_address", value: next.invoiceAddress || "" },
+        { key: "invoice_ico", value: next.invoiceIco || "" },
+        { key: "invoice_dic", value: next.invoiceDic || "" },
+        { key: "invoice_or", value: next.invoiceOr || "" },
+        { key: "invoice_pzs", value: next.invoicePzs || "" },
+      );
+    }
+    const { error } = await supabase.from("settings").upsert(rows, { onConflict: "key" });
     throwIf(error);
     await reload();
   };
@@ -514,6 +601,33 @@ export function useBookingData(isStaff) {
     throwIf(error);
   };
 
+  // kniha faktúr (číta ju len superadmin — v Supabase to vynucuje RLS)
+  const listInvoices = async () => {
+    if (!supabase) return loadJson(DEMO_INVOICES_KEY, []);
+    const { data, error } = await supabase.from("invoices").select("*")
+      .order("year", { ascending: false }).order("seq", { ascending: false });
+    throwIf(error);
+    return (data || []).map(invoiceFromRow);
+  };
+
+  // dovystavenie faktúr pre objednávky zaplatené pred vyplnením
+  // fakturačných údajov (alebo pred nasadením fakturácie)
+  const issueMissingInvoices = async () => {
+    if (!supabase) {
+      if (!invoiceSettingsReady(settings)) throw new Error("Najprv vyplňte fakturačné údaje v Nastaveniach.");
+      const before = loadJson(DEMO_INVOICES_KEY, []).length;
+      orders.forEach((o) => {
+        if (!o.paid || !(o.price > 0)) return;
+        demoIssueInvoice(o, "faktura", settings);
+        if (o.status === "rejected") demoIssueInvoice(o, "dobropis", settings);
+      });
+      return loadJson(DEMO_INVOICES_KEY, []).length - before;
+    }
+    const { data, error } = await supabase.rpc("issue_missing_invoices");
+    throwIf(error);
+    return Number(data) || 0;
+  };
+
   // ručné overenie platieb (RPC check_payments: spustí párovanie s bankou
   // a vráti stav všetkých aktívnych objednávok)
   const checkPayments = async () => {
@@ -541,5 +655,6 @@ export function useBookingData(isStaff) {
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
     listStaff, setStaffRole, removeStaffRole, checkPayments,
     lookupOrder, cancelOrder, patientReschedule, openAttachment,
+    listInvoices, issueMissingInvoices,
   };
 }
