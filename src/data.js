@@ -415,7 +415,7 @@ export function useBookingData(isStaff) {
         const next = { ...prev };
         days.forEach((iso) => {
           const byTime = new Map((next[iso] || []).map((slot) => [slot.time, slot]));
-          times.forEach((t) => byTime.set(t, { time: t, doctor }));
+          times.forEach((t) => { if (!byTime.has(t)) byTime.set(t, { time: t, doctor }); }); // neprepisuj existujúce bunky
           next[iso] = [...byTime.values()].sort((a, b) => a.time.localeCompare(b.time));
         });
         return next;
@@ -424,7 +424,10 @@ export function useBookingData(isStaff) {
     }
     const rows = [];
     days.forEach((iso) => times.forEach((t) => rows.push({ slot_date: iso, slot_time: t, doctor })));
-    const { error } = await supabase.from("open_slots").upsert(rows, { onConflict: "slot_date,slot_time" });
+    // ignoreDuplicates: existujúce bunky (aj s priradeným lekárom či
+    // obsadené objednávkou) sa NEPREPÍŠU — otvorenie okna pre iného lekára
+    // tak nezmení lekára na dňoch, kde už niekto ordinuje
+    const { error } = await supabase.from("open_slots").upsert(rows, { onConflict: "slot_date,slot_time", ignoreDuplicates: true });
     throwIf(error);
     await reload();
   };
@@ -440,7 +443,11 @@ export function useBookingData(isStaff) {
   };
 
   const closeDay = async (date) => {
-    const bookedTimes = new Set(orders.filter((o) => o.date === date && isSlotOccupying(o)).map((o) => o.time));
+    // celé trvanie objednávky (nie len začiatok) — inak by „Zavrieť voľné"
+    // zmazalo bunky, na ktorých objednávka reálne sedí
+    const bookedTimes = new Set(
+      orders.filter((o) => o.date === date && isSlotOccupying(o)).flatMap(expandOrderCells).map((c) => c.time)
+    );
     if (!supabase) {
       setOpenSlots((prev) => ({ ...prev, [date]: (prev[date] || []).filter((slot) => bookedTimes.has(slot.time)) }));
       return;

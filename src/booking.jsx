@@ -192,6 +192,17 @@ export function normalizePhone(input) {
 // Takto sa okná zapĺňajú od začiatku a nevznikajú diery. Používa nová
 // objednávka aj zmena termínu pacientom.
 export const OFFERED_PER_DAY = 3;
+
+// Náhodné číslo objednávky — 13 znakov base32 (~65 bitov entropie), aby
+// cudzie objednávky nešlo uhádnuť/enumerovať (predtým to bol Date.now()).
+export function newOrderId() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; // Crockford-like base32, bez 0/1/O/I
+  const bytes = new Uint8Array(13);
+  (window.crypto || window.msCrypto).getRandomValues(bytes);
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += alphabet[bytes[i] % 32];
+  return `USG-${s}`;
+}
 // minTime: doplatkové termíny (so žiadankou) sa ponúkajú až od času
 // nastaveného pracoviskom (doplnkové ordinačné hodiny); prázdne = bez obmedzenia
 export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso, minTime = "" }) {
@@ -212,14 +223,33 @@ export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, 
 
   const candidates = [];
   runs.forEach((run) => {
-    const runMin = run.len * BASE_SLOT_MIN;
+    // Beh orežeme na minTime (doplnkové hodiny / dnešný čas) EŠTE PRED
+    // packingom — inak by sa mriežka kotvila na začiatok behu a čas
+    // presne od minTime (napr. 14:00) by sa nikdy neponúkol.
+    let startOffset = 0;
+    if (minTime && run.start < minTime) {
+      while (startOffset < run.len && addMinutes(run.start, startOffset * BASE_SLOT_MIN) < minTime) startOffset += 1;
+    }
+    const base = addMinutes(run.start, startOffset * BASE_SLOT_MIN);
+    const runMin = (run.len - startOffset) * BASE_SLOT_MIN;
     for (let offset = 0; offset + durMin <= runMin; offset += durMin) {
-      candidates.push({ time: addMinutes(run.start, offset), doctor: run.doctor });
+      candidates.push({ time: addMinutes(base, offset), doctor: run.doctor });
     }
   });
   candidates.sort((a, b) => a.time.localeCompare(b.time));
-  const eligible = minTime ? candidates.filter((c) => c.time >= minTime) : candidates;
-  return eligible.slice(0, OFFERED_PER_DAY);
+  return candidates.slice(0, OFFERED_PER_DAY);
+}
+
+// Najskorší objednateľný čas pre daný deň: pri dnešku len budúce časy
+// (aby sa neponúkali termíny, ktoré už uplynuli), inak žiadne obmedzenie.
+// Kombinuje sa s referral_from (doplnkové hodiny) — berie sa neskorší z nich.
+export function earliestTimeFor(iso, referralFrom = "") {
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayCut = iso === todayIso
+    ? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+    : "";
+  return [referralFrom || "", todayCut].sort().pop() || "";
 }
 
 // posun času "HH:MM" o dané minúty
@@ -522,7 +552,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     examTypeId: examType?.id || null,
     durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
     iso: isoDate,
-    minTime: isReferral ? (settings.referralFrom || "") : "",
+    minTime: earliestTimeFor(isoDate, isReferral ? (settings.referralFrom || "") : ""),
   });
 
   const todayIso = toISODate(new Date());
@@ -575,7 +605,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
       return setError("Zadajte platné telefónne číslo (aspoň 9 číslic).");
     }
     const order = {
-      id: `USG-${Date.now().toString(36).toUpperCase()}`,
+      id: newOrderId(),
       variableSymbol: String(Date.now()).slice(-10),
       durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
       createdAt: new Date().toISOString(),
@@ -2005,6 +2035,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         segments.push({ start: cell.time, end: addMinutes(cell.time, BASE_SLOT_MIN), order, doctor: cell.doctor, cells: order ? [] : [cell.time] });
       }
     });
+    // Objednávky, ktorých bunky NIE SÚ medzi otvorenými (napr. obnovené
+    // z koša po zatvorení dňa) — inak by v rozpise úplne chýbali a
+    // personál by o nich nevedel, hoci pacient príde.
+    const shownIds = new Set(segments.filter((s) => s.order).map((s) => s.order.id));
+    orders
+      .filter((o) => o.date === iso && isSlotOccupying(o) && !shownIds.has(o.id))
+      .forEach((o) => segments.push({
+        start: o.time, end: addMinutes(o.time, o.durationMin || 10),
+        order: o, doctor: o.doctor, cells: [], outOfHours: true,
+      }));
+    segments.sort((a, b) => a.start.localeCompare(b.start));
     const open = cells.length;
     const free = freeSlotsFor(iso).length;
     return { iso, open, free, booked: open - free, segments };
@@ -2271,6 +2312,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                           className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-left px-3 py-2.5 rounded-[10px] border transition-colors ${tone.cls} ${active ? "ring-2 ring-[#2B46A2]/60" : "hover:ring-2 hover:ring-[#2B46A2]/30"}`}
                         >
                           <span className="font-mono font-bold text-sm shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                          {seg.outOfHours && <span className="shrink-0 text-[10px] font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-1.5 py-0.5">mimo otvorených hodín</span>}
                           <span className="flex-1 min-w-0 basis-40">
                             <span className="block font-semibold truncate">{seg.order.patient.name}</span>
                             <span className="block text-xs opacity-80 truncate">{seg.order.exam.label}{seg.order.doctor ? ` · ${seg.order.doctor}` : ""}</span>
@@ -2580,7 +2622,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
       examTypeId: found.exam?.typeId || null,
       durationMin: found.durationMin || 10,
       iso,
-      minTime: found.hasReferral ? (settings.referralFrom || "") : "",
+      minTime: earliestTimeFor(iso, found.hasReferral ? (settings.referralFrom || "") : ""),
     });
   };
 
