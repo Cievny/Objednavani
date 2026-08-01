@@ -224,13 +224,20 @@ export function useBookingData(isStaff) {
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(pricelistFromRows(priceRes.data));
     if (!settingsRes.error && settingsRes.data.length > 0) {
       const kv = Object.fromEntries(settingsRes.data.map((r) => [r.key, r.value]));
+      // Personál číta zoznam lekárov (aj s e-mailmi) priamo z settings;
+      // pacient (anon) ho nevidí — dostane cez public_doctors() bez e-mailov.
       let doctors = [];
-      try { doctors = JSON.parse(kv.doctors || "[]"); } catch { doctors = []; }
+      if (isStaff) {
+        try { doctors = JSON.parse(kv.doctors || "[]"); } catch { doctors = []; }
+      } else {
+        const { data: docs } = await supabase.rpc("public_doctors");
+        doctors = Array.isArray(docs) ? docs : [];
+      }
       setSettings({
         iban: kv.iban || defaultSettings.iban,
         beneficiary: kv.beneficiary || defaultSettings.beneficiary,
         doctors: normalizeDoctors(doctors),
-        referralFrom: kv.referral_from || "",
+        referralFrom: (kv.referral_from || "").slice(0, 5), // normalizuj „14:00:00" → „14:00"
         invoiceName: kv.invoice_name || "",
         invoiceAddress: kv.invoice_address || "",
         invoiceIco: kv.invoice_ico || "",
@@ -354,7 +361,7 @@ export function useBookingData(isStaff) {
     if (attachment?.path && supabase) {
       const { data, error } = await supabase.storage.from("prilohy").createSignedUrl(attachment.path, 300);
       throwIf(error);
-      window.open(data.signedUrl, "_blank");
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     }
   };
 

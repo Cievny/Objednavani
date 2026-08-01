@@ -193,6 +193,15 @@ export function normalizePhone(input) {
 // objednávka aj zmena termínu pacientom.
 export const OFFERED_PER_DAY = 3;
 
+// Bunka do CSV: uvodzovky + ochrana proti CSV/formula injection —
+// hodnotu začínajúcu = + - @ (aj po medzere/taboch) predznačíme
+// apostrofom, aby ju Excel/LibreOffice nevyhodnotil ako vzorec.
+export function csvCell(v) {
+  let s = String(v ?? "");
+  if (/^[\s]*[=+\-@]/.test(s)) s = "'" + s;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 // Náhodné číslo objednávky — 13 znakov base32 (~65 bitov entropie), aby
 // cudzie objednávky nešlo uhádnuť/enumerovať (predtým to bol Date.now()).
 export function newOrderId() {
@@ -1755,7 +1764,7 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
       i.issueDate, i.deliveryDate, i.paymentDate, i.patientName, i.itemDesc,
       String(i.amount).replace(".", ","), i.paymentVs, i.taxable ? "áno" : "nie", i.orderId,
     ]));
-    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const csv = rows.map((r) => r.map(csvCell).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1856,6 +1865,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     dayDetailRef.current.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   }, [dayDetailId]);
+  // týždenný prehľad = 7 dní od dneška (operačne užitočnejšie než
+  // kalendárny týždeň, ktorý by na konci týždňa ukazoval hlavne minulé dni)
   const [weekStart, setWeekStart] = useState(todayIso);
   const [winFrom, setWinFrom] = useState(todayIso);
   const [winTo, setWinTo] = useState(todayIso);
@@ -1996,7 +2007,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       o.patient.birthNumber || o.patient.birthDate || "", o.patient.phone, o.patient.email,
       o.exam.label, o.price, o.hasReferral ? "áno" : "nie", o.variableSymbol || "", o.id, o.statusNote || "",
     ]));
-    const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const csv = rows.map((r) => r.map(csvCell).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

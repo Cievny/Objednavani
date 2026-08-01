@@ -74,7 +74,7 @@ begin
 
   for r in
     select * from orders
-    where slot_date = current_date + 1
+    where slot_date between current_date and current_date + 1
       and status in ('new', 'confirmed')
       and reminder_sent_at is null
   loop
