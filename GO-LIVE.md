@@ -38,6 +38,8 @@ treba dokončiť body nižšie.
 - [x] Vypnúť verejnú registráciu: Auth → Sign In / Up → Allow new
       users to sign up = OFF (personál sa pozýva pozvánkou)
 - [x] Spustiť `supabase/audit-vlna3-001.sql` (bezpečnosť + kalendár, vlna 1)
+- [ ] Spustiť `supabase/audit-vlna4-001.sql` (vlna 2 — stredné/nízke)
+- [ ] Spustiť `reminders.sql` (voliteľné — odolnejšie pripomienky; s kľúčmi)
 
 ## 4. Bezpečnosť — kľúče
 
@@ -66,3 +68,21 @@ treba dokončiť body nižšie.
 - [ ] PWA ikona/aplikácia aj pre pacientsku stránku (teraz má správa)
 - [ ] Automatická mesačná pripomienka exportu faktúr
 - [ ] Štatistika: prehľad tržieb podľa mesiacov v záložke Faktúry
+- [ ] Dvaja lekári v tom istom čase (paralelné ambulancie/sondy) —
+      vyžaduje zmenu dátového modelu open_slots; dnes platí „1 pacient
+      v čase". Na vyžiadanie.
+
+## 8. Audit — stav (bezpečnostný + funkčný, 30.–31.07.2026)
+
+- [x] Vlna 1 (kritické + vysoké): prílohy len pre personál, rate-limit
+      create_order (IP), invoice_counters RLS, náhodné ID objednávok +
+      rate-limit podľa telefónu, validácia ID, zákaz termínu v minulosti,
+      closeDay/openWindow oprava, doplnkové hodiny packing, objednávky
+      mimo hodín viditeľné. → v47, `audit-vlna3-001.sql`
+- [x] Vlna 2 (stredné + nízke): e-maily lekárov skryté (public_doctors),
+      rola lekar bez DELETE + guard (platba/cena) + audit mazania,
+      upratovanie osirelých príloh, backfill duration_min, CSV injection,
+      noopener, referral_from HH:MM, odolné pripomienky. → v48,
+      `audit-vlna4-001.sql`
+- Záťažové testy: 20 súbežných na 1 termín → prejde 1; limit 3/telefón;
+      300 objednávok/10 spojení bez chýb; ~6600 čítaní/s pri 100 klientoch.
