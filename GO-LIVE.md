@@ -35,8 +35,9 @@ treba dokončiť body nižšie.
 - [ ] Nastaviť settings: `mail_from` (adresa @cievny.sk overená
       v Resend) a `notify_email` (interný oznam o novej objednávke)
 - [ ] Skontrolovať ostrý IBAN v Nastaveniach platby (nie DEMO)
-- [ ] Vypnúť verejnú registráciu: Auth → Sign In / Up → Allow new
+- [x] Vypnúť verejnú registráciu: Auth → Sign In / Up → Allow new
       users to sign up = OFF (personál sa pozýva pozvánkou)
+- [x] Spustiť `supabase/audit-vlna3-001.sql` (bezpečnosť + kalendár, vlna 1)
 
 ## 4. Bezpečnosť — kľúče
 
