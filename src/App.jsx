@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { PatientView, AdminView, UsgHero, OrderLookup } from "./booking.jsx";
 import { VopPage, PrivacyPage } from "./legal.jsx";
 import { useAuth, useBookingData } from "./data.js";
+import AdhocPaymentApp from "./adhoc.jsx";
+import CtApp from "./ct.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v52";
+const APP_VERSION = "v53";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -123,6 +125,9 @@ export default function App() {
   const legalPage = hash.startsWith("#/podmienky") ? "vop" : hash.startsWith("#/osobne-udaje") ? "privacy" : null;
   // Deep-link z e-mailov: #/objednavka/USG-… otvorí overenie objednávky s predvyplneným číslom
   const orderLinkId = hash.startsWith("#/objednavka/") ? decodeURIComponent(hash.slice("#/objednavka/".length)) : "";
+  // Skryté testovacie pod-appky (neuvedené v navigácii, len pre prihlásený personál)
+  const isPayRoute = hash.startsWith("#/platba");
+  const isCtRoute = hash.startsWith("#/ct");
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -175,6 +180,16 @@ export default function App() {
     return codeUnlocked ? adminContent : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
   };
 
+  // skryté pod-appky sú prístupné až po prihlásení personálu (počas testu neverejné)
+  const renderGated = (node) => {
+    if (auth.isSupabase) {
+      if (!auth.ready) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
+      if (!auth.session) return <LoginGate auth={auth} />;
+      return node;
+    }
+    return codeUnlocked ? node : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
+  };
+
   return (
     <div className="bg-[#F8F9FC] text-slate-900 min-h-screen font-sans">
       <header className="bg-white border-b border-slate-200">
@@ -212,8 +227,11 @@ export default function App() {
         </div>
       </nav>
 
-      <main className={`${isAdminRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
-        {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage /> : isAdminRoute ? renderAdmin() : (
+      <main className={`${isAdminRoute || isPayRoute || isCtRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
+        {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
+          : isPayRoute ? renderGated(<AdhocPaymentApp />)
+          : isCtRoute ? renderGated(<CtApp isStaff={isStaff} />)
+          : isAdminRoute ? renderAdmin() : (
           <>
             <UsgHero />
             {data.isSupabase && data.loading ? (

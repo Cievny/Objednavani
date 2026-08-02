@@ -332,7 +332,7 @@ export function validateBirthNumber(input) {
 
 // --- 3. QR PLATBA (PAY by square) ---
 
-const PaymentQr = ({ order, settings }) => {
+const PaymentQr = ({ order, settings, note }) => {
   const [dataUrl, setDataUrl] = useState(null);
   const [error, setError] = useState("");
 
@@ -347,7 +347,8 @@ const PaymentQr = ({ order, settings }) => {
           amount: order.price,
           currencyCode: CurrencyCode.EUR,
           variableSymbol: order.variableSymbol,
-          paymentNote: `USG ${order.patient.name} ${order.date} ${order.time}`,
+          // note umožňuje znovupoužiť QR aj mimo USG (napr. ad-hoc platba)
+          paymentNote: note || `USG ${order.patient.name} ${order.date} ${order.time}`,
           beneficiary: { name: settings.beneficiary },
           bankAccounts: [{ iban: settings.iban.replace(/\s/g, "") }],
         }],
@@ -2824,4 +2825,6 @@ export {
   defaultSettings, defaultPricelist, normalizePricelist,
   isSlotOccupying, toISODate, loadJson,
   USG_ORDERS_KEY, USG_OPEN_SLOTS_KEY, USG_SETTINGS_KEY, USG_PRICELIST_KEY,
+  // znovupoužité pod-appkami (ad-hoc platba, CT objednávanie)
+  PaymentQr, MonthCalendar, StepIndicator, generateWindowSlots as genSlots,
 };
