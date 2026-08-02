@@ -7,7 +7,7 @@ import CtApp from "./ct.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v53";
+const APP_VERSION = "v54";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -141,6 +141,13 @@ export default function App() {
           </button>
         </div>
       )}
+      {/* Diskrétne odkazy na skryté testovacie pod-appky (len pre personál) */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+        <span className="text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-0.5 font-semibold">Testovacie</span>
+        <a href="#/platba" className="text-[#2B46A2] font-semibold hover:underline">Ad-hoc platba za výkon</a>
+        <span className="text-slate-300">·</span>
+        <a href="#/ct" className="text-[#2B46A2] font-semibold hover:underline">CT objednávanie (bez poplatku)</a>
+      </div>
       <AdminView
         orders={data.orders}
         openSlots={data.openSlots}

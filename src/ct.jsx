@@ -183,8 +183,9 @@ export default function CtApp({ isStaff }) {
   const data = useCtData(isStaff);
   return (
     <div className="space-y-4">
-      <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 text-sm font-semibold">
-        Testovacia sekcia — CT objednávanie (bez poplatku). Nie je verejná.
+      <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
+        <span>Testovacia sekcia — CT objednávanie (bez poplatku). Nie je verejná.</span>
+        <a href="#/sprava" className="text-[#2B46A2] hover:underline">← Späť do správy</a>
       </div>
       <div className="flex gap-2">
         <button onClick={() => setView("book")} className={`px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === "book" ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444]"}`}>Objednať sa</button>

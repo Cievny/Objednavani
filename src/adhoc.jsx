@@ -43,8 +43,9 @@ export default function AdhocPaymentApp() {
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 text-sm font-semibold">
-        Testovacia sekcia — ad-hoc platba za iný výkon. Nie je verejná.
+      <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
+        <span>Testovacia sekcia — ad-hoc platba za iný výkon. Nie je verejná.</span>
+        <a href="#/sprava" className="text-[#2B46A2] hover:underline">← Späť do správy</a>
       </div>
 
       {!created ? (
