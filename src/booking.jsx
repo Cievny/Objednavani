@@ -416,20 +416,20 @@ const UsgHero = () => (
     </div>
     <div className="grid md:grid-cols-3 gap-3">
       <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
-        <p className="font-bold text-slate-800 text-sm mb-1">Skúsení odborníci</p>
-        <p className="text-xs text-slate-600">
+        <p className="font-bold text-slate-800 text-base md:text-lg mb-1">Skúsení odborníci</p>
+        <p className="text-sm md:text-base text-slate-600">
           Vyšetrenie vykonávajú lekári s dlhoročnou praxou v cievnej diagnostike na moderných ultrazvukových prístrojoch.
         </p>
       </div>
       <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
-        <p className="font-bold text-slate-800 text-sm mb-1">Tradícia a špecializácia</p>
-        <p className="text-xs text-slate-600">
+        <p className="font-bold text-slate-800 text-base md:text-lg mb-1">Tradícia a špecializácia</p>
+        <p className="text-sm md:text-base text-slate-600">
           NÚSCH je špičkové slovenské pracovisko pre srdce a cievy — diagnostike cievnych ochorení sa venujeme desaťročia.
         </p>
       </div>
       <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
-        <p className="font-bold text-slate-800 text-sm mb-1">Starostlivosť, ktorá nekončí nálezom</p>
-        <p className="text-xs text-slate-600">
+        <p className="font-bold text-slate-800 text-base md:text-lg mb-1">Starostlivosť, ktorá nekončí nálezom</p>
+        <p className="text-sm md:text-base text-slate-600">
           Pri pozitívnom náleze na vyšetrenie priamo nadväzuje ďalšia diagnostika a liečba u našich špecialistov — všetko pod jednou strechou.
         </p>
       </div>
