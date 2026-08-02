@@ -7,7 +7,7 @@ import CtApp from "./ct.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v55";
+const APP_VERSION = "v56";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -237,7 +237,7 @@ export default function App() {
       <main className={`${isAdminRoute || isPayRoute || isCtRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
           : isPayRoute ? renderGated(<AdhocPaymentApp />)
-          : isCtRoute ? renderGated(<CtApp isStaff={isStaff} />)
+          : isCtRoute ? renderGated(<CtApp isStaff={isStaff} role={auth.isSupabase ? (auth.role || "none") : "superadmin"} />)
           : isAdminRoute ? renderAdmin() : (
           <>
             <UsgHero />
