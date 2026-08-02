@@ -386,34 +386,33 @@ const UsgHero = () => (
       Skúšobná prevádzka: objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné
       a pracovisko vás môže kontaktovať s upresnením. Ďakujeme za pochopenie.
     </div>
-    {/* Bannerový hero v štýle značky — jemný EKG/pulz motív, logo, nadpis */}
-    <div className="relative overflow-hidden rounded-[12px] mb-5 bg-gradient-to-br from-[#2B46A2] to-[#003d7c] p-6 md:p-8">
-      <svg
-        viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.18]"
-      >
-        <polyline
-          points="0,70 120,70 150,70 165,40 185,100 205,20 225,85 245,70 320,70 345,70 360,50 378,92 398,70 600,70"
-          fill="none" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"
-        />
-      </svg>
-      <div className="relative flex items-center gap-4">
-        <div className="shrink-0 bg-white rounded-[12px] p-2 shadow-sm">
-          <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-12 h-12 md:w-14 md:h-14 block" />
+    {/* Bannerový hero — fotografia USG vyšetrenia s modrým prekryvom pre text */}
+    <div className="relative overflow-hidden rounded-[12px] mb-5 min-h-[240px] md:min-h-[300px] flex flex-col justify-center">
+      <img
+        src="hero-usg.jpg" alt="" aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-right"
+      />
+      {/* modrý gradient zľava — text ostane čitateľný, fotka presvitá vpravo */}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#1E3580] via-[#2B46A2]/85 to-transparent" />
+      <div className="relative p-6 md:p-8">
+        <div className="flex items-center gap-4">
+          <div className="shrink-0 bg-white rounded-[12px] p-2 shadow-sm">
+            <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-12 h-12 md:w-14 md:h-14 block" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">
+              Národný ústav srdcových a cievnych chorôb, a.s.
+            </p>
+            <h2 className="text-xl md:text-3xl font-extrabold text-white leading-tight drop-shadow-sm">
+              Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie
+            </h2>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">
-            Národný ústav srdcových a cievnych chorôb, a.s.
-          </p>
-          <h2 className="text-xl md:text-3xl font-extrabold text-white leading-tight">
-            Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie
-          </h2>
-        </div>
+        <p className="text-white/90 text-sm md:text-base mt-4 max-w-xl drop-shadow-sm">
+          Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH — bez čakania v rade,
+          s termínom, ktorý si vyberiete sami, a platbou vopred cez QR kód.
+        </p>
       </div>
-      <p className="relative text-white/85 text-sm md:text-base mt-4 max-w-2xl">
-        Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH — bez čakania v rade,
-        s termínom, ktorý si vyberiete sami, a platbou vopred cez QR kód.
-      </p>
     </div>
     <div className="grid md:grid-cols-3 gap-3">
       <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
