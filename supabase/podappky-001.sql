@@ -164,10 +164,10 @@ begin
 end $fn$;
 revoke all on function issue_adhoc_invoice(adhoc_payments) from public, anon, authenticated;
 
--- Výzva na úhradu e-mailom hneď pri vytvorení ad-hoc platby (ak je
--- zadaný e-mail) — pacient dostane sumu, IBAN a VS na úhradu prevodom.
-create or replace function adhoc_created_trigger()
-returns trigger
+-- Výzva na úhradu e-mailom (sumu, IBAN, VS) — zdieľaná funkcia,
+-- volá ju trigger pri vytvorení aj RPC na opätovné poslanie.
+create or replace function send_adhoc_request(p adhoc_payments)
+returns void
 language plpgsql security definer set search_path = public as $fn$
 declare
   v_key  text := 'SEM_VLOZTE_RESEND_KLUC';
@@ -176,21 +176,21 @@ declare
   v_sum  text;
   v_html text;
 begin
-  if coalesce(NEW.email, '') = '' or v_key like 'SEM_%' then return NEW; end if;
+  if coalesce(p.email, '') = '' or v_key like 'SEM_%' then return; end if;
   select value into v_from from settings where key = 'mail_from';
   if v_from is null or v_from = '' then v_from := 'NÚSCH Objednávanie <onboarding@resend.dev>'; end if;
   select value into v_iban from settings where key = 'iban';
-  v_sum := replace(to_char(NEW.amount, 'FM9990D00'), '.', ',') || ' €';
+  v_sum := replace(to_char(p.amount, 'FM9990D00'), '.', ',') || ' €';
   v_html := '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#0f172a">'
     || email_header()
     || '<h2 style="color:#003d7c">Výzva na úhradu</h2>'
     || '<p>Dobrý deň, na úhradu za nižšie uvedený výkon použite prosím tieto platobné údaje. '
     || 'Po pripísaní platby vám pošleme faktúru (potvrdenie o úhrade).</p>'
     || '<table style="font-size:14px;border-collapse:collapse">'
-    || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">Výkon</td><td><b>' || html_escape(NEW.item_name) || '</b></td></tr>'
+    || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">Výkon</td><td><b>' || html_escape(p.item_name) || '</b></td></tr>'
     || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">Suma</td><td><b>' || v_sum || '</b></td></tr>'
     || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">IBAN</td><td>' || html_escape(coalesce(v_iban, '')) || '</td></tr>'
-    || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">Variabilný symbol</td><td>' || html_escape(NEW.variable_symbol) || '</td></tr>'
+    || '<tr><td style="color:#64748b;padding:4px 12px 4px 0">Variabilný symbol</td><td>' || html_escape(p.variable_symbol) || '</td></tr>'
     || '</table>'
     || '<p style="font-size:13px;color:#64748b">Platbu môžete uhradiť prevodom alebo QR kódom pri okienku pracoviska.</p>'
     || '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b">'
@@ -200,14 +200,42 @@ begin
   perform net.http_post(
     url := 'https://api.resend.com/emails',
     headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
-    body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(NEW.email),
-      'subject', 'Výzva na úhradu — ' || NEW.item_name, 'html', v_html)
+    body := jsonb_build_object('from', v_from, 'to', jsonb_build_array(p.email),
+      'subject', 'Výzva na úhradu — ' || p.item_name, 'html', v_html)
   );
+end $fn$;
+revoke all on function send_adhoc_request(adhoc_payments) from public, anon, authenticated;
+
+create or replace function adhoc_created_trigger()
+returns trigger
+language plpgsql security definer set search_path = public as $fn$
+begin
+  begin perform send_adhoc_request(NEW); exception when others then
+    raise warning 'Ad-hoc výzva k % zlyhala: %', NEW.id, sqlerrm;
+  end;
   return NEW;
 end $fn$;
 drop trigger if exists adhoc_created on adhoc_payments;
 create trigger adhoc_created after insert on adhoc_payments
 for each row execute function adhoc_created_trigger();
+
+-- opätovné poslanie výzvy na úhradu pacientovi (personál)
+create or replace function resend_adhoc_email(p_id text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare v_p adhoc_payments%rowtype;
+begin
+  if my_role() not in ('superadmin', 'sestra') then
+    raise exception 'Túto akciu môže vykonať len personál.';
+  end if;
+  select * into v_p from adhoc_payments where id = p_id;
+  if not found then raise exception 'Platba sa nenašla.'; end if;
+  if coalesce(v_p.email, '') = '' then raise exception 'K tejto platbe nie je zadaný e-mail.'; end if;
+  perform send_adhoc_request(v_p);
+  return true;
+end $$;
+revoke all on function resend_adhoc_email(text) from public, anon;
+grant execute on function resend_adhoc_email(text) to authenticated;
 
 create or replace function adhoc_paid_trigger()
 returns trigger

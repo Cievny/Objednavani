@@ -98,7 +98,14 @@ export function useAdhocData() {
     await reload();
   };
 
-  return { isSupabase: isSupabaseConfigured, settings, payments, createPayment, markPaid, reload };
+  // opätovné poslanie výzvy na úhradu pacientovi
+  const resendEmail = async (id) => {
+    if (!supabase) return; // demo: e-maily sa neposielajú
+    const { error } = await supabase.rpc("resend_adhoc_email", { p_id: id });
+    if (error) throw new Error(error.message || "E-mail sa nepodarilo poslať.");
+  };
+
+  return { isSupabase: isSupabaseConfigured, settings, payments, createPayment, markPaid, resendEmail, reload };
 }
 
 // ---------- B) CT OBJEDNÁVANIE ----------

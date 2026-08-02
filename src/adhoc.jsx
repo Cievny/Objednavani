@@ -7,7 +7,7 @@ import { useAdhocData } from "./podappkyData.js";
 // vygeneruje QR (PAY by square). Po zaplatení (Fio alebo ručne
 // „Platba prijatá") sa vystaví faktúra a pošle potvrdenie e-mailom.
 export default function AdhocPaymentApp() {
-  const { settings, payments, createPayment, markPaid } = useAdhocData();
+  const { isSupabase, settings, payments, createPayment, markPaid, resendEmail } = useAdhocData();
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
   const [name, setName] = useState("");
@@ -37,6 +37,12 @@ export default function AdhocPaymentApp() {
   const doMarkPaid = async (id) => {
     setMsg("");
     try { await markPaid(id); } catch (err) { setMsg(err?.message || String(err)); }
+  };
+
+  const doResend = async (id) => {
+    setMsg("");
+    try { await resendEmail(id); setMsg("✓ Výzva na úhradu bola poslaná e-mailom."); }
+    catch (err) { setMsg(err?.message || String(err)); }
   };
 
   const input = "w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-sm focus:ring-2 focus:ring-[#2B46A2] outline-none";
@@ -89,10 +95,22 @@ export default function AdhocPaymentApp() {
               <p><span className="text-slate-500">Suma:</span> <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
               <p><span className="text-slate-500">Variabilný symbol:</span> <b className="font-mono">{created.variableSymbol}</b></p>
               <p><span className="text-slate-500">Doklad:</span> {created.id}</p>
-              <p className="text-xs text-slate-500 pt-2 max-w-xs">Po pripísaní platby sa faktúra vystaví automaticky a (ak je zadaný e-mail) pošle pacientovi.</p>
-              <button onClick={reset} className="mt-3 bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] font-semibold px-4 py-2 rounded-[10px] transition-colors">
-                + Nová platba
-              </button>
+              <p className="text-xs text-slate-500 pt-2 max-w-xs">
+                {email.trim()
+                  ? "Výzva na úhradu odišla pacientovi e-mailom. Po pripísaní platby sa faktúra vystaví a pošle automaticky."
+                  : "Po pripísaní platby sa faktúra vystaví automaticky (e-mail sa pošle, ak ho zadáte)."}
+              </p>
+              {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</p>}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {isSupabase && email.trim() && (
+                  <button onClick={() => doResend(created.id)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] font-semibold px-4 py-2 rounded-[10px] transition-colors">
+                    Poslať údaje e-mailom
+                  </button>
+                )}
+                <button onClick={reset} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] font-semibold px-4 py-2 rounded-[10px] transition-colors">
+                  + Nová platba
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -126,9 +144,14 @@ export default function AdhocPaymentApp() {
                         ? <span className="text-xs font-bold text-white bg-[#2B46A2] rounded px-2 py-1">ZAPLATENÉ</span>
                         : <span className="text-xs font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-1">ČAKÁ</span>}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 text-right space-x-2 whitespace-nowrap">
+                      {!p.paid && isSupabase && p.email && (
+                        <button onClick={() => doResend(p.id)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                          Poslať e-mail
+                        </button>
+                      )}
                       {!p.paid && (
-                        <button onClick={() => doMarkPaid(p.id)} className="bg-[#16A34A] hover:bg-[#128A3E] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors whitespace-nowrap">
+                        <button onClick={() => doMarkPaid(p.id)} className="bg-[#16A34A] hover:bg-[#128A3E] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors">
                           Platba prijatá
                         </button>
                       )}
