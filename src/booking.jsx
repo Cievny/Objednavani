@@ -70,7 +70,7 @@ function normalizePricelist(list) {
   return defaultPricelist;
 }
 
-const insuranceOptions = [
+export const insuranceOptions = [
   { id: "25", label: "25 - VšZP" },
   { id: "24", label: "24 - Dôvera" },
   { id: "27", label: "27 - Union" },

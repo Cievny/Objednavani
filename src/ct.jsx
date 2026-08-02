@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import {
   MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
+  insuranceOptions, validateBirthNumber, normalizePhone,
 } from "./booking.jsx";
 import { useCtData } from "./podappkyData.js";
 
@@ -37,10 +38,24 @@ function CtBookingView({ data }) {
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [form, setForm] = useState({ name: "", birthDate: "", insurance: "", phone: "", email: "", reason: "" });
+  const [form, setForm] = useState({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" });
+  const [files, setFiles] = useState([]);
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const handleFilePick = (e) => {
+    setMsg("");
+    const picked = Array.from(e.target.files || []);
+    const ok = [];
+    for (const f of picked) {
+      if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) { setMsg(`Súbor ${f.name}: povolené sú len PDF, JPG a PNG.`); continue; }
+      if (f.size > 5 * 1024 * 1024) { setMsg(`Súbor ${f.name} je väčší ako 5 MB.`); continue; }
+      ok.push(f);
+    }
+    setFiles((prev) => [...prev, ...ok].slice(0, 3));
+    e.target.value = "";
+  };
 
   const examType = data.pricelist.find((p) => p.id === examTypeId) || null;
   const durationMin = (examType?.durationSlots || 3) * 5;
@@ -64,11 +79,13 @@ function CtBookingView({ data }) {
     setBusy(true); setMsg("");
     try {
       if (form.name.trim().length < 3) throw new Error("Zadajte meno pacienta.");
-      if (form.phone.replace(/\D/g, "").length < 9) throw new Error("Zadajte platné telefónne číslo.");
+      if (form.phone.replace(/\D/g, "").length < 9) throw new Error("Zadajte platné telefónne číslo (aspoň 9 číslic).");
+      if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) throw new Error("Zadajte platný e-mail.");
       const id = newCtId();
       await data.createOrder({ id, examTypeId, patientName: form.name.trim(), birthDate: form.birthDate || null,
-        insurance: form.insurance.trim(), phone: form.phone.trim(), email: form.email.trim(), reason: form.reason.trim(), date, time });
+        insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time }, files);
       setDone({ id, date, time, label: examType?.label });
+      setFiles([]);
     } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
   };
 
@@ -132,12 +149,48 @@ function CtBookingView({ data }) {
           <button onClick={() => setStep(2)} className="text-sm text-[#2B46A2] hover:underline">← Späť na termín</button>
           <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {date} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">
-            <input className={inp} placeholder="Meno a priezvisko" value={form.name} onChange={set("name")} />
-            <input className={inp} type="date" value={form.birthDate} onChange={set("birthDate")} />
-            <input className={inp} placeholder="Poisťovňa" value={form.insurance} onChange={set("insurance")} />
-            <input className={inp} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
-            <input className={inp} type="email" placeholder="e-mail (na potvrdenie)" value={form.email} onChange={set("email")} />
-            <input className={inp} placeholder="Dôvod / poznámka (nepovinné)" value={form.reason} onChange={set("reason")} />
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Meno a priezvisko</label>
+              <input className={inp} placeholder="Ján Novák" value={form.name} onChange={set("name")} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia</label>
+              <input className={inp} type="date" value={form.birthDate} onChange={set("birthDate")} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Zdravotná poisťovňa</label>
+              <select className={inp} value={form.insurance} onChange={set("insurance")}>
+                {insuranceOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Telefón</label>
+              <input className={inp} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail (na potvrdenie)</label>
+              <input className={inp} type="email" placeholder="jan.novak@…" value={form.email} onChange={set("email")} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Dôvod / poznámka</label>
+              <input className={inp} placeholder="nepovinné" value={form.reason} onChange={set("reason")} />
+            </div>
+          </div>
+          {/* Nahrávanie žiadanky / dokumentácie */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Žiadanka / dokumentácia <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span></label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
+              className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#E0E4EF]" />
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {files.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between text-sm bg-[#F8F9FC] border border-slate-200 rounded-[8px] px-3 py-1.5">
+                    <span className="truncate">{f.name}</span>
+                    <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-xs font-semibold shrink-0 ml-2">✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
           <button onClick={submit} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 px-5 rounded-[10px]">
@@ -190,6 +243,16 @@ function CtOrderCard({ order, data, canManage }) {
       </div>
       <p className="text-sm"><b>{order.patientName}</b>{order.exam?.label ? ` · ${order.exam.label}` : ""}</p>
       <p className="text-xs text-slate-500">{order.phone}{order.doctor ? ` · Lekár: ${order.doctor}` : ""}{order.reason ? ` · ${order.reason}` : ""}</p>
+      {Array.isArray(order.attachments) && order.attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {order.attachments.map((a, i) => (
+            <button key={i} onClick={() => run(() => data.openAttachment(a))}
+              className="text-xs bg-[#F0F4FF] text-[#2B46A2] border border-[#c9d6f5] rounded px-2 py-1 hover:bg-[#E0E4EF]">
+              📎 {a.name || `príloha ${i + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
       {order.statusNote && <p className="text-xs text-[#856404]">{order.statusNote}</p>}
       {msg && <p className="text-xs text-red-600 font-semibold">{msg}</p>}
 

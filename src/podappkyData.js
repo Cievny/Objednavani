@@ -161,6 +161,7 @@ export function useCtData(isStaff) {
         date: r.slot_date, time: (r.slot_time || "").slice(0, 5), doctor: r.doctor || "", status: r.status,
         statusNote: r.status_note || "", durationMin: r.duration_min == null ? 15 : Number(r.duration_min),
         rejectedAt: r.rejected_at || "",
+        attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
     } else {
       const { data, error } = await supabase.rpc("ct_get_booked_slots");
@@ -217,22 +218,50 @@ export function useCtData(isStaff) {
     await reload();
   };
 
-  const createOrder = async (order) => {
+  const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("Súbor sa nepodarilo načítať.")); r.readAsDataURL(file);
+  });
+
+  const createOrder = async (order, files = []) => {
     if (!supabase) {
       const item = (loadJson(CT_PRICELIST_KEY, defaultCtPricelist)).find((p) => p.id === order.examTypeId);
+      const attachments = [];
+      for (const f of files) {
+        if (f.size > 5 * 1024 * 1024) throw new Error(`Súbor ${f.name}: v demo režime je maximum 5 MB.`);
+        attachments.push({ name: f.name, dataUrl: await readAsDataUrl(f) });
+      }
       const rec = { ...order, status: "new", exam: { typeId: order.examTypeId, label: item?.label || "" },
-        durationMin: (item?.durationSlots || 3) * 5 };
+        durationMin: (item?.durationSlots || 3) * 5, attachments };
       const list = [...loadJson(CT_ORDERS_KEY, []), rec];
       localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(list)); setOrders(list); return order.id;
+    }
+    // nahratie príloh do rovnakého storage bucketu 'prilohy' (cesta = CT-…/)
+    const attachments = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const safe = f.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+      const path = `${order.id}/${i}-${safe}`;
+      const { error: upErr } = await supabase.storage.from("prilohy").upload(path, f, { contentType: f.type || undefined });
+      if (upErr) throw new Error(`Prílohu ${f.name} sa nepodarilo nahrať: ${upErr.message}`);
+      attachments.push({ name: f.name, path });
     }
     const { error } = await supabase.rpc("ct_create_order", {
       p_id: order.id, p_exam_type_id: order.examTypeId, p_patient_name: order.patientName, p_birth_date: order.birthDate || null,
       p_insurance: order.insurance || "", p_phone: order.phone, p_email: order.email || "",
-      p_reason: order.reason || "", p_slot_date: order.date, p_slot_time: order.time,
+      p_reason: order.reason || "", p_slot_date: order.date, p_slot_time: order.time, p_attachments: attachments,
     });
     if (error) throw new Error(error.code === "23505" || error.code === "23P01" ? "Vybraný termín bol medzičasom obsadený. Vyberte iný." : error.message);
     await reload();
     return order.id;
+  };
+
+  const openAttachment = async (att) => {
+    if (att?.dataUrl) { const a = document.createElement("a"); a.href = att.dataUrl; a.download = att.name || "priloha"; a.click(); return; }
+    if (att?.path && supabase) {
+      const { data, error } = await supabase.storage.from("prilohy").createSignedUrl(att.path, 300);
+      if (error) throw new Error(error.message);
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    }
   };
 
   const setStatus = async (id, status, statusNote = "") => {
@@ -300,6 +329,6 @@ export function useCtData(isStaff) {
   return {
     isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, pendingCount,
     openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors,
-    lookupOrder, cancelOrder, reload,
+    lookupOrder, cancelOrder, openAttachment, reload,
   };
 }
