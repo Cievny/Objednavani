@@ -634,6 +634,9 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     if (form.phone.replace(/\D/g, "").length < 9) {
       return setError("Zadajte platné telefónne číslo (aspoň 9 číslic).");
     }
+    if (isReferral && files.length === 0) {
+      return setError("Pri objednávke so žiadankou priložte žiadanku (výmenný lístok) — na mobile ju môžete odfotiť.");
+    }
     const order = {
       id: newOrderId(),
       variableSymbol: String(Date.now()).slice(-10),
@@ -845,16 +848,23 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               <textarea required rows={3} value={form.reason} onChange={(e) => setField("reason", e.target.value)} className={inputCls} placeholder="Popíšte svoje ťažkosti alebo dôvod, pre ktorý žiadate vyšetrenie…" />
             </div>
           </div>
-          <div>
-            <label className={labelCls}>Prílohy — žiadanka, lekárske správy (voliteľné)</label>
+          <div className={isReferral && files.length === 0 ? "border border-amber-300 bg-amber-50 rounded-[10px] p-3" : ""}>
+            <label className={labelCls}>
+              {isReferral ? "Žiadanka (výmenný lístok) — odfoťte alebo nahrajte *" : "Prílohy — žiadanka, lekárske správy (voliteľné)"}
+            </label>
             <input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
+              capture="environment"
               multiple
               onChange={handleFilePick}
               className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#d8e8f6] file:cursor-pointer"
             />
-            <p className="text-xs text-slate-400 mt-1">Najviac {MAX_FILES} súbory, každý do {MAX_FILE_MB} MB (PDF, JPG, PNG). Prílohy vidí len personál pracoviska.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {isReferral
+                ? `Pri objednávke so žiadankou je príloha povinná — na mobile ju môžete rovno odfotiť. Najviac ${MAX_FILES} súbory, každý do ${MAX_FILE_MB} MB (PDF, JPG, PNG).`
+                : `Najviac ${MAX_FILES} súbory, každý do ${MAX_FILE_MB} MB (PDF, JPG, PNG). Prílohy vidí len personál pracoviska.`}
+            </p>
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
