@@ -1909,6 +1909,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [fPaid, setFPaid] = useState("all");
   const [fText, setFText] = useState("");
   const [fDate, setFDate] = useState("");
+  const [sortMode, setSortMode] = useState("termin_asc");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
   const [referralFromDraft, setReferralFromDraft] = useState(settings.referralFrom || "");
@@ -2019,16 +2020,22 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     });
   const statusCounts = textDateFiltered.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
   const paidCount = textDateFiltered.filter((o) => o.paid).length;
+  const byCreated = sortMode === "objednane_desc";
   const filteredOrders = textDateFiltered
     .filter((o) => fStatus === "all" || o.status === fStatus)
     .filter((o) => fPaid === "all" || (fPaid === "paid" ? o.paid : !o.paid))
-    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-  // zoskupenie podľa dňa — hlavička dňa + objednávky zoradené podľa času
+    .sort((a, b) => {
+      if (sortMode === "objednane_desc") return (b.createdAt || "").localeCompare(a.createdAt || "");
+      if (sortMode === "termin_desc") return `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`);
+      return `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`);
+    });
+  // zoskupenie podľa dňa (termínu, resp. dňa objednania pri „najnovšie objednané")
   const ordersByDay = [];
   filteredOrders.forEach((o) => {
+    const key = byCreated ? (o.createdAt || "").slice(0, 10) : o.date;
     const last = ordersByDay[ordersByDay.length - 1];
-    if (last && last.date === o.date) last.items.push(o);
-    else ordersByDay.push({ date: o.date, items: [o] });
+    if (last && last.date === key) last.items.push(o);
+    else ordersByDay.push({ date: key, items: [o] });
   });
 
   const exportCsv = () => {
@@ -2420,11 +2427,19 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <FilterChip active={fPaid === "paid"} onClick={() => setFPaid("paid")} label={`Zaplatené (${paidCount})`} />
             <FilterChip active={fPaid === "unpaid"} onClick={() => setFPaid("unpaid")} label={`Nezaplatené (${textDateFiltered.length - paidCount})`} />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-slate-400">{filteredOrders.length} objednávok</p>
-            <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-2 rounded transition-colors">
-              ⬇ Export CSV
-            </button>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-500">Zoradiť:</label>
+              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="p-2 bg-white border border-[#767676] rounded-[10px] text-sm">
+                <option value="termin_asc">Najbližší termín</option>
+                <option value="objednane_desc">Najnovšie objednané</option>
+                <option value="termin_desc">Najvzdialenejší termín</option>
+              </select>
+              <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-2 rounded transition-colors">
+                ⬇ Export CSV
+              </button>
+            </div>
           </div>
           {filteredOrders.length === 0
             ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne objednávky nezodpovedajú filtrom.</p>
@@ -2433,7 +2448,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 {ordersByDay.map((day) => (
                   <div key={day.date}>
                     <h4 className="text-sm font-bold text-[#2B46A2] border-b border-[#E0E4EF] pb-1 mb-2">
-                      {formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
+                      {byCreated ? "Objednané " : ""}{formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
                     </h4>
                     <div className="space-y-3">
                       {day.items.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}
