@@ -43,6 +43,8 @@ function CtBookingView({ data }) {
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [errs, setErrs] = useState({});
+  const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
 
   const handleFilePick = (e) => {
     setMsg("");
@@ -54,6 +56,7 @@ function CtBookingView({ data }) {
       ok.push(f);
     }
     setFiles((prev) => [...prev, ...ok].slice(0, 3));
+    clearErr("files");
     e.target.value = "";
   };
 
@@ -73,14 +76,20 @@ function CtBookingView({ data }) {
   const todayIso = toISODate(new Date());
   const isAvailable = (iso) => iso >= todayIso && freeSlotsFor(iso).length > 0;
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); clearErr(k); };
 
   const submit = async () => {
+    // validácia VŠETKÝCH polí naraz — chybné polia sa zvýraznia súčasne
+    const e = {};
+    if (form.name.trim().length < 3) e.name = "Zadajte meno a priezvisko.";
+    if (!form.birthDate) e.birthDate = "Zadajte dátum narodenia.";
+    if (form.phone.replace(/\D/g, "").length < 9) e.phone = "Neplatné telefónne číslo (aspoň 9 číslic).";
+    if (!form.email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = "Zadajte platný e-mail.";
+    if (files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
+    setErrs(e);
+    if (Object.keys(e).length > 0) { setMsg("Skontrolujte a doplňte zvýraznené polia."); return; }
     setBusy(true); setMsg("");
     try {
-      if (form.name.trim().length < 3) throw new Error("Zadajte meno pacienta.");
-      if (form.phone.replace(/\D/g, "").length < 9) throw new Error("Zadajte platné telefónne číslo (aspoň 9 číslic).");
-      if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) throw new Error("Zadajte platný e-mail.");
       const id = newCtId();
       await data.createOrder({ id, examTypeId, patientName: form.name.trim(), birthDate: form.birthDate || null,
         insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time }, files);
@@ -88,6 +97,8 @@ function CtBookingView({ data }) {
       setFiles([]);
     } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
   };
+  const ic = (k) => inp + (errs[k] ? " border-red-400 ring-1 ring-red-300" : "");
+  const Err = ({ k }) => errs[k] ? <p className="text-xs text-red-600 mt-1">{errs[k]}</p> : null;
 
   if (done) {
     return (
@@ -150,12 +161,14 @@ function CtBookingView({ data }) {
           <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {date} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Meno a priezvisko</label>
-              <input className={inp} placeholder="Ján Novák" value={form.name} onChange={set("name")} />
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Meno a priezvisko *</label>
+              <input className={ic("name")} placeholder="Ján Novák" value={form.name} onChange={set("name")} />
+              <Err k="name" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia</label>
-              <input className={inp} type="date" value={form.birthDate} onChange={set("birthDate")} />
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia *</label>
+              <input className={ic("birthDate")} type="date" value={form.birthDate} onChange={set("birthDate")} />
+              <Err k="birthDate" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Zdravotná poisťovňa</label>
@@ -164,23 +177,26 @@ function CtBookingView({ data }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Telefón</label>
-              <input className={inp} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Telefón *</label>
+              <input className={ic("phone")} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
+              <Err k="phone" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail (na potvrdenie)</label>
-              <input className={inp} type="email" placeholder="jan.novak@…" value={form.email} onChange={set("email")} />
+              <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail (na potvrdenie) *</label>
+              <input className={ic("email")} type="email" placeholder="jan.novak@…" value={form.email} onChange={set("email")} />
+              <Err k="email" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Dôvod / poznámka</label>
               <input className={inp} placeholder="nepovinné" value={form.reason} onChange={set("reason")} />
             </div>
           </div>
-          {/* Nahrávanie žiadanky / dokumentácie */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Žiadanka / dokumentácia <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span></label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
+          {/* Nahrávanie žiadanky — pri CT povinné */}
+          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-[10px] p-3" : "border border-amber-300 bg-amber-50 rounded-[10px] p-3"}>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Žiadanka (výmenný lístok) — odfoťte alebo nahrajte * <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span></label>
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" capture="environment" multiple onChange={handleFilePick}
               className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#E0E4EF]" />
+            <Err k="files" />
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
