@@ -202,6 +202,57 @@ function CtBookingView({ data }) {
   );
 }
 
+// ---------- Overenie / zrušenie CT objednávky pacientom ----------
+function CtOrderLookup({ data }) {
+  const [id, setId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [found, setFound] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const search = async () => {
+    setBusy(true); setMsg(""); setFound(null);
+    try {
+      const o = await data.lookupOrder(id.trim(), phone.trim());
+      if (!o) setMsg("Objednávku sme nenašli. Skontrolujte číslo a telefón.");
+      else setFound(o);
+    } catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
+  };
+  const cancel = async () => {
+    if (!window.confirm("Naozaj zrušiť CT objednávku?")) return;
+    setBusy(true); setMsg("");
+    try { await data.cancelOrder(found.id, phone.trim()); setFound({ ...found, status: "rejected" }); }
+    catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-3">
+      <h3 className="text-lg font-bold text-[#2B46A2]">Už máte CT objednávku?</h3>
+      <p className="text-sm text-slate-500">Zadajte číslo objednávky (CT-…) a telefón, ktorý ste uviedli.</p>
+      <div className="grid md:grid-cols-2 gap-3">
+        <input className={inp} placeholder="Číslo objednávky (CT-…)" value={id} onChange={(e) => setId(e.target.value)} />
+        <input className={inp} placeholder="Telefón zadaný pri objednávke" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <button onClick={search} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-[10px]">
+        {busy ? "Hľadám…" : "Vyhľadať"}
+      </button>
+      {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
+      {found && (
+        <div className="border border-slate-200 rounded-[10px] p-4 space-y-1">
+          <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{ctStatuses[found.status] || found.status}</span></p>
+          <p className="text-sm text-slate-600">Termín: <b>{found.date} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
+          {(found.status === "new" || found.status === "confirmed") && (
+            <button onClick={cancel} disabled={busy} className="mt-2 bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-[10px] hover:bg-red-50">
+              Zrušiť objednávku
+            </button>
+          )}
+          {found.status === "rejected" && <p className="text-sm text-[#856404]">Objednávka je zrušená.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Karta CT objednávky (správa) ----------
 function CtOrderCard({ order, data, canManage }) {
   const [resched, setResched] = useState(false);
@@ -499,11 +550,14 @@ export default function CtApp({ isStaff, role = "superadmin" }) {
         <span>Testovacia sekcia — CT objednávanie (bez poplatku). Nie je verejná.</span>
         <a href="#/sprava" className="text-[#2B46A2] hover:underline">← Späť do správy</a>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button onClick={() => setView("admin")} className={`${btn} ${view === "admin" ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444]"}`}>Správa</button>
         <button onClick={() => setView("book")} className={`${btn} ${view === "book" ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444]"}`}>Objednať sa (náhľad)</button>
+        <button onClick={() => setView("lookup")} className={`${btn} ${view === "lookup" ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444]"}`}>Overiť objednávku</button>
       </div>
-      {view === "admin" ? <CtAdmin data={data} role={role} /> : <CtBookingView data={data} />}
+      {view === "admin" ? <CtAdmin data={data} role={role} />
+        : view === "lookup" ? <CtOrderLookup data={data} />
+        : <><CtBookingView data={data} /><CtOrderLookup data={data} /></>}
     </div>
   );
 }
