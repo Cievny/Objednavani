@@ -1052,7 +1052,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
   // na výber len lekári, ktorí dané vyšetrenie robia (okrem aktuálneho)
   const docOptions = normalizeDoctors(doctors).filter((d) => d.name !== order.doctor && doctorDoesExam(doctors, d.name, order.exam.typeId));
   const canAct = order.status === "new" || order.status === "confirmed";
-  const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate, order.durationMin || 10, order.id) : [];
+  const reschedSlots = resched && freeSlotsFor ? freeSlotsFor(reschedDate, order.durationMin || 10, order.id, order.exam?.typeId || null) : [];
   const doCancel = (reason) => {
     onSetStatus(order.id, "rejected", reason || "Zrušené pracoviskom");
     setCancelOpen(false);
@@ -1974,7 +1974,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   // Začiatky pre PRESUN objednávky: ponúknu sa len časy, kde sa zmestí
   // celé trvanie vyšetrenia do súvislých otvorených buniek jedného
   // lekára (bunky presúvanej objednávky sa nepočítajú ako obsadené).
-  const reschedStartsFor = (iso, durationMin = 10, excludeId = null) => {
+  const reschedStartsFor = (iso, durationMin = 10, excludeId = null, examTypeId = null) => {
     const open = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
     const openByTime = new Map(open.map((s) => [s.time, s]));
     const taken = new Set(
@@ -1982,6 +1982,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     );
     const need = Math.max(1, Math.round(durationMin / BASE_SLOT_MIN));
     return open.filter((slot) => {
+      // len lekár, ktorý dané vyšetrenie vykonáva (rovnaké pravidlo ako pacientska ponuka)
+      if (examTypeId && !doctorDoesExam(doctors, slot.doctor, examTypeId)) return false;
       for (let i = 0; i < need; i++) {
         const cell = openByTime.get(addMinutes(slot.time, i * BASE_SLOT_MIN));
         if (!cell || cell.doctor !== slot.doctor || taken.has(cell.time)) return false;
@@ -2683,11 +2685,11 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
     });
   };
 
-  const doReschedule = async (date, time) => {
+  const doReschedule = async (date, time, doctor) => {
     setBusy(true); setMessage(""); setInfo("");
     try {
       await onReschedule(found.id, phone, date, time);
-      setFound({ ...found, date, time, statusNote: "Presunuté pacientom" });
+      setFound({ ...found, date, time, doctor: doctor ?? found.doctor, statusNote: "Presunuté pacientom" });
       setResched(false);
       setInfo("Termín je zmenený — potvrdenie vám príde e-mailom.");
     } catch (e) {
@@ -2805,7 +2807,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
                               <button
                                 key={slot.time}
                                 disabled={busy}
-                                onClick={() => doReschedule(reschedDate, slot.time)}
+                                onClick={() => doReschedule(reschedDate, slot.time, slot.doctor)}
                                 className="bg-white hover:bg-[#F0F4FF] border-2 border-[#2B46A2] text-[#2B46A2] text-sm font-bold px-3 py-2 rounded-[10px] transition-colors"
                               >
                                 {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
