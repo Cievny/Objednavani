@@ -88,7 +88,7 @@ export const VopPage = () => (
     <H>Článok V — Zmena a zrušenie termínu, storno podmienky</H>
     <OL>
       <LI>Pacient môže objednávku zrušiť online najneskôr 48 hodín pred termínom, a to cez odkaz „Spravovať alebo zrušiť objednávku" v ktoromkoľvek e-maile o objednávke alebo v sekcii „Už máte objednávku?" na stránke objednávania (zadaním čísla objednávky a telefónneho čísla). Menej ako 48 hodín pred termínom je zrušenie možné už len SMS správou na čísle 0949 000 677 s uvedením čísla objednávky.</LI>
-      <LI>Pri zrušení najneskôr 48 hodín pred termínom sa uhradená platba vracia v plnej výške na účet, z ktorého bola prijatá, do 14 dní od zrušenia.</LI>
+      <LI>Pri zrušení najneskôr 48 hodín pred termínom sa uhradená platba vracia v plnej výške na účet, z ktorého bola prijatá, do 7 pracovných dní od zrušenia.</LI>
       <LI>Pri zrušení menej ako 48 hodín pred termínom alebo pri nedostavení sa na vyšetrenie uhradená platba prepadá v prospech poskytovateľa ako storno poplatok zodpovedajúci rezervovanej kapacite pracoviska.</LI>
       <LI>Ak pacient preukáže, že zrušenie alebo nedostavenie sa spôsobili vážne dôvody hodné osobitného zreteľa (najmä náhle ochorenie alebo hospitalizácia), pracovisko mu namiesto uplatnenia storno poplatku ponúkne náhradný termín.</LI>
       <LI>Ak termín zruší alebo presunie pracovisko, pacient má vždy právo na vrátenie platby v plnej výške alebo na náhradný termín podľa vlastnej voľby. O presune termínu je pacient informovaný e-mailom a SMS; ak mu nový termín nevyhovuje, môže objednávku zrušiť podľa ods. 1 s vrátením platby v plnej výške.</LI>

@@ -192,7 +192,7 @@ begin
             || '<p><b>' || v_exam || '</b><br>' || v_termin || '</p>'
             || case when NEW.paid and NEW.price > 0 then
                  '<p style="background:#eff6ff;border-left:4px solid #005ca9;padding:10px 14px;border-radius:8px;font-size:13px"><b>Vrátenie platby:</b> uhradenú sumu '
-                 || v_price || ' vám vrátime prevodom na účet, z ktorého platba prišla. Nemusíte nič robiť.</p>'
+                 || v_price || ' vám vrátime prevodom na účet, z ktorého platba prišla, do 7 pracovných dní. Nemusíte nič robiť.</p>'
                else '' end
             || '<p style="font-size:13px">Ak máte o vyšetrenie naďalej záujem, môžete si vytvoriť novú objednávku na '
             || '<a href="https://objednanie.cievny.sk" style="color:#2B46A2">objednanie.cievny.sk</a>.</p>'
@@ -215,7 +215,7 @@ begin
             || '</p>'
             || '<p style="background:#fef9c3;padding:10px 14px;border-radius:8px;font-size:13px">Ak vám nový termín <b>nevyhovuje</b>, '
             || 'cez odkaz nižšie môžete objednávku zrušiť (najneskôr 48 hodín pred termínom) a vytvoriť si novú na čas, ktorý vám vyhovuje. '
-            || 'Zaplatenú platbu vám v takom prípade vrátime prevodom na účet, z ktorého prišla.</p>'
+            || 'Zaplatenú platbu vám v takom prípade vrátime prevodom na účet, z ktorého prišla, do 7 pracovných dní.</p>'
             || v_instr_html
             || v_footer
             || '</div>')
@@ -288,7 +288,7 @@ begin
         || ' Tesime sa na Vas.';
     elsif OLD.status <> 'rejected' and NEW.status = 'rejected' then
       v_text := 'NUSCH: Vasa objednavka USG na ' || v_termin || ' bola zrusena.'
-        || case when NEW.paid and NEW.price > 0 then ' Platbu vam vratime prevodom.' else '' end
+        || case when NEW.paid and NEW.price > 0 then ' Platbu vam vratime prevodom do 7 prac. dni.' else '' end
         || ' Podrobnosti v e-maili.';
     elsif OLD.slot_date <> NEW.slot_date or OLD.slot_time <> NEW.slot_time then
       v_text := 'NUSCH: Zmena terminu USG. Novy termin: ' || v_termin || '.'
