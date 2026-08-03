@@ -1905,6 +1905,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [winTimeTo, setWinTimeTo] = useState("14:30");
   const [winDoctor, setWinDoctor] = useState("");
   const [winSkipWeekends, setWinSkipWeekends] = useState(true);
+  const [winSlotLen, setWinSlotLen] = useState(15); // dĺžka na výpočet počtu termínov
   const [fStatus, setFStatus] = useState("all");
   const [fPaid, setFPaid] = useState("all");
   const [fText, setFText] = useState("");
@@ -2291,7 +2292,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               <span className="inline-block transition-transform group-open:rotate-90">▸</span> Otvoriť termíny
             </summary>
             <div className="space-y-3 mt-3">
-            <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno a prípadne lekára. Termíny sa otvoria v 5-minútovej mriežke.</p>
+            <p className="text-xs text-slate-400">Zvoľte deň (alebo rozsah dní), časové okno a prípadne lekára. Termíny sa otvoria v 5-minútovej mriežke; dĺžka slotu slúži na odhad počtu termínov.</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Deň od</label>
@@ -2310,8 +2311,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 <input type="time" value={winTimeTo} onChange={(e) => setWinTimeTo(e.target.value)} className={`w-full ${inputDark}`} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Mriežka</label>
-                <p className="text-sm text-[#444444] py-2">5 min — dĺžku určuje cenník</p>
+                <label className="block text-xs text-slate-400 mb-1">Dĺžka slotu</label>
+                <select value={winSlotLen} onChange={(e) => setWinSlotLen(Number(e.target.value))} className={`w-full ${inputDark}`}>
+                  {[5, 10, 15, 20, 25, 30, 45, 60].map((n) => <option key={n} value={n}>{n} min</option>)}
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Lekár</label>
@@ -2325,10 +2328,28 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 preskočiť víkendy
               </label>
             </div>
+            {/* rýchle predvoľby času */}
+            <div className="flex flex-wrap gap-2">
+              {[["07:30", "14:30"], ["08:00", "12:00"], ["07:30", "11:30"], ["12:30", "15:00"]].map(([f, t]) => (
+                <button key={f + t} type="button" onClick={() => { setWinTimeFrom(f); setWinTimeTo(t); }}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${winTimeFrom === f && winTimeTo === t ? "bg-[#2B46A2] text-white border-[#2B46A2]" : "bg-white text-[#2B46A2] border-slate-300 hover:border-[#2B46A2]"}`}>
+                  {f}–{t}
+                </button>
+              ))}
+            </div>
+            {(() => {
+              const toMin = (x) => { const [h, m] = (x || "0:0").split(":").map(Number); return h * 60 + m; };
+              const span = toMin(winTimeTo) - toMin(winTimeFrom);
+              const cnt = Math.max(0, Math.floor(span / winSlotLen));
+              if (cnt === 0 || span <= 0) return <p className="text-sm font-semibold text-[#D32821]">Neplatné časové okno.</p>;
+              const last = toMin(winTimeFrom) + (cnt - 1) * winSlotLen;
+              const fmt = (mm) => `${String(Math.floor(mm / 60)).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}`;
+              return <p className="text-sm font-semibold text-[#16A34A]">= {cnt} {cnt === 1 ? "termín" : cnt < 5 ? "termíny" : "termínov"} po {winSlotLen} min ({winTimeFrom} … {fmt(last)}){winFrom !== winTo ? " × každý zvolený deň" : ""}</p>;
+            })()}
             {doctors.length === 0 && (
               <p className="text-xs text-[#856404]">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
             )}
-            <button onClick={handleOpenWindow} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors">
+            <button onClick={handleOpenWindow} className="bg-[#16A34A] hover:bg-[#128A3E] text-white text-sm font-semibold px-5 py-2.5 rounded-[10px] transition-colors">
               Otvoriť termíny
             </button>
             </div>
