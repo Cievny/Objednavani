@@ -855,7 +855,6 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             <input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
-              capture="environment"
               multiple
               onChange={handleFilePick}
               className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#d8e8f6] file:cursor-pointer"

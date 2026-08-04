@@ -194,7 +194,7 @@ function CtBookingView({ data }) {
           {/* Nahrávanie žiadanky — pri CT povinné */}
           <div className={errs.files ? "border border-red-300 bg-red-50 rounded-[10px] p-3" : "border border-amber-300 bg-amber-50 rounded-[10px] p-3"}>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Žiadanka (výmenný lístok) — odfoťte alebo nahrajte * <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span></label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" capture="environment" multiple onChange={handleFilePick}
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
               className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#E0E4EF]" />
             <Err k="files" />
             {files.length > 0 && (
