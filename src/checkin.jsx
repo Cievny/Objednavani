@@ -109,12 +109,29 @@ const CheckinView = () => {
 
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 space-y-5">
-      <div className="text-center space-y-1">
-        <p className="text-4xl" aria-hidden="true">🪪</p>
-        <h1 className="text-2xl font-extrabold text-[#2B46A2]">Som v čakárni</h1>
-        <p className="text-sm text-slate-500">
-          Dajte nám vedieť, že ste prišli — zadajte telefónne číslo, ktoré ste uviedli pri objednaní, a potvrďte príchod.
-        </p>
+      {/* Banner v štýle hero z objednávacej stránky — modré vlny, text zľava */}
+      <div className="relative overflow-hidden rounded-[12px] min-h-[170px] md:min-h-[210px] flex flex-col justify-center">
+        <img
+          src="hero-cakaren.jpg" alt="" aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover object-right"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1E3580] via-[#2B46A2]/85 to-transparent" />
+        <div className="relative p-5 md:p-7">
+          <div className="flex items-center gap-4">
+            <div className="shrink-0 bg-white rounded-[12px] p-2 shadow-sm">
+              <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 md:w-12 md:h-12 block" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">
+                Národný ústav srdcových a cievnych chorôb, a.s.
+              </p>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight drop-shadow-sm">Som v čakárni</h1>
+            </div>
+          </div>
+          <p className="text-sm text-white/90 mt-3 max-w-md">
+            Dajte nám vedieť, že ste prišli — zadajte telefónne číslo, ktoré ste uviedli pri objednaní, a potvrďte príchod.
+          </p>
+        </div>
       </div>
 
       {justConfirmed && (
