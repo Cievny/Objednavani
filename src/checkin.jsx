@@ -141,17 +141,16 @@ const CheckinView = () => {
           <p className="text-sm text-emerald-700">
             {justConfirmed.examLabel} o {justConfirmed.time} — posaďte sa, prosím, budeme vás volať.
           </p>
-          <p className="text-sm text-emerald-800 pt-1">
-            Kým na vás príde rad, môžete si prečítať{" "}
-            <a
-              href="https://cievny.tasklogy.sk/pacienti"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold underline text-[#2B46A2]"
-            >
-              informácie pre pacientov
-            </a>.
-          </p>
+          <p className="text-sm text-emerald-800 pt-1">Kým na vás príde rad, môžete si prečítať:</p>
+          <a
+            href="https://cievny.tasklogy.sk/pacienti"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex flex-col items-center gap-1.5 bg-white border border-emerald-300 rounded-[10px] px-6 py-3 hover:bg-emerald-50 transition-colors shadow-sm"
+          >
+            <img src="logo-cievny.png" alt="cievny.sk" className="h-9" />
+            <span className="text-xs font-semibold text-[#2B46A2]">informácie pre pacientov →</span>
+          </a>
         </div>
       )}
 
