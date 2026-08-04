@@ -16,6 +16,12 @@ body {
   color: #1a1a2e;
 }
 
+/* Tailwind v4 preflight necháva na buttonoch cursor: default —
+   klikateľné tlačidlá majú ukazovať „prstík" ako odkazy */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 *:focus-visible {
   outline: 3px solid #2b46a2;
   outline-offset: 2px;

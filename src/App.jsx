@@ -8,7 +8,7 @@ import CheckinView from "./checkin.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v69";
+const APP_VERSION = "v70";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -217,6 +217,8 @@ export default function App() {
         </div>
       </header>
 
+      {/* Pacientska verzia má jedinú stránku — lišta s jednou záložkou by bola len šum */}
+      {APP_MODE !== "patient" && (
       <nav className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 flex gap-6">
           {APP_MODE === "combined" ? (
@@ -241,6 +243,7 @@ export default function App() {
           )}
         </div>
       </nav>
+      )}
 
       <main className={`${isAdminRoute || isPayRoute || isCtRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />

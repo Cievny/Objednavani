@@ -124,6 +124,17 @@ const CheckinView = () => {
           <p className="text-sm text-emerald-700">
             {justConfirmed.examLabel} o {justConfirmed.time} — posaďte sa, prosím, budeme vás volať.
           </p>
+          <p className="text-sm text-emerald-800 pt-1">
+            Kým na vás príde rad, môžete si prečítať{" "}
+            <a
+              href="https://cievny.tasklogy.sk/pacienti"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline text-[#2B46A2]"
+            >
+              informácie pre pacientov
+            </a>.
+          </p>
         </div>
       )}
 
