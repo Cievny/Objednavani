@@ -406,9 +406,17 @@ export function useBookingData(isStaff) {
   // aby nemohli vzniknúť riedke bunky, v ktorých dlhšie vyšetrenia
   // nenájdu súvislé miesto. Dĺžku vyšetrenia určuje cenník.
   const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, doctor = "", skipWeekends = true }) => {
-    if (!dateFrom || !dateTo || dateFrom > dateTo) return;
-    const times = generateWindowSlots(timeFrom, timeTo, 5);
-    if (times.length === 0) return;
+    if (!dateFrom || !dateTo || dateFrom > dateTo) throw new Error("Zadajte platný rozsah dní — „deň do“ nesmie byť pred „deň od“.");
+    // zarovnanie časov na 5-min mriežku (napr. 07:33 → 07:35), aby sa
+    // otvorené bunky neprekladali s existujúcou mriežkou dňa
+    const align5 = (t) => {
+      const [h, m] = String(t || "").split(":").map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return t;
+      const tot = Math.round((h * 60 + m) / 5) * 5;
+      return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
+    };
+    const times = generateWindowSlots(align5(timeFrom), align5(timeTo), 5);
+    if (times.length === 0) throw new Error("Zadajte platné časové okno — „čas do“ musí byť neskôr ako „čas od“.");
     const days = [];
     const d = new Date(`${dateFrom}T12:00:00`);
     const end = new Date(`${dateTo}T12:00:00`);

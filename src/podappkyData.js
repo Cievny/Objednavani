@@ -185,9 +185,15 @@ export function useCtData(isStaff) {
 
   // personál otvorí CT termíny (5-min mriežka ako USG)
   const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, doctor = "", skipWeekends = true }) => {
-    if (!dateFrom || !dateTo || dateFrom > dateTo) return;
-    const times = genSlots(timeFrom, timeTo, 5);
-    if (times.length === 0) return;
+    if (!dateFrom || !dateTo || dateFrom > dateTo) throw new Error("Zadajte platný rozsah dní — „deň do“ nesmie byť pred „deň od“.");
+    const align5 = (t) => {
+      const [h, m] = String(t || "").split(":").map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return t;
+      const tot = Math.round((h * 60 + m) / 5) * 5;
+      return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
+    };
+    const times = genSlots(align5(timeFrom), align5(timeTo), 5);
+    if (times.length === 0) throw new Error("Zadajte platné časové okno — „čas do“ musí byť neskôr ako „čas od“.");
     const days = [];
     const d = new Date(`${dateFrom}T12:00:00`); const end = new Date(`${dateTo}T12:00:00`);
     while (d <= end) { const dow = d.getDay(); if (!skipWeekends || (dow !== 0 && dow !== 6)) days.push(toISODate(d)); d.setDate(d.getDate() + 1); }

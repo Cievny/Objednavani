@@ -7,7 +7,7 @@ import CtApp from "./ct.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v66";
+const APP_VERSION = "v67";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -188,10 +188,15 @@ export default function App() {
   };
 
   // skryté pod-appky sú prístupné až po prihlásení personálu (počas testu neverejné)
+  // — vyžadujú skutočnú rolu personálu, nielen prihlásené konto (nie „bez roly")
   const renderGated = (node) => {
     if (auth.isSupabase) {
       if (!auth.ready) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
       if (!auth.session) return <LoginGate auth={auth} />;
+      if (auth.role === null) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
+      if (!["superadmin", "sestra", "lekar"].includes(auth.role)) {
+        return <p className="text-center text-slate-500 py-10">Tento účet nemá pridelenú rolu personálu. Požiadajte správcu o prístup.</p>;
+      }
       return node;
     }
     return codeUnlocked ? node : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;

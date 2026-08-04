@@ -952,14 +952,17 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
               const d = createdOrder.date.replace(/-/g, "");
               const [h, m] = createdOrder.time.split(":").map(Number);
               const pad = (n) => String(n).padStart(2, "0");
-              const endMin = h * 60 + m + (createdOrder.durationMin || 10);
+              // RFC 5545: v TEXT hodnotách treba escapovať \ ; , a nové riadky
+              const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+              const endMin = Math.min(h * 60 + m + (createdOrder.durationMin || 10), 23 * 60 + 59);
+              const loc = `NÚSCH, a.s., Pod Krásnou hôrkou 1, Bratislava${doctorLocation(settings.doctors, createdOrder.doctor) ? ` — ${doctorLocation(settings.doctors, createdOrder.doctor)}` : ""}`;
               const ics = [
                 "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NUSCH//USG//SK", "BEGIN:VEVENT",
                 `UID:${createdOrder.id}@nusch`, `DTSTART:${d}T${pad(h)}${pad(m)}00`,
                 `DTEND:${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`,
-                `SUMMARY:USG vyšetrenie — NÚSCH (${createdOrder.exam.label})`,
-                `LOCATION:NÚSCH\\, a.s.\\, Pod Krásnou hôrkou 1\\, Bratislava${doctorLocation(settings.doctors, createdOrder.doctor) ? ` — ${doctorLocation(settings.doctors, createdOrder.doctor).replace(/,/g, "\\,")}` : ""}`,
-                `DESCRIPTION:Objednávka ${createdOrder.id}${createdOrder.doctor ? `\\nLekár: ${createdOrder.doctor}` : ""}`,
+                `SUMMARY:${esc(`USG vyšetrenie — NÚSCH (${createdOrder.exam.label})`)}`,
+                `LOCATION:${esc(loc)}`,
+                `DESCRIPTION:${esc(`Objednávka ${createdOrder.id}${createdOrder.doctor ? `\nLekár: ${createdOrder.doctor}` : ""}`)}`,
                 "END:VEVENT", "END:VCALENDAR",
               ].join("\r\n");
               const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
