@@ -1034,6 +1034,15 @@ const PaidBadge = ({ order }) => {
     : <span className="bg-amber-700 text-amber-100 text-xs font-bold px-2 py-1 rounded">NEZAPLATENÉ</span>;
 };
 
+// Pacient potvrdil príchod cez QR check-in (#/som-tu) — zobrazí sa
+// len pri aktívnych objednávkach; po vybavení/zrušení už nie je podstatný.
+export const ArrivedBadge = ({ order }) => {
+  if (!order.arrivedAt || (order.status !== "new" && order.status !== "confirmed")) return null;
+  let t = "";
+  try { t = new Date(order.arrivedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch { t = ""; }
+  return <span className="bg-emerald-100 text-emerald-800 border border-emerald-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">🪑 V ČAKÁRNI{t && ` od ${t}`}</span>;
+};
+
 // Klikateľné dôvody zrušenia — vyberá pracovisko pri rušení objednávky.
 // Dôvod sa uloží do poznámky a pacient ho vidí pri overení objednávky.
 const cancelReasons = [
@@ -1074,6 +1083,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             {order.hasReferral ? "ŽIADANKA" : "SAMOPLATCA"}
           </span>
           <PaidBadge order={order} />
+          <ArrivedBadge order={order} />
           {order.status === "rejected" && order.paid && order.price > 0 && (
             <span className="bg-[#D32821] text-white text-xs font-bold px-2 py-1 rounded">VRÁTIŤ PLATBU</span>
           )}
@@ -2203,6 +2213,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                         <p className="text-xs text-slate-400 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
                       </div>
                       <PaidBadge order={o} />
+                      <ArrivedBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "confirmed" && (
                         <button onClick={() => doSetStatus(o.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
@@ -2373,6 +2384,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                           </span>
                           <span className="flex items-center gap-2 shrink-0">
                             <PaidBadge order={seg.order} />
+                            <ArrivedBadge order={seg.order} />
                             <span className={`${usgStatuses[seg.order.status].badge} text-white text-xs font-bold px-2 py-1 rounded`}>{usgStatuses[seg.order.status].label}</span>
                           </span>
                         </button>

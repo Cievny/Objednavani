@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import {
   MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
-  insuranceOptions, validateBirthNumber, normalizePhone,
+  insuranceOptions, validateBirthNumber, normalizePhone, ArrivedBadge,
 } from "./booking.jsx";
 import { useCtData } from "./podappkyData.js";
 
@@ -302,9 +302,10 @@ function CtOrderCard({ order, data, canManage }) {
   return (
     <div className={`border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${tone} space-y-2`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono font-bold text-sm">{order.date} {order.time}</span>
-          <span className="ml-2 text-xs bg-white border border-slate-200 rounded px-2 py-0.5">{ctStatuses[order.status]}</span>
+          <span className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5">{ctStatuses[order.status]}</span>
+          <ArrivedBadge order={order} />
         </div>
         <span className="text-xs text-slate-500">{order.id}</span>
       </div>

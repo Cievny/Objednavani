@@ -4,10 +4,11 @@ import { VopPage, PrivacyPage } from "./legal.jsx";
 import { useAuth, useBookingData } from "./data.js";
 import AdhocPaymentApp from "./adhoc.jsx";
 import CtApp from "./ct.jsx";
+import CheckinView from "./checkin.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v67";
+const APP_VERSION = "v68";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -128,6 +129,8 @@ export default function App() {
   // Skryté testovacie pod-appky (neuvedené v navigácii, len pre prihlásený personál)
   const isPayRoute = hash.startsWith("#/platba");
   const isCtRoute = hash.startsWith("#/ct");
+  // QR check-in v čakárni — verejná stránka (pacient ju otvára z QR na stojane)
+  const isCheckinRoute = hash.startsWith("#/som-tu");
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -241,6 +244,7 @@ export default function App() {
 
       <main className={`${isAdminRoute || isPayRoute || isCtRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
+          : isCheckinRoute ? <CheckinView />
           : isPayRoute ? renderGated(<AdhocPaymentApp />)
           : isCtRoute ? renderGated(<CtApp isStaff={isStaff} role={auth.isSupabase ? (auth.role || "none") : "superadmin"} />)
           : isAdminRoute ? renderAdmin() : (

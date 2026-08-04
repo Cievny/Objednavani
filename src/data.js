@@ -47,6 +47,7 @@ const orderFromRow = (r) => ({
   durationMin: r.duration_min == null ? 10 : Number(r.duration_min),
   rejectedAt: r.rejected_at || "",
   paidAt: r.paid_at || "",
+  arrivedAt: r.arrived_at || "",
 });
 
 const lookupFromJson = (j) => j && ({

@@ -19,7 +19,7 @@ export const defaultCtPricelist = [
 // ============================================================
 
 const ADHOC_KEY = "adhocPayments_v1";
-const CT_ORDERS_KEY = "ctOrders_v1";
+export const CT_ORDERS_KEY = "ctOrders_v1";
 const CT_SLOTS_KEY = "ctOpenSlots_v1";
 const DEMO_INVOICES_KEY = "usgInvoices_v1"; // spoločná demo kniha faktúr
 
@@ -161,6 +161,7 @@ export function useCtData(isStaff) {
         date: r.slot_date, time: (r.slot_time || "").slice(0, 5), doctor: r.doctor || "", status: r.status,
         statusNote: r.status_note || "", durationMin: r.duration_min == null ? 15 : Number(r.duration_min),
         rejectedAt: r.rejected_at || "",
+        arrivedAt: r.arrived_at || "",
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
     } else {
