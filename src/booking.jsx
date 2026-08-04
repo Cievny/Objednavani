@@ -2016,6 +2016,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     .filter((o) => o.date === todayIso && (o.status === "confirmed" || o.status === "new"))
     .sort((a, b) => a.time.localeCompare(b.time));
 
+  // Čakáreň: živý pracovný zoznam dnešných pacientov — hore tí, čo cez QR
+  // check-in potvrdili príchod (v poradí príchodov), pod nimi očakávaní.
+  const waitingRoom = todayProgram.filter((o) => o.arrivedAt)
+    .sort((a, b) => (a.arrivedAt || "").localeCompare(b.arrivedAt || ""));
+  const expectedToday = todayProgram.filter((o) => !o.arrivedAt);
+
   const next7 = (() => {
     const end = new Date(); end.setDate(end.getDate() + 7);
     const endIso = toISODate(end);
@@ -2138,6 +2144,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   // objednávky (filtruje databáza) a svoju štatistiku.
   const allTabs = [
     { id: "overview", label: `Prehľad${pending.length > 0 ? ` (${pending.length})` : ""}`, roles: ["superadmin", "sestra", "lekar"] },
+    { id: "cakaren", label: `Čakáreň${waitingRoom.length > 0 ? ` (${waitingRoom.length})` : ""}`, roles: ["superadmin", "sestra", "lekar"] },
     { id: "calendar", label: "Kalendár", roles: ["superadmin", "sestra"] },
     { id: "orders", label: "Objednávky", roles: ["superadmin", "sestra", "lekar"] },
     { id: "stats", label: "Štatistika", roles: ["superadmin", "lekar"] },
@@ -2238,6 +2245,91 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
               : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
+        </div>
+      )}
+
+      {view === "cakaren" && (
+        <div className="space-y-5">
+          <div>
+            <h3 className="font-bold text-[#2B46A2] mb-2">V čakárni ({waitingRoom.length})</h3>
+            {waitingRoom.length === 0
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">
+                  {todayProgram.length === 0 ? "Na dnes nie sú žiadne objednávky." : "Zatiaľ nikto nepotvrdil príchod."}
+                </p>
+              : (
+                <div className="space-y-2">
+                  {waitingRoom.map((o) => (
+                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-[#F0FDF4] border border-[#E0E4EF] border-l-4 border-l-emerald-500 rounded-[10px] px-4 py-2.5">
+                      <span className="font-mono font-bold text-lg text-[#2B46A2] w-16">{o.time}</span>
+                      <div className="flex-1 min-w-0 basis-44">
+                        <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
+                        <p className="text-xs text-slate-500 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
+                      </div>
+                      {Array.isArray(o.attachments) && o.attachments.length > 0 && (
+                        <span className="flex flex-wrap gap-1 shrink-0">
+                          {o.attachments.map((a, i) => (
+                            <button
+                              key={i}
+                              onClick={() => doOpenAttachment(a)}
+                              title={a.name}
+                              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
+                            >
+                              📎 žiadanka
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                      <ArrivedBadge order={o} />
+                      <PaidBadge order={o} />
+                      <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
+                      {o.status === "new" && (
+                        <button onClick={() => doSetStatus(o.id, "confirmed")} className="bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Potvrdiť</button>
+                      )}
+                      {o.status === "confirmed" && (
+                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Vykonané</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+          <div>
+            <h3 className="font-bold text-[#2B46A2] mb-2">Objednaní na dnes — ešte neprišli ({expectedToday.length})</h3>
+            {expectedToday.length === 0
+              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">
+                  {todayProgram.length === 0 ? "Na dnes nie sú žiadne objednávky." : "Všetci dnešní pacienti už potvrdili príchod."}
+                </p>
+              : (
+                <div className="space-y-2">
+                  {expectedToday.map((o) => (
+                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-white border border-[#E0E4EF] rounded-[10px] px-4 py-2 opacity-80">
+                      <span className="font-mono font-bold text-lg text-slate-500 w-16">{o.time}</span>
+                      <div className="flex-1 min-w-0 basis-44">
+                        <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
+                        <p className="text-xs text-slate-400 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
+                      </div>
+                      {Array.isArray(o.attachments) && o.attachments.length > 0 && (
+                        <span className="flex flex-wrap gap-1 shrink-0">
+                          {o.attachments.map((a, i) => (
+                            <button
+                              key={i}
+                              onClick={() => doOpenAttachment(a)}
+                              title={a.name}
+                              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
+                            >
+                              📎 žiadanka
+                            </button>
+                          ))}
+                        </span>
+                      )}
+                      <PaidBadge order={o} />
+                      <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+          <p className="text-xs text-slate-400">Zoznam sa obnovuje automaticky (príchody cez QR check-in „Som tu" na stojane). Vybavení a zrušení pacienti zo zoznamu zmiznú.</p>
         </div>
       )}
 
