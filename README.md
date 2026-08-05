@@ -83,3 +83,19 @@ Dvojitú rezerváciu blokuje unikátny index na (deň, čas).
 5. V správe appky nastaviť skutočný IBAN pracoviska (alebo upraviť
    riadok v tabuľke `settings`).
 6. Build nasadiť napr. na Vercel/Netlify (env premenné zadať aj tam).
+
+## Beta prevádzka
+
+Web má dve verzie na jednej doméne:
+
+| URL | vetva | účel |
+|-----|-------|------|
+| `objednanie.cievny.sk` (+ `/sprava/`) | `main` | produkcia |
+| `objednanie.cievny.sk/beta/` (+ `/beta/sprava/`) | `beta` | testovanie zmien |
+
+Pravidlá:
+- nové úpravy sa pushujú do vetvy `beta` — nasadia sa pod `/beta/`
+  (v hlavičke majú štítok „BETA — testovacia verzia", stránka je noindex),
+- `main` sa mení už len fast-forwardom z otestovanej `beta`,
+- beta zdieľa produkčnú Supabase databázu — SQL zmeny musia byť vždy
+  spätne kompatibilné (aditívne), aby nerozbili bežiacu produkciu.

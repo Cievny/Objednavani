@@ -1,8 +1,11 @@
 name: Nasadenie na GitHub Pages
 
+# Produkcia sa stavia VŽDY z vetvy main (koreň + /sprava/),
+# beta VŽDY z vetvy beta (/beta/ + /beta/sprava/) — bez ohľadu na to,
+# ktorý push workflow spustil. Jeden Pages web, jedna doména.
 on:
   push:
-    branches: [claude/usg-objednavanie, main]
+    branches: [main, beta]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +26,8 @@ jobs:
       VITE_SUPABASE_ANON_KEY: sb_publishable_Mpfr8oWitG8spNC2ZsqXtQ_qlalHZ3i
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,6 +47,25 @@ jobs:
           cp -r dist-admin/* dist/sprava/
           # Vlastná doména (platí pre celý web vrátane /sprava/)
           echo "objednanie.cievny.sk" > dist/CNAME
+
+      # ---------- BETA (vetva beta -> /beta/) ----------
+      - name: Checkout vetvy beta
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+          path: beta-src
+      - name: Build beta (pacient + správa)
+        run: |
+          cd beta-src
+          npm ci
+          VITE_APP_MODE=patient VITE_BETA=1 npx vite build --base=/beta/
+          VITE_APP_MODE=admin   VITE_BETA=1 npx vite build --base=/beta/sprava/ --outDir dist-admin
+      - name: Zložiť betu pod /beta/
+        run: |
+          mkdir -p dist/beta/sprava
+          cp -r beta-src/dist/* dist/beta/
+          cp -r beta-src/dist-admin/* dist/beta/sprava/
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

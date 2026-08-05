@@ -8,12 +8,16 @@ import CheckinView from "./checkin.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v73";
+const APP_VERSION = "v74";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
 // bez nastavenia = kombinovaná verzia (lokálny vývoj / demo).
 const APP_MODE = import.meta.env.VITE_APP_MODE || "combined";
+
+// Beta nasadenie (objednanie.cievny.sk/beta/) — zdieľa produkčnú databázu,
+// odlišuje sa štítkom v hlavičke a noindexom, aby sa nemýlila s produkciou
+const IS_BETA = import.meta.env.VITE_BETA === "1";
 
 const ADMIN_ACCESS_CODE = "nusch2026";
 const ADMIN_UNLOCK_KEY = "usgAdminUnlocked_v1";
@@ -121,6 +125,16 @@ export default function App() {
   const auth = useAuth();
   const [codeUnlocked, setCodeUnlocked] = useState(() => sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1");
 
+  // beta: odlíšiť v titulku a nedovoliť indexovanie vyhľadávačmi
+  useEffect(() => {
+    if (!IS_BETA) return;
+    if (!document.title.startsWith("BETA")) document.title = `BETA — ${document.title}`;
+    const m = document.createElement("meta");
+    m.name = "robots";
+    m.content = "noindex";
+    document.head.appendChild(m);
+  }, []);
+
   const isAdminRoute = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/sprava");
   // Právne stránky (VOP a ochrana osobných údajov) — dostupné z pätičky a z formulára
   const legalPage = hash.startsWith("#/podmienky") ? "vop" : hash.startsWith("#/osobne-udaje") ? "privacy" : null;
@@ -214,6 +228,11 @@ export default function App() {
             <p className="font-extrabold text-[#2B46A2] leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
             <p className="text-xs text-slate-500">{APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
           </div>
+          {IS_BETA && (
+            <span className="ml-auto shrink-0 bg-[#FFF6E0] border border-[#E0C878] text-[#856404] text-xs font-extrabold px-3 py-1.5 rounded-[8px]">
+              BETA — testovacia verzia
+            </span>
+          )}
         </div>
       </header>
 
