@@ -1,0 +1,19 @@
+name: Beta — spustiť nasadenie
+
+# Prostredie github-pages povoľuje nasadenie len z vetvy main,
+# preto push do bety len diaľkovo spustí deploy.yml na maine
+# (ten si betu pribalí sám — checkout vetvy beta do /beta/).
+on:
+  push:
+    branches: [beta]
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

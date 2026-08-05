@@ -1,11 +1,12 @@
 name: Nasadenie na GitHub Pages
 
 # Produkcia sa stavia VŽDY z vetvy main (koreň + /sprava/),
-# beta VŽDY z vetvy beta (/beta/ + /beta/sprava/) — bez ohľadu na to,
-# ktorý push workflow spustil. Jeden Pages web, jedna doména.
+# beta VŽDY z vetvy beta (/beta/ + /beta/sprava/). Jeden Pages web.
+# Beží len na main (environment github-pages nepúšťa iné vetvy);
+# push do bety ho spúšťa cez beta-redeploy.yml (workflow_dispatch).
 on:
   push:
-    branches: [main, beta]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
