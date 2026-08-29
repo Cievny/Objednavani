@@ -3,6 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Obranná vrstva (audit vlna 6): CSP obmedzí zdroje na vlastný pôvod +
+         Supabase (REST/realtime); QR kódy sú data: obrázky. GitHub Pages nevie
+         nastaviť HTTP hlavičky, preto meta (frame-ancestors/clickjacking sa
+         cez meta nedá, vyžaduje hlavičku na úrovni hostingu). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#2B46A2" />
     <!-- PWA: relatívne cesty platia pre koreň (pacient) aj /sprava/ (admin);
          správny manifest podľa režimu vkladá main.jsx -->

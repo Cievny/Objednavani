@@ -2,7 +2,12 @@ name: Beta — spustiť nasadenie
 
 # Prostredie github-pages povoľuje nasadenie len z vetvy main,
 # preto push do bety len diaľkovo spustí deploy.yml na maine
-# (ten si betu pribalí sám — checkout vetvy beta do /beta/).
+# (ten si betu pribalí sám — buildne ju v samostatnom jobe bez
+# deploy práv a s --ignore-scripts, viď deploy.yml).
+#
+# Hranica dôvery: tento workflow len naštartuje deploy; samotný
+# beta kód sa nikdy nevykoná v jobe s pages:write. Chráňte vetvu
+# beta branch-protection, nech push do nej má len dôveryhodný okruh.
 on:
   push:
     branches: [beta]

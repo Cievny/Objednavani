@@ -4,6 +4,12 @@ name: Nasadenie na GitHub Pages
 # beta VŽDY z vetvy beta (/beta/ + /beta/sprava/). Jeden Pages web.
 # Beží len na main (environment github-pages nepúšťa iné vetvy);
 # push do bety ho spúšťa cez beta-redeploy.yml (workflow_dispatch).
+#
+# Bezpečnosť (audit vlna 6): beta kód (menej dôveryhodná vetva) sa
+# builduje v samostatnom jobe BEZ deploy práv a s --ignore-scripts,
+# takže nemôže bežať v privilegovanom jobe ani prepísať produkčné dist/.
+# Deploy práva (pages:write, id-token) má len job „deploy", ktorý len
+# skladá hotové artefakty.
 on:
   push:
     branches: [main]
@@ -11,16 +17,17 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  # --- Produkcia z main (bez deploy práv) ---
+  build-prod:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       # Publishable (anon) kľúč je určený pre prehliadač — jeho zverejnenie je bezpečné.
       VITE_SUPABASE_URL: https://cfavtobowqevetlumktt.supabase.co
@@ -42,41 +49,70 @@ jobs:
         run: npx vite build --outDir dist-admin
         env:
           VITE_APP_MODE: admin
-      - name: Zložiť artefakt (admin pod /sprava/)
+      - name: Zložiť produkčný web
         run: |
-          mkdir -p dist/sprava
-          cp -r dist-admin/* dist/sprava/
-          # Vlastná doména (platí pre celý web vrátane /sprava/)
-          echo "objednanie.cievny.sk" > dist/CNAME
+          mkdir -p out/sprava
+          cp -r dist/*       out/
+          cp -r dist-admin/* out/sprava/
+          echo "objednanie.cievny.sk" > out/CNAME
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-prod
+          path: out
 
-      # ---------- BETA (vetva beta -> /beta/) ----------
-      - name: Checkout vetvy beta
-        uses: actions/checkout@v4
+  # --- Beta z vetvy beta (bez deploy práv, bez npm lifecycle skriptov) ---
+  build-beta:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VITE_SUPABASE_URL: https://cfavtobowqevetlumktt.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_Mpfr8oWitG8spNC2ZsqXtQ_qlalHZ3i
+    steps:
+      - uses: actions/checkout@v4
         with:
           ref: beta
-          path: beta-src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # --ignore-scripts: kód z bety nesmie spustiť postinstall a pod.
+      - run: npm ci --ignore-scripts
       - name: Build beta (pacient + správa)
         run: |
-          cd beta-src
-          npm ci
           VITE_APP_MODE=patient VITE_BETA=1 npx vite build --base=/beta/
           VITE_APP_MODE=admin   VITE_BETA=1 npx vite build --base=/beta/sprava/ --outDir dist-admin
-      - name: Zložiť betu pod /beta/
+      - name: Zložiť betu
         run: |
-          mkdir -p dist/beta/sprava
-          cp -r beta-src/dist/* dist/beta/
-          cp -r beta-src/dist-admin/* dist/beta/sprava/
-
-      - uses: actions/upload-pages-artifact@v3
+          mkdir -p out/sprava
+          cp -r dist/*       out/
+          cp -r dist-admin/* out/sprava/
+      - uses: actions/upload-artifact@v4
         with:
-          path: dist
+          name: site-beta
+          path: out
 
+  # --- Jediný job s deploy právami: len poskladá hotové artefakty ---
   deploy:
-    needs: build
+    needs: [build-prod, build-beta]
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-prod
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-beta
+          path: dist/beta
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
       - id: deployment
         uses: actions/deploy-pages@v4

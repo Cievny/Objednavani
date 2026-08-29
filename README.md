@@ -99,3 +99,8 @@ Pravidlá:
 - `main` sa mení už len fast-forwardom z otestovanej `beta`,
 - beta zdieľa produkčnú Supabase databázu — SQL zmeny musia byť vždy
   spätne kompatibilné (aditívne), aby nerozbili bežiacu produkciu.
+
+> ⚠ Beta píše do **produkčnej** databázy — testovacie akcie (nová
+> objednávka, potvrdenie, zmena lekára) spúšťajú **reálne** SMS/e-maily
+> pacientom a vytvárajú reálne faktúry. Testujte len na vlastných
+> „testovacích" objednávkach a hneď ich rušte.

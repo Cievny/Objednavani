@@ -8,7 +8,7 @@ import CheckinView from "./checkin.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v74";
+const APP_VERSION = "v75";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -126,13 +126,16 @@ export default function App() {
   const [codeUnlocked, setCodeUnlocked] = useState(() => sessionStorage.getItem(ADMIN_UNLOCK_KEY) === "1");
 
   // beta: odlíšiť v titulku a nedovoliť indexovanie vyhľadávačmi
+  // (statický noindex vkladá aj build cez vite — tu len doplníme, ak chýba)
   useEffect(() => {
     if (!IS_BETA) return;
     if (!document.title.startsWith("BETA")) document.title = `BETA — ${document.title}`;
-    const m = document.createElement("meta");
-    m.name = "robots";
-    m.content = "noindex";
-    document.head.appendChild(m);
+    if (!document.querySelector('meta[name="robots"]')) {
+      const m = document.createElement("meta");
+      m.name = "robots";
+      m.content = "noindex";
+      document.head.appendChild(m);
+    }
   }, []);
 
   const isAdminRoute = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/sprava");
@@ -141,8 +144,10 @@ export default function App() {
   // Deep-link z e-mailov: #/objednavka/USG-… otvorí overenie objednávky s predvyplneným číslom
   const orderLinkId = hash.startsWith("#/objednavka/") ? decodeURIComponent(hash.slice("#/objednavka/".length)) : "";
   // Skryté testovacie pod-appky (neuvedené v navigácii, len pre prihlásený personál)
-  const isPayRoute = hash.startsWith("#/platba");
-  const isCtRoute = hash.startsWith("#/ct");
+  // Testovacie pod-appky nie sú súčasťou pacientskej stránky — v patient
+  // builde nesmú byť dosiahnuteľné ani cez hash (audit vlna 6)
+  const isPayRoute = APP_MODE !== "patient" && hash.startsWith("#/platba");
+  const isCtRoute = APP_MODE !== "patient" && hash.startsWith("#/ct");
   // QR check-in v čakárni — verejná stránka (pacient ju otvára z QR na stojane)
   const isCheckinRoute = hash.startsWith("#/som-tu");
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;

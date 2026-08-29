@@ -8,8 +8,11 @@ import { CT_ORDERS_KEY } from "./podappkyData.js";
 // Pacient naskenuje QR kód na stojane pred ambulanciou, zadá
 // telefónne číslo a potvrdí príchod. Personál uvidí pri
 // objednávke zelené „V ČAKÁRNI od HH:MM".
-// Párovanie podľa telefónu (posledných 9 číslic) — rovnaký
-// mechanizmus ako overenie objednávky, server má rate-limit.
+//
+// Bezpečnosť (audit vlna 6): server na základe telefónu vracia LEN
+// čas termínu a stav príchodu — žiadne číslo objednávky, typ
+// vyšetrenia ani lekára (zdravotný údaj). Potvrdenie príchodu ide
+// tiež len podľa telefónu (označí všetky dnešné objednávky).
 // ============================================================
 
 const phone9 = (s) => (s || "").replace(/\D/g, "").slice(-9);
@@ -27,27 +30,30 @@ const demoLookup = (phone) => {
   const active = (o) => o.status === "new" || o.status === "confirmed";
   const usg = loadJson(USG_ORDERS_KEY, [])
     .filter((o) => o.date === today && active(o) && phone9(o.patient?.phone) === p9)
-    .map((o) => ({ kind: "usg", id: o.id, examLabel: o.exam?.label || "USG vyšetrenie", time: o.time, doctor: o.doctor || "", arrivedAt: o.arrivedAt || "" }));
+    .map((o) => ({ time: o.time, arrivedAt: o.arrivedAt || "" }));
   const ct = loadJson(CT_ORDERS_KEY, [])
     .filter((o) => o.date === today && active(o) && phone9(o.phone) === p9)
-    .map((o) => ({ kind: "ct", id: o.id, examLabel: o.exam?.label || "CT vyšetrenie", time: o.time, doctor: o.doctor || "", arrivedAt: o.arrivedAt || "" }));
+    .map((o) => ({ time: o.time, arrivedAt: o.arrivedAt || "" }));
   return [...usg, ...ct].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 };
 
-const demoConfirm = (id, phone) => {
+const demoConfirm = (phone) => {
   const p9 = phone9(phone);
   const today = toISODate(new Date());
-  const key = id.startsWith("CT-") ? CT_ORDERS_KEY : USG_ORDERS_KEY;
   let hit = false;
-  const list = loadJson(key, []).map((o) => {
-    const oPhone = key === CT_ORDERS_KEY ? o.phone : o.patient?.phone;
-    if (o.id === id && o.date === today && (o.status === "new" || o.status === "confirmed") && phone9(oPhone) === p9) {
+  const stamp = (list, phoneOf) => list.map((o) => {
+    if (o.date === today && (o.status === "new" || o.status === "confirmed") && phone9(phoneOf(o)) === p9) {
       hit = true;
       return { ...o, arrivedAt: o.arrivedAt || new Date().toISOString() };
     }
     return o;
   });
-  if (hit) localStorage.setItem(key, JSON.stringify(list));
+  const usg = stamp(loadJson(USG_ORDERS_KEY, []), (o) => o.patient?.phone);
+  const ct = stamp(loadJson(CT_ORDERS_KEY, []), (o) => o.phone);
+  if (hit) {
+    localStorage.setItem(USG_ORDERS_KEY, JSON.stringify(usg));
+    localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(ct));
+  }
   return hit;
 };
 
@@ -55,17 +61,24 @@ const demoConfirm = (id, phone) => {
 
 const rpcLookup = async (phone) => {
   const { data, error } = await supabase.rpc("checkin_lookup", { p_phone: phone });
-  if (error) throw new Error(error.message);
+  if (error) throw error;
   return (Array.isArray(data) ? data : []).map((r) => ({
-    kind: r.kind, id: r.id, examLabel: r.exam_label || "", time: (r.slot_time || "").slice(0, 5),
-    doctor: r.doctor || "", arrivedAt: r.arrived_at || "",
+    time: (r.slot_time || "").slice(0, 5), arrivedAt: r.arrived_at || "",
   }));
 };
 
-const rpcConfirm = async (id, phone) => {
-  const { data, error } = await supabase.rpc("checkin_confirm", { p_id: id, p_phone: phone });
-  if (error) throw new Error(error.message);
+const rpcConfirm = async (phone) => {
+  const { data, error } = await supabase.rpc("checkin_confirm", { p_phone: phone });
+  if (error) throw error;
   return Boolean(data);
+};
+
+// verejný tok nezobrazuje surové DB chyby — len rate-limit a všeobecnú hlášku
+const friendly = (e) => {
+  const m = (e && e.message) || "";
+  if (/priveľa|rate|too many/i.test(m)) return "Priveľa pokusov. Skúste to, prosím, o chvíľu.";
+  if (/telefón|telefon/i.test(m)) return m;
+  return "Momentálne sa nepodarilo spojiť so systémom. Skúste to, prosím, znova o chvíľu.";
 };
 
 const CheckinView = () => {
@@ -73,39 +86,41 @@ const CheckinView = () => {
   const [list, setList] = useState(null); // null = ešte nehľadal
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [justConfirmed, setJustConfirmed] = useState(null);
+  const [confirmedAt, setConfirmedAt] = useState(null);
 
   const search = async () => {
     setError("");
-    setJustConfirmed(null);
+    setConfirmedAt(null);
     if (phone9(phone).length < 9) { setError("Zadajte celé telefónne číslo (napr. 0900 123 456)."); return; }
     setBusy(true);
     try {
       const found = isSupabaseConfigured ? await rpcLookup(phone) : demoLookup(phone);
       setList(found);
     } catch (e) {
-      setError(e.message || String(e));
+      setError(friendly(e));
       setList(null);
     } finally {
       setBusy(false);
     }
   };
 
-  const confirm = async (item) => {
+  const confirm = async () => {
     setError("");
     setBusy(true);
     try {
-      const ok = isSupabaseConfigured ? await rpcConfirm(item.id, phone) : demoConfirm(item.id, phone);
+      const ok = isSupabaseConfigured ? await rpcConfirm(phone) : demoConfirm(phone);
       if (!ok) throw new Error("Príchod sa nepodarilo zaznamenať. Obráťte sa, prosím, na personál.");
       const now = new Date().toISOString();
-      setList((prev) => prev.map((o) => (o.id === item.id ? { ...o, arrivedAt: o.arrivedAt || now } : o)));
-      setJustConfirmed(item);
+      setList((prev) => (prev || []).map((o) => ({ ...o, arrivedAt: o.arrivedAt || now })));
+      setConfirmedAt(now);
     } catch (e) {
-      setError(e.message || String(e));
+      setError(friendly(e));
     } finally {
       setBusy(false);
     }
   };
+
+  const anyPending = Array.isArray(list) && list.some((o) => !o.arrivedAt);
 
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 space-y-5">
@@ -134,13 +149,11 @@ const CheckinView = () => {
         </div>
       </div>
 
-      {justConfirmed && (
+      {confirmedAt && (
         <div className="bg-emerald-50 border border-emerald-300 rounded-[10px] p-4 text-center space-y-1">
           <p className="text-3xl" aria-hidden="true">✅</p>
           <p className="font-bold text-emerald-800">Ďakujeme, personál vie, že ste tu.</p>
-          <p className="text-sm text-emerald-700">
-            {justConfirmed.examLabel} o {justConfirmed.time} — posaďte sa, prosím, budeme vás volať.
-          </p>
+          <p className="text-sm text-emerald-700">Posaďte sa, prosím — budeme vás volať podľa poradia.</p>
           <p className="text-sm text-emerald-800 pt-1">Kým na vás príde rad, môžete si prečítať:</p>
           <a
             href="https://cievny.tasklogy.sk/pacienti"
@@ -184,31 +197,28 @@ const CheckinView = () => {
         </div>
       )}
 
-      {list !== null && list.length > 0 && (
+      {list !== null && list.length > 0 && !confirmedAt && (
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-[#444444]">Vaše dnešné objednávky:</p>
-          {list.map((o) => (
-            <div key={o.id} className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <p className="font-bold text-[#2B46A2]">{o.examLabel}</p>
-                <span className="bg-[#F0F4FF] text-[#2B46A2] text-xs font-bold px-2 py-1 rounded">{o.kind === "ct" ? "CT" : "USG"}</span>
+          <p className="text-sm font-semibold text-[#444444]">
+            {list.length === 1 ? "Našli sme vašu dnešnú objednávku:" : "Našli sme vaše dnešné objednávky:"}
+          </p>
+          <div className="space-y-2">
+            {list.map((o, i) => (
+              <div key={i} className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] px-4 py-3 flex items-center justify-between gap-2">
+                <span className="text-sm text-slate-600">Dnes o <strong className="text-[#2B46A2]">{o.time}</strong></span>
+                {o.arrivedAt && <span className="text-sm font-bold text-emerald-700">✓ prihlásený o {fmtTime(o.arrivedAt)}</span>}
               </div>
-              <p className="text-sm text-slate-600">
-                Dnes o <strong>{o.time}</strong>{o.doctor && <> · {o.doctor}</>}
-              </p>
-              {o.arrivedAt ? (
-                <p className="text-sm font-bold text-emerald-700">✓ Príchod zaznamenaný o {fmtTime(o.arrivedAt)}</p>
-              ) : (
-                <button
-                  onClick={() => confirm(o)}
-                  disabled={busy}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-[10px] transition-colors"
-                >
-                  ✓ Som tu — potvrdiť príchod
-                </button>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
+          {anyPending && (
+            <button
+              onClick={confirm}
+              disabled={busy}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-[10px] transition-colors"
+            >
+              ✓ Som tu — potvrdiť príchod
+            </button>
+          )}
         </div>
       )}
 
