@@ -5,10 +5,11 @@ import { useAuth, useBookingData } from "./data.js";
 import AdhocPaymentApp from "./adhoc.jsx";
 import CtApp from "./ct.jsx";
 import CheckinView from "./checkin.jsx";
+import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./angio.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v75";
+const APP_VERSION = "v76";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -150,6 +151,12 @@ export default function App() {
   const isCtRoute = APP_MODE !== "patient" && hash.startsWith("#/ct");
   // QR check-in v čakárni — verejná stránka (pacient ju otvára z QR na stojane)
   const isCheckinRoute = hash.startsWith("#/som-tu");
+  // Angiologická ambulancia č. 1 (#/angio1) — verejné objednávanie bez poplatku;
+  // správa sa určuje ako pri USG: admin build = vždy správa, patient build = vždy
+  // pacient, combined = #/angio1 pacient, #/angio1/sprava správa
+  const isAngioRoute = hash.startsWith("#/angio1");
+  const isAngioAdmin = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/angio1/sprava");
+  const angioAdminHref = APP_MODE === "combined" ? "#/angio1/sprava" : "#/angio1";
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   const data = useBookingData(isStaff);
 
@@ -169,6 +176,8 @@ export default function App() {
         <a href="#/platba" className="text-[#2B46A2] font-semibold hover:underline">Ad-hoc platba za výkon</a>
         <span className="text-slate-300">·</span>
         <a href="#/ct" className="text-[#2B46A2] font-semibold hover:underline">CT objednávanie (bez poplatku)</a>
+        <span className="text-slate-300">·</span>
+        <a href={angioAdminHref} className="text-[#2B46A2] font-semibold hover:underline">{ANGIO_NAME} — správa</a>
       </div>
       <AdminView
         orders={data.orders}
@@ -231,7 +240,7 @@ export default function App() {
           <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 shrink-0" />
           <div>
             <p className="font-extrabold text-[#2B46A2] leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
-            <p className="text-xs text-slate-500">{APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
+            <p className="text-xs text-slate-500">{isAngioRoute ? ANGIO_NAME : APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
           </div>
           {IS_BETA && (
             <span className="ml-auto shrink-0 bg-[#FFF6E0] border border-[#E0C878] text-[#856404] text-xs font-extrabold px-3 py-1.5 rounded-[8px]">
@@ -269,9 +278,12 @@ export default function App() {
       </nav>
       )}
 
-      <main className={`${isAdminRoute || isPayRoute || isCtRoute ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
+      <main className={`${isAdminRoute || isPayRoute || isCtRoute || (isAngioRoute && isAngioAdmin) ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
           : isCheckinRoute ? <CheckinView />
+          : isAngioRoute ? (isAngioAdmin
+              ? renderGated(<AngioAdminApp role={auth.isSupabase ? (auth.role || "none") : "superadmin"} backHref={APP_MODE === "combined" ? "#/sprava" : "#/"} />)
+              : <AngioPatientApp />)
           : isPayRoute ? renderGated(<AdhocPaymentApp />)
           : isCtRoute ? renderGated(<CtApp isStaff={isStaff} role={auth.isSupabase ? (auth.role || "none") : "superadmin"} />)
           : isAdminRoute ? renderAdmin() : (

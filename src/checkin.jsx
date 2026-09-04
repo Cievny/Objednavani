@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import { loadJson, toISODate, USG_ORDERS_KEY } from "./booking.jsx";
-import { CT_ORDERS_KEY } from "./podappkyData.js";
+import { CT_ORDERS_KEY, ANGIO_ORDERS_KEY } from "./podappkyData.js";
 
 // ============================================================
 // Čakáreň — QR check-in pacienta („Som tu"), routa #/som-tu.
@@ -34,7 +34,10 @@ const demoLookup = (phone) => {
   const ct = loadJson(CT_ORDERS_KEY, [])
     .filter((o) => o.date === today && active(o) && phone9(o.phone) === p9)
     .map((o) => ({ time: o.time, arrivedAt: o.arrivedAt || "" }));
-  return [...usg, ...ct].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+  const angio = loadJson(ANGIO_ORDERS_KEY, [])
+    .filter((o) => o.date === today && active(o) && phone9(o.phone) === p9)
+    .map((o) => ({ time: o.time, arrivedAt: o.arrivedAt || "" }));
+  return [...usg, ...ct, ...angio].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 };
 
 const demoConfirm = (phone) => {
@@ -50,9 +53,11 @@ const demoConfirm = (phone) => {
   });
   const usg = stamp(loadJson(USG_ORDERS_KEY, []), (o) => o.patient?.phone);
   const ct = stamp(loadJson(CT_ORDERS_KEY, []), (o) => o.phone);
+  const angio = stamp(loadJson(ANGIO_ORDERS_KEY, []), (o) => o.phone);
   if (hit) {
     localStorage.setItem(USG_ORDERS_KEY, JSON.stringify(usg));
     localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(ct));
+    localStorage.setItem(ANGIO_ORDERS_KEY, JSON.stringify(angio));
   }
   return hit;
 };

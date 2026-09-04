@@ -11,16 +11,26 @@ export const defaultCtPricelist = [
   { id: "ct_chrbtica", label: "CT chrbtice", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 3 },
 ];
 
+// predvyplnené typy návštev Angiologickej ambulancie č. 1
+export const defaultAngioPricelist = [
+  { id: "ang_prve", label: "Prvé angiologické vyšetrenie", instructions: "Prineste si žiadanku, zoznam liekov a predchádzajúce nálezy (USG, CT, MR).", durationSlots: 6 },
+  { id: "ang_kontrola", label: "Kontrolné angiologické vyšetrenie", instructions: "Prineste si zoznam liekov a nové nálezy od poslednej kontroly.", durationSlots: 3 },
+  { id: "ang_usg_dk", label: "USG ciev dolných končatín", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
+  { id: "ang_usg_krk", label: "USG krčných ciev", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
+  { id: "ang_konzult", label: "Konzultácia", instructions: "Prineste si dokumentáciu, ktorú chcete prekonzultovať.", durationSlots: 3 },
+];
+
 // ============================================================
-// Dátová vrstva pre TESTOVACIE pod-appky (oddelené od USG):
+// Dátová vrstva pre pod-appky (oddelené od USG):
 //   A) ad-hoc platby (adhoc_payments)
-//   B) CT objednávanie (ct_open_slots, ct_orders)
+//   B) ambulancie bez poplatku — CT a Angiologická amb. č. 1
+//      (jedna továreň useClinicData, dve konfigurácie)
 // Nezasahuje do useBookingData ani do produkčných tabuliek.
 // ============================================================
 
 const ADHOC_KEY = "adhocPayments_v1";
 export const CT_ORDERS_KEY = "ctOrders_v1";
-const CT_SLOTS_KEY = "ctOpenSlots_v1";
+export const ANGIO_ORDERS_KEY = "angioOrders_v1";
 const DEMO_INVOICES_KEY = "usgInvoices_v1"; // spoločná demo kniha faktúr
 
 const groupSlots = (rows) => {
@@ -117,43 +127,65 @@ export function useAdhocData() {
   return { isSupabase: isSupabaseConfigured, settings, payments, createPayment, markPaid, resendEmail, reload };
 }
 
-// ---------- B) CT OBJEDNÁVANIE (plná vetva ako USG) ----------
-const CT_PRICELIST_KEY = "ctPricelist_v1";
-const CT_DOCTORS_KEY = "ctDoctors_v1";
+// ---------- B) AMBULANCIE BEZ POPLATKU — konfigurácie ----------
+// Každá ambulancia má vlastné tabuľky, RPC, settings kľúč lekárov
+// a demo localStorage kľúče; logika je spoločná (useClinicData).
+const CT_CFG = {
+  keys: { slots: "ctOpenSlots_v1", orders: CT_ORDERS_KEY, pricelist: "ctPricelist_v1", doctors: "ctDoctors_v1" },
+  tables: { slots: "ct_open_slots", orders: "ct_orders", pricelist: "ct_pricelist" },
+  rpc: { doctors: "public_ct_doctors", booked: "ct_get_booked_slots", create: "ct_create_order",
+    reschedule: "ct_reschedule", lookup: "ct_lookup_order", cancel: "ct_cancel_order" },
+  doctorsKey: "ct_doctors",
+  defaultPricelist: defaultCtPricelist,
+};
 
-export function useCtData(isStaff) {
-  const [openSlots, setOpenSlots] = useState(() => (isSupabaseConfigured ? {} : loadJson(CT_SLOTS_KEY, {})));
-  const [orders, setOrders] = useState(() => (isSupabaseConfigured ? [] : loadJson(CT_ORDERS_KEY, [])));
+const ANGIO_CFG = {
+  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1" },
+  tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist" },
+  rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
+    reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order" },
+  doctorsKey: "angio_doctors",
+  defaultPricelist: defaultAngioPricelist,
+};
+
+export function useCtData(isStaff) { return useClinicData(CT_CFG, isStaff); }
+export function useAngioData(isStaff) { return useClinicData(ANGIO_CFG, isStaff); }
+
+// ---------- spoločná dátová vrstva ambulancie (plná vetva ako USG) ----------
+function useClinicData(cfg, isStaff) {
+  const K = cfg.keys, T = cfg.tables, R = cfg.rpc;
+  const [openSlots, setOpenSlots] = useState(() => (isSupabaseConfigured ? {} : loadJson(K.slots, {})));
+  const [orders, setOrders] = useState(() => (isSupabaseConfigured ? [] : loadJson(K.orders, [])));
   const [occupiedRemote, setOccupiedRemote] = useState([]);
-  const [pricelist, setPricelist] = useState(() => (isSupabaseConfigured ? defaultCtPricelist : loadJson(CT_PRICELIST_KEY, defaultCtPricelist)));
-  const [doctors, setDoctors] = useState(() => (isSupabaseConfigured ? [] : normalizeDoctors(loadJson(CT_DOCTORS_KEY, []))));
+  const [pricelist, setPricelist] = useState(() => (isSupabaseConfigured ? cfg.defaultPricelist : loadJson(K.pricelist, cfg.defaultPricelist)));
+  const [doctors, setDoctors] = useState(() => (isSupabaseConfigured ? [] : normalizeDoctors(loadJson(K.doctors, []))));
 
   const reload = useCallback(async () => {
     if (!supabase) {
-      setOpenSlots(loadJson(CT_SLOTS_KEY, {})); setOrders(loadJson(CT_ORDERS_KEY, []));
-      setPricelist(loadJson(CT_PRICELIST_KEY, defaultCtPricelist));
-      setDoctors(normalizeDoctors(loadJson(CT_DOCTORS_KEY, [])));
+      setOpenSlots(loadJson(K.slots, {})); setOrders(loadJson(K.orders, []));
+      setPricelist(loadJson(K.pricelist, cfg.defaultPricelist));
+      setDoctors(normalizeDoctors(loadJson(K.doctors, [])));
       return;
     }
     const [slotsRes, priceRes] = await Promise.all([
-      supabase.from("ct_open_slots").select("slot_date, slot_time, doctor"),
-      supabase.from("ct_pricelist").select("*").eq("active", true).order("sort_order"),
+      supabase.from(T.slots).select("slot_date, slot_time, doctor"),
+      supabase.from(T.pricelist).select("*").eq("active", true).order("sort_order"),
     ]);
     if (!slotsRes.error) setOpenSlots(groupSlots(slotsRes.data));
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(priceRes.data.map((r) => ({
       id: r.id, label: r.label, instructions: r.instructions || "", durationSlots: Math.max(1, Number(r.duration_slots) || 3),
     })));
-    // CT lekári: personál z settings.ct_doctors (aj s e-mailmi), pacient cez public_ct_doctors bez e-mailov
+    // lekári: personál z settings (aj s e-mailmi), pacient cez public RPC bez e-mailov
     if (isStaff) {
-      const { data } = await supabase.from("settings").select("value").eq("key", "ct_doctors").maybeSingle();
+      const { data } = await supabase.from("settings").select("value").eq("key", cfg.doctorsKey).maybeSingle();
       let list = []; try { list = JSON.parse(data?.value || "[]"); } catch { list = []; }
       setDoctors(normalizeDoctors(list));
     } else {
-      const { data } = await supabase.rpc("public_ct_doctors");
+      const { data } = await supabase.rpc(R.doctors);
       setDoctors(normalizeDoctors(Array.isArray(data) ? data : []));
     }
     if (isStaff) {
-      const { data, error } = await supabase.from("ct_orders").select("*").order("slot_date").order("slot_time");
+      const { data, error } = await supabase.from(T.orders).select("*").order("slot_date").order("slot_time");
       if (!error) setOrders((data || []).map((r) => ({
         id: r.id, patientName: r.patient_name, birthDate: r.birth_date || "", insurance: r.insurance || "",
         phone: r.phone || "", email: r.email || "", reason: r.reason || "",
@@ -165,10 +197,10 @@ export function useCtData(isStaff) {
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
     } else {
-      const { data, error } = await supabase.rpc("ct_get_booked_slots");
+      const { data, error } = await supabase.rpc(R.booked);
       if (!error) setOccupiedRemote((data || []).map((r) => ({ date: r.slot_date, time: (r.slot_time || "").slice(0, 5) })));
     }
-  }, [isStaff]);
+  }, [isStaff, cfg]);
   useEffect(() => { reload(); }, [reload]);
 
   // obsadené 5-min bunky (rozvinuté podľa trvania) — pre pacientsky kalendár
@@ -184,7 +216,7 @@ export function useCtData(isStaff) {
     ? occupiedRemote
     : orders.filter((o) => o.status !== "rejected").flatMap(expandCells);
 
-  // personál otvorí CT termíny (5-min mriežka ako USG)
+  // personál otvorí termíny (5-min mriežka ako USG)
   const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, doctor = "", skipWeekends = true }) => {
     if (!dateFrom || !dateTo || dateFrom > dateTo) throw new Error("Zadajte platný rozsah dní — „deň do“ nesmie byť pred „deň od“.");
     const align5 = (t) => {
@@ -199,28 +231,28 @@ export function useCtData(isStaff) {
     const d = new Date(`${dateFrom}T12:00:00`); const end = new Date(`${dateTo}T12:00:00`);
     while (d <= end) { const dow = d.getDay(); if (!skipWeekends || (dow !== 0 && dow !== 6)) days.push(toISODate(d)); d.setDate(d.getDate() + 1); }
     if (!supabase) {
-      const next = { ...loadJson(CT_SLOTS_KEY, {}) };
+      const next = { ...loadJson(K.slots, {}) };
       days.forEach((iso) => {
         const byTime = new Map((next[iso] || []).map((s) => [s.time, s]));
         times.forEach((t) => { if (!byTime.has(t)) byTime.set(t, { time: t, doctor }); });
         next[iso] = [...byTime.values()].sort((a, b) => a.time.localeCompare(b.time));
       });
-      localStorage.setItem(CT_SLOTS_KEY, JSON.stringify(next)); setOpenSlots(next); return;
+      localStorage.setItem(K.slots, JSON.stringify(next)); setOpenSlots(next); return;
     }
     const rows = [];
     days.forEach((iso) => times.forEach((t) => rows.push({ slot_date: iso, slot_time: t, doctor })));
-    const { error } = await supabase.from("ct_open_slots").upsert(rows, { onConflict: "slot_date,slot_time", ignoreDuplicates: true });
+    const { error } = await supabase.from(T.slots).upsert(rows, { onConflict: "slot_date,slot_time", ignoreDuplicates: true });
     if (error) throw new Error(error.message);
     await reload();
   };
 
   const closeSlot = async (date, time) => {
     if (!supabase) {
-      const next = { ...loadJson(CT_SLOTS_KEY, {}) };
+      const next = { ...loadJson(K.slots, {}) };
       next[date] = (next[date] || []).filter((s) => s.time !== time);
-      localStorage.setItem(CT_SLOTS_KEY, JSON.stringify(next)); setOpenSlots(next); return;
+      localStorage.setItem(K.slots, JSON.stringify(next)); setOpenSlots(next); return;
     }
-    const { error } = await supabase.from("ct_open_slots").delete().eq("slot_date", date).eq("slot_time", time);
+    const { error } = await supabase.from(T.slots).delete().eq("slot_date", date).eq("slot_time", time);
     if (error) throw new Error(error.message);
     await reload();
   };
@@ -231,7 +263,7 @@ export function useCtData(isStaff) {
 
   const createOrder = async (order, files = []) => {
     if (!supabase) {
-      const item = (loadJson(CT_PRICELIST_KEY, defaultCtPricelist)).find((p) => p.id === order.examTypeId);
+      const item = (loadJson(K.pricelist, cfg.defaultPricelist)).find((p) => p.id === order.examTypeId);
       const attachments = [];
       for (const f of files) {
         if (f.size > 5 * 1024 * 1024) throw new Error(`Súbor ${f.name}: v demo režime je maximum 5 MB.`);
@@ -239,10 +271,10 @@ export function useCtData(isStaff) {
       }
       const rec = { ...order, status: "new", exam: { typeId: order.examTypeId, label: item?.label || "" },
         durationMin: (item?.durationSlots || 3) * 5, attachments };
-      const list = [...loadJson(CT_ORDERS_KEY, []), rec];
-      localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(list)); setOrders(list); return order.id;
+      const list = [...loadJson(K.orders, []), rec];
+      localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return order.id;
     }
-    // nahratie príloh do rovnakého storage bucketu 'prilohy' (cesta = CT-…/)
+    // nahratie príloh do spoločného storage bucketu 'prilohy' (cesta = <ID objednávky>/)
     const attachments = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
@@ -252,7 +284,7 @@ export function useCtData(isStaff) {
       if (upErr) throw new Error(`Prílohu ${f.name} sa nepodarilo nahrať: ${upErr.message}`);
       attachments.push({ name: f.name, path });
     }
-    const { error } = await supabase.rpc("ct_create_order", {
+    const { error } = await supabase.rpc(R.create, {
       p_id: order.id, p_exam_type_id: order.examTypeId, p_patient_name: order.patientName, p_birth_date: order.birthDate || null,
       p_insurance: order.insurance || "", p_phone: order.phone, p_email: order.email || "",
       p_reason: order.reason || "", p_slot_date: order.date, p_slot_time: order.time, p_attachments: attachments,
@@ -273,41 +305,41 @@ export function useCtData(isStaff) {
 
   const setStatus = async (id, status, statusNote = "") => {
     if (!supabase) {
-      const list = loadJson(CT_ORDERS_KEY, []).map((o) => (o.id === id
+      const list = loadJson(K.orders, []).map((o) => (o.id === id
         ? { ...o, status, statusNote, rejectedAt: status === "rejected" ? new Date().toISOString() : "" } : o));
-      localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(list)); setOrders(list); return;
+      localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
     }
-    const { error } = await supabase.from("ct_orders").update({ status, status_note: statusNote }).eq("id", id);
+    const { error } = await supabase.from(T.orders).update({ status, status_note: statusNote }).eq("id", id);
     if (error) throw new Error(error.message);
     await reload();
   };
 
   const reschedule = async (id, date, time) => {
     if (!supabase) {
-      const list = loadJson(CT_ORDERS_KEY, []).map((o) => (o.id === id ? { ...o, date, time, statusNote: "Presunuté pracoviskom" } : o));
-      localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(list)); setOrders(list); return;
+      const list = loadJson(K.orders, []).map((o) => (o.id === id ? { ...o, date, time, statusNote: "Presunuté pracoviskom" } : o));
+      localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
     }
-    const { error } = await supabase.rpc("ct_reschedule", { p_id: id, p_slot_date: date, p_slot_time: time });
+    const { error } = await supabase.rpc(R.reschedule, { p_id: id, p_slot_date: date, p_slot_time: time });
     if (error) throw new Error(error.message);
     await reload();
   };
 
   const savePricelist = async (list) => {
-    if (!supabase) { localStorage.setItem(CT_PRICELIST_KEY, JSON.stringify(list)); setPricelist(list); return; }
+    if (!supabase) { localStorage.setItem(K.pricelist, JSON.stringify(list)); setPricelist(list); return; }
     const rows = list.map((it, i) => ({ id: it.id, label: it.label, instructions: it.instructions || "",
       duration_slots: Math.max(1, it.durationSlots || 3), active: true, sort_order: i }));
-    const { error } = await supabase.from("ct_pricelist").upsert(rows, { onConflict: "id" });
+    const { error } = await supabase.from(T.pricelist).upsert(rows, { onConflict: "id" });
     if (error) throw new Error(error.message);
     if (rows.length > 0) {
       const ids = rows.map((r) => `"${r.id}"`).join(",");
-      await supabase.from("ct_pricelist").update({ active: false }).not("id", "in", `(${ids})`);
+      await supabase.from(T.pricelist).update({ active: false }).not("id", "in", `(${ids})`);
     }
     await reload();
   };
 
   const saveDoctors = async (list) => {
-    if (!supabase) { localStorage.setItem(CT_DOCTORS_KEY, JSON.stringify(list)); setDoctors(normalizeDoctors(list)); return; }
-    const { error } = await supabase.from("settings").upsert([{ key: "ct_doctors", value: JSON.stringify(list || []) }], { onConflict: "key" });
+    if (!supabase) { localStorage.setItem(K.doctors, JSON.stringify(list)); setDoctors(normalizeDoctors(list)); return; }
+    const { error } = await supabase.from("settings").upsert([{ key: cfg.doctorsKey, value: JSON.stringify(list || []) }], { onConflict: "key" });
     if (error) throw new Error(error.message);
     await reload();
   };
@@ -319,14 +351,14 @@ export function useCtData(isStaff) {
       const o = orders.find((x) => x.id.toUpperCase() === id.toUpperCase() && x.phone.replace(/\D/g, "").slice(-9) === digits.slice(-9));
       return o || null;
     }
-    const { data, error } = await supabase.rpc("ct_lookup_order", { p_id: id, p_phone: phone });
+    const { data, error } = await supabase.rpc(R.lookup, { p_id: id, p_phone: phone });
     if (error) throw new Error(error.message);
-    return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "" } : null;
+    return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "", exam: { label: data.exam_label || "" } } : null;
   };
 
   const cancelOrder = async (id, phone) => {
     if (!supabase) { await setStatus(id, "rejected", "Zrušené pacientom"); return; }
-    const { error } = await supabase.rpc("ct_cancel_order", { p_id: id, p_phone: phone });
+    const { error } = await supabase.rpc(R.cancel, { p_id: id, p_phone: phone });
     if (error) throw new Error(error.message);
     await reload();
   };
