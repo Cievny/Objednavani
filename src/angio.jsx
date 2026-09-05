@@ -647,7 +647,8 @@ function AngioSettings({ data, isSuper }) {
               <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
             </div>
             <input className={inp} placeholder="Krátky popis (jeden riadok) — pacient ho vidí pri výbere vyšetrenia" value={e.description || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, description: ev.target.value } : x))} />
-            <textarea className={inp} rows={3} placeholder="Pokyny / príprava — tento text dostane pacient v potvrdzovacom e-maili a v pripomienke deň vopred" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
+            <textarea className={inp} rows={e.instructions && e.instructions.length > 200 ? 10 : 3} placeholder="Pokyny / príprava — tento text dostane pacient v potvrdzovacom e-maili a v pripomienke deň vopred" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
+            <p className="text-[11px] text-slate-400">Formátovanie v e-maili: riadok končiaci dvojbodkou = tučný nadpis (napr. „Čo priniesť:"), riadky začínajúce „- " = odrážky, prázdny riadok = nový odsek.</p>
             <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
               <input type="checkbox" checked={e.requiresReferral !== false} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, requiresReferral: ev.target.checked } : x))} />
               Vyžaduje žiadanku (výmenný lístok) — pacient ju musí priložiť pri objednaní
