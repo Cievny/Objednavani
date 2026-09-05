@@ -3,3 +3,6 @@ dist
 *.local
 .DS_Store
 .env
+
+# build varianty (patient/admin/beta) — len lokálne testovanie
+dist-*/
