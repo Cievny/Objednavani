@@ -231,6 +231,7 @@ function useClinicData(cfg, isStaff) {
         statusNote: r.status_note || "", durationMin: r.duration_min == null ? 15 : Number(r.duration_min),
         rejectedAt: r.rejected_at || "",
         arrivedAt: r.arrived_at || "",
+        createdAt: r.created_at || "",
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
     } else {
@@ -310,7 +311,7 @@ function useClinicData(cfg, isStaff) {
         attachments.push({ name: f.name, dataUrl: await readAsDataUrl(f) });
       }
       const rec = { ...order, status: "new", exam: { typeId: order.examTypeId, label: item?.label || "" },
-        durationMin: (item?.durationSlots || 3) * 5, attachments };
+        durationMin: (item?.durationSlots || 3) * 5, attachments, createdAt: new Date().toISOString() };
       const list = [...loadJson(K.orders, []), rec];
       localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return order.id;
     }

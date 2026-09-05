@@ -350,6 +350,44 @@ function AngioOrderLookup({ data }) {
 }
 
 // ---------- Karta objednávky (správa) ----------
+// Všetky údaje pacienta pre personál (na zaevidovanie do nemocničného systému) + kopírovanie
+const fmtD = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join(".") : "—");
+const fmtDT = (iso) => (iso ? `${fmtD(iso)} ${String(iso).slice(11, 16)}` : "—");
+function PatientDetails({ order, onCopied }) {
+  const ins = insuranceOptions.find((o) => o.id === order.insurance)?.label || order.insurance || "—";
+  const rows = [
+    ["Meno a priezvisko", order.patientName],
+    ["Dátum narodenia", fmtD(order.birthDate)],
+    ["Poisťovňa", ins],
+    ["Telefón", order.phone || "—"],
+    ["E-mail", order.email || "—"],
+    ["Vyšetrenie", order.exam?.label || "—"],
+    ["Termín", `${fmtD(order.date)} ${order.time}${order.durationMin ? ` (${order.durationMin} min)` : ""}`],
+    ["Lekár", order.doctor || "—"],
+    ["Dôvod / poznámka", order.reason || "—"],
+    ["Číslo objednávky", order.id],
+    ["Objednané", fmtDT(order.createdAt)],
+  ];
+  const copy = async () => {
+    const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
+    try { await navigator.clipboard.writeText(text); onCopied?.(true); } catch { onCopied?.(false); }
+  };
+  return (
+    <div data-testid="patient-details" className="bg-white/70 border border-slate-200 rounded-[10px] p-3">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dátum narodenia</dt><dd className="font-semibold">{fmtD(order.birthDate)}</dd></div>
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Poisťovňa</dt><dd className="font-semibold">{ins}</dd></div>
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-[#2B46A2] hover:underline">{order.phone}</a> : "—"}</dd></div>
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-[#2B46A2] hover:underline">{order.email}</a> : "—"}</dd></div>
+        {order.doctor && <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Lekár</dt><dd>{order.doctor}</dd></div>}
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Objednané</dt><dd>{fmtDT(order.createdAt)}</dd></div>
+        {order.reason && <div className="sm:col-span-2"><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
+      </dl>
+      <button type="button" onClick={copy} className="mt-2 text-xs bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444] font-semibold px-3 py-1.5 rounded">📋 Kopírovať údaje pacienta</button>
+    </div>
+  );
+}
+
 function AngioOrderCard({ order, data, canManage }) {
   const [resched, setResched] = useState(false);
   const [rdate, setRdate] = useState(order.date);
@@ -389,8 +427,9 @@ function AngioOrderCard({ order, data, canManage }) {
         </div>
         <span className="text-xs text-slate-500">{order.id}</span>
       </div>
-      <p className="text-sm"><b>{order.patientName}</b>{order.exam?.label ? ` · ${order.exam.label}` : ""}</p>
-      <p className="text-xs text-slate-500">{order.phone}{order.doctor ? ` · Lekár: ${order.doctor}` : ""}{order.reason ? ` · ${order.reason}` : ""}</p>
+      <p className="text-sm"><b>{order.patientName}</b>{order.exam?.label ? ` · ${order.exam.label}` : ""}{order.durationMin ? ` (${order.durationMin} min)` : ""}</p>
+      {/* karta sa zobrazuje len v správe (personál vrátane lekára) — všetky údaje pacienta */}
+      <PatientDetails order={order} onCopied={(ok) => setMsg(ok ? "" : "Kopírovanie do schránky sa nepodarilo.")} />
       {Array.isArray(order.attachments) && order.attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {order.attachments.map((a, i) => (
