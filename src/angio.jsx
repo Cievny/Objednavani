@@ -158,6 +158,11 @@ function AngioBookingView({ data }) {
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
         {data.notes && <div className="mt-4"><AngioNotesBox text={data.notes} /></div>}
+        <div className="flex flex-wrap justify-center gap-2 mt-5">
+          <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
+            className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Nová objednávka</button>
+          <a href="#/" className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">← Späť na hlavnú stránku</a>
+        </div>
       </div>
     );
   }
@@ -729,7 +734,10 @@ export function AngioPatientApp() {
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+          <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Späť na hlavnú stránku</a>
+        </div>
         <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
         <p className="text-sm text-white/90 mt-2 max-w-xl">
           Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
