@@ -152,10 +152,12 @@ const CT_CFG = {
 };
 
 const ANGIO_CFG = {
-  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1" },
+  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1", smsVerify: "angioSmsVerify_v1" },
   tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist" },
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
-    reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order" },
+    reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order",
+    sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp" },
+  smsVerifyKey: "angio_sms_verify", // overenie telefónu SMS kódom (angio-005), 'on'/'off', verejne čitateľné
   doctorsKey: "angio_doctors",
   defaultPricelist: defaultAngioPricelist,
   extendedPricelist: true, // stĺpce angio_pricelist.description (angio-003) a requires_referral (angio-004)
@@ -177,6 +179,9 @@ function useClinicData(cfg, isStaff) {
   // spoločné pokyny pre pacientov (len ambulancie s cfg.notesKey)
   const loadNotesDemo = () => { const v = localStorage.getItem(K.notes || ""); return v == null ? (cfg.defaultNotes || "") : v; };
   const [notes, setNotes] = useState(() => (!cfg.notesKey ? "" : isSupabaseConfigured ? "" : loadNotesDemo()));
+  // overenie telefónu SMS kódom — demo: localStorage 'on'/'off' (predvolene vypnuté)
+  const loadSmsVerifyDemo = () => localStorage.getItem(K.smsVerify || "") === "on";
+  const [smsVerify, setSmsVerify] = useState(() => (!cfg.smsVerifyKey || isSupabaseConfigured ? false : loadSmsVerifyDemo()));
 
   const reload = useCallback(async () => {
     if (!supabase) {
@@ -184,12 +189,18 @@ function useClinicData(cfg, isStaff) {
       setPricelist(loadJson(K.pricelist, cfg.defaultPricelist));
       setDoctors(normalizeDoctors(loadJson(K.doctors, [])));
       if (cfg.notesKey) setNotes(loadNotesDemo());
+      if (cfg.smsVerifyKey) setSmsVerify(loadSmsVerifyDemo());
       return;
     }
-    if (cfg.notesKey) {
-      // kľúč je vo verejnom whiteliste settings (angio-004) — číta aj pacient bez prihlásenia
-      const { data, error } = await supabase.from("settings").select("value").eq("key", cfg.notesKey).maybeSingle();
-      if (!error) setNotes(data == null ? (cfg.defaultNotes || "") : (data.value || ""));
+    if (cfg.notesKey || cfg.smsVerifyKey) {
+      // kľúče sú vo verejnom whiteliste settings (angio-004/005) — číta aj pacient bez prihlásenia
+      const keys = [cfg.notesKey, cfg.smsVerifyKey].filter(Boolean);
+      const { data, error } = await supabase.from("settings").select("key, value").in("key", keys);
+      if (!error) {
+        const m = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
+        if (cfg.notesKey) setNotes(!(cfg.notesKey in m) ? (cfg.defaultNotes || "") : (m[cfg.notesKey] || ""));
+        if (cfg.smsVerifyKey) setSmsVerify(m[cfg.smsVerifyKey] === "on");
+      }
     }
     const [slotsRes, priceRes] = await Promise.all([
       supabase.from(T.slots).select("slot_date, slot_time, doctor"),
@@ -289,6 +300,9 @@ function useClinicData(cfg, isStaff) {
 
   const createOrder = async (order, files = []) => {
     if (!supabase) {
+      if (cfg.smsVerifyKey && loadSmsVerifyDemo() && !isStaff && order.verifyToken !== "demo-token") {
+        throw new Error("Telefónne číslo nie je overené. Nechajte si poslať SMS kód a zadajte ho.");
+      }
       const item = (loadJson(K.pricelist, cfg.defaultPricelist)).find((p) => p.id === order.examTypeId);
       const attachments = [];
       for (const f of files) {
@@ -314,6 +328,8 @@ function useClinicData(cfg, isStaff) {
       p_id: order.id, p_exam_type_id: order.examTypeId, p_patient_name: order.patientName, p_birth_date: order.birthDate || null,
       p_insurance: order.insurance || "", p_phone: order.phone, p_email: order.email || "",
       p_reason: order.reason || "", p_slot_date: order.date, p_slot_time: order.time, p_attachments: attachments,
+      // p_verify_token existuje až po angio-005 — posiela sa len keď je overovanie zapnuté
+      ...(cfg.smsVerifyKey && smsVerify ? { p_verify_token: order.verifyToken || null } : {}),
     });
     if (error) throw new Error(error.code === "23505" || error.code === "23P01" ? "Vybraný termín bol medzičasom obsadený. Vyberte iný." : error.message);
     await reload();
@@ -380,6 +396,32 @@ function useClinicData(cfg, isStaff) {
     await reload();
   };
 
+  const saveSmsVerify = async (on) => {
+    if (!cfg.smsVerifyKey) return;
+    const value = on ? "on" : "off";
+    if (!supabase) { localStorage.setItem(K.smsVerify, value); setSmsVerify(on); return; }
+    const { error } = await supabase.from("settings").upsert([{ key: cfg.smsVerifyKey, value }], { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    await reload();
+  };
+
+  // OTP: demo režim používa pevný kód 123456 a token "demo-token"
+  const sendOtp = async (phone) => {
+    if (!supabase) { sessionStorage.setItem("angioDemoOtp", "123456"); return { demoCode: "123456" }; }
+    const { error } = await supabase.rpc(R.sendOtp, { p_phone: phone });
+    if (error) throw new Error(error.message);
+    return {};
+  };
+  const verifyOtp = async (phone, code) => {
+    if (!supabase) {
+      if (String(code || "").trim() === sessionStorage.getItem("angioDemoOtp")) return { ok: true, token: "demo-token" };
+      return { ok: false, error: "Nesprávny kód. Skúste znova." };
+    }
+    const { data, error } = await supabase.rpc(R.verifyOtp, { p_phone: phone, p_code: code });
+    if (error) throw new Error(error.message);
+    return data && typeof data === "object" ? data : { ok: false, error: "Overenie zlyhalo." };
+  };
+
   const lookupOrder = async (id, phone) => {
     const digits = (phone || "").replace(/\D/g, "");
     if (!id || digits.length < 9) return null;
@@ -402,8 +444,9 @@ function useClinicData(cfg, isStaff) {
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
-    isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, pendingCount,
+    isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
     openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
+    saveSmsVerify, sendOtp, verifyOtp,
     lookupOrder, cancelOrder, openAttachment, reload,
   };
 }

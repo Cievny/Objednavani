@@ -70,6 +70,27 @@ function AngioBookingView({ data }) {
   const [msg, setMsg] = useState("");
   const [errs, setErrs] = useState({});
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
+  // overenie telefónu SMS kódom (ak je zapnuté v Nastaveniach)
+  const [otp, setOtp] = useState({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
+  const phoneDigits = (p) => (p || "").replace(/\D/g, "");
+  const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
+  const sendOtp = async () => {
+    if (phoneDigits(form.phone).length < 9) { setErrs((x) => ({ ...x, phone: "Neplatné telefónne číslo (aspoň 9 číslic)." })); return; }
+    setOtp((o) => ({ ...o, busy: true, msg: "" }));
+    try {
+      const r = await data.sendOtp(normalizePhone(form.phone));
+      setOtp({ stage: "sent", phone: form.phone, code: "", token: "", msg: "", busy: false, demoCode: r?.demoCode || "" });
+      clearErr("phone");
+    } catch (e) { setOtp((o) => ({ ...o, busy: false, msg: e?.message || String(e) })); }
+  };
+  const verifyOtp = async () => {
+    setOtp((o) => ({ ...o, busy: true, msg: "" }));
+    try {
+      const r = await data.verifyOtp(normalizePhone(otp.phone), otp.code);
+      if (r?.ok) { setOtp((o) => ({ ...o, stage: "verified", token: r.token, msg: "", busy: false })); clearErr("phone"); }
+      else setOtp((o) => ({ ...o, msg: r?.error || "Nesprávny kód.", busy: false }));
+    } catch (e) { setOtp((o) => ({ ...o, busy: false, msg: e?.message || String(e) })); }
+  };
 
   const handleFilePick = (e) => {
     setMsg("");
@@ -112,13 +133,15 @@ function AngioBookingView({ data }) {
     if (form.phone.replace(/\D/g, "").length < 9) e.phone = "Neplatné telefónne číslo (aspoň 9 číslic).";
     if (!form.email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = "Zadajte platný e-mail.";
     if (needsReferral && files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
+    if (data.smsVerify && !e.phone && !phoneVerified) e.phone = "Overte telefónne číslo SMS kódom.";
     setErrs(e);
     if (Object.keys(e).length > 0) { setMsg("Skontrolujte a doplňte zvýraznené polia."); return; }
     setBusy(true); setMsg("");
     try {
       const id = newAngioId();
       await data.createOrder({ id, examTypeId, patientName: form.name.trim(), birthDate: form.birthDate || null,
-        insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time }, files);
+        insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time,
+        verifyToken: phoneVerified ? otp.token : "" }, files);
       setDone({ id, date, time, label: examType?.label, needsReferral });
       setFiles([]);
     } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
@@ -209,6 +232,30 @@ function AngioBookingView({ data }) {
               <label className="block text-xs font-semibold text-slate-600 mb-1">Telefón *</label>
               <input className={ic("phone")} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
               <Err k="phone" />
+              {data.smsVerify && (
+                <div data-testid="otp-box" className="mt-2 text-sm">
+                  {phoneVerified ? (
+                    <p className="text-[#16A34A] font-semibold">✓ Číslo overené</p>
+                  ) : otp.stage === "sent" && phoneDigits(otp.phone) === phoneDigits(form.phone) ? (
+                    <div className="space-y-2">
+                      <p className="text-slate-600">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
+                      <div className="flex gap-2">
+                        <input className={inp} inputMode="numeric" maxLength={6} placeholder="6-miestny kód" value={otp.code}
+                          onChange={(ev) => setOtp((o) => ({ ...o, code: ev.target.value.replace(/\D/g, "").slice(0, 6), msg: "" }))} />
+                        <button type="button" onClick={verifyOtp} disabled={otp.busy || otp.code.length !== 6}
+                          className="bg-[#2B46A2] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] shrink-0">Overiť kód</button>
+                      </div>
+                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-[#2B46A2] hover:underline">Poslať kód znova</button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={sendOtp} disabled={otp.busy}
+                      className="bg-[#F0F4FF] hover:bg-[#E0E4EF] disabled:opacity-50 text-[#2B46A2] text-sm font-semibold px-4 py-2 rounded-[10px]">
+                      {otp.busy ? "Posielam…" : "Poslať overovací SMS kód"}
+                    </button>
+                  )}
+                  {otp.msg && <p className="text-xs text-red-600 mt-1">{otp.msg}</p>}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail (na potvrdenie) *</label>
@@ -549,6 +596,9 @@ function AngioSettings({ data, isSuper }) {
   const saveDocs = () => { setMsg(""); data.saveDoctors(docs.filter((d) => d.name.trim())).then(() => setMsg("✓ Lekári uložení.")).catch((e) => setMsg(e.message)); };
   const [notes, setNotes] = useState(() => data.notes || "");
   useEffect(() => { setNotes(data.notes || ""); }, [data.notes]); // Supabase: hodnota príde asynchrónne
+  const [smsVerify, setSmsVerify] = useState(() => !!data.smsVerify);
+  useEffect(() => { setSmsVerify(!!data.smsVerify); }, [data.smsVerify]);
+  const saveSmsVerifyClick = () => { setMsg(""); data.saveSmsVerify(smsVerify).then(() => setMsg(smsVerify ? "✓ Overovanie telefónu zapnuté." : "✓ Overovanie telefónu vypnuté.")).catch((e) => setMsg(e.message)); };
   const saveNotesClick = () => { setMsg(""); data.saveNotes(notes).then(() => setMsg("✓ Spoločné pokyny uložené.")).catch((e) => setMsg(e.message)); };
 
   return (
@@ -590,6 +640,16 @@ function AngioSettings({ data, isSuper }) {
         <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich vidí pri každom objednaní (vo všetkých krokoch) a dostane ich v potvrdzovacom e-maili aj v pripomienke deň vopred — platia pre všetky typy vyšetrení.</p>
         <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} />
         <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>
+      </div>
+
+      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
+        <h3 className="text-lg font-bold text-[#2B46A2]">Overovanie telefónu SMS kódom</h3>
+        <p className="text-xs text-slate-400">Pacient si pred odoslaním objednávky nechá poslať 6-miestny kód SMS a zadá ho — objednávka bez overeného čísla neprejde. Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje spustený angio-005.sql a kľúče SMS brány.)</p>
+        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" data-testid="sms-verify-toggle" checked={smsVerify} onChange={(ev) => setSmsVerify(ev.target.checked)} />
+          Vyžadovať overenie telefónneho čísla SMS kódom pri objednaní
+        </label>
+        <div><button onClick={saveSmsVerifyClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť overovanie</button></div>
       </div>
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
