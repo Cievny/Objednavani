@@ -179,14 +179,36 @@ $$;
 revoke all on function order_exists(text) from public;
 grant execute on function order_exists(text) to anon, authenticated;
 
+-- OPRAVA (oprava-prilohy-001): upload NESMIE vyžadovať existujúcu
+-- objednávku — aplikácia nahráva prílohy PRED create_order. Namiesto
+-- toho: tvar cesty, max 3 súbory na priečinok, IP limit; osirelé
+-- priečinky čistí purge_orphan_attachments.
+create or replace function upload_allowed(p_name text)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ip     text := client_ip();
+  v_folder text := split_part(p_name, '/', 1);
+begin
+  if p_name !~ '^(USG|CT|ANG)-[A-Za-z0-9-]{4,40}/[^/]{1,120}$' then
+    return false;
+  end if;
+  if (select count(*) from storage.objects
+      where bucket_id = 'prilohy' and name like v_folder || '/%') >= 3 then
+    return false;
+  end if;
+  if v_ip <> '' then
+    perform check_rate_limit('upload-ip:' || v_ip, 30);
+  end if;
+  return true;
+end $$;
+revoke all on function upload_allowed(text) from public;
+grant execute on function upload_allowed(text) to anon, authenticated;
+
 drop policy if exists "prilohy upload" on storage.objects;
 create policy "prilohy upload" on storage.objects
   for insert to anon, authenticated
-  with check (
-    bucket_id = 'prilohy'
-    and name ~ '^(USG|CT)-[A-Za-z0-9-]+/'
-    and order_exists(split_part(name, '/', 1))
-  );
+  with check (bucket_id = 'prilohy' and upload_allowed(name));
 
 -- ------------------------------------------------------------
 -- N. fio_poll — poistka proti súbehu (advisory lock).
