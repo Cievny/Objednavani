@@ -507,6 +507,8 @@ function CtSettings({ data, isSuper }) {
   const [docs, setDocs] = useState(() => normalizeDoctors(data.doctors));
   const [msg, setMsg] = useState("");
   const slug = () => "ct_" + Math.random().toString(36).slice(2, 10);
+  // presun typu v zozname (poradie = sort_order = poradie pre pacienta)
+  const move = (i, d) => setExams((p) => { const j = i + d; if (j < 0 || j >= p.length) return p; const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n; });
 
   const saveExams = () => { setMsg(""); data.savePricelist(exams.filter((e) => e.label.trim())).then(() => setMsg("✓ Typy CT vyšetrení uložené.")).catch((e) => setMsg(e.message)); };
   const saveDocs = () => { setMsg(""); data.saveDoctors(docs.filter((d) => d.name.trim())).then(() => setMsg("✓ CT lekári uložení.")).catch((e) => setMsg(e.message)); };
@@ -517,6 +519,7 @@ function CtSettings({ data, isSuper }) {
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
         <h3 className="text-lg font-bold text-[#2B46A2]">Typy CT vyšetrení</h3>
+        <p className="text-xs text-slate-400">Poradie v zozname je poradie, v akom typy uvidí pacient — šípkami ▲▼ ho zmeníte a uložte.</p>
         {exams.map((e, i) => (
           <div key={e.id} className="border border-slate-200 rounded-[10px] p-3 space-y-2">
             <div className="flex gap-2">
@@ -526,6 +529,10 @@ function CtSettings({ data, isSuper }) {
                   {[2, 3, 4, 5, 6, 8, 10].map((n) => <option key={n} value={n}>{n * 5} min</option>)}
                 </select>
               </label>
+              <div className="flex flex-col shrink-0 self-start pt-1">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Posunúť vyššie" aria-label="Posunúť vyššie" className="text-slate-500 hover:text-[#2B46A2] text-xs leading-none px-1 py-0.5 disabled:opacity-30">▲</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === exams.length - 1} title="Posunúť nižšie" aria-label="Posunúť nižšie" className="text-slate-500 hover:text-[#2B46A2] text-xs leading-none px-1 py-0.5 disabled:opacity-30">▼</button>
+              </div>
               <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
             </div>
             <textarea className={inp} rows={2} placeholder="Pokyny / príprava" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
