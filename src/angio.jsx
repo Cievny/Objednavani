@@ -451,16 +451,24 @@ function AngioAdmin({ data, role }) {
                 </label>
                 <button onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor }), "✓ Termíny otvorené.")} className="bg-[#2B46A2] text-white font-semibold px-4 py-2 rounded-[10px]">Otvoriť termíny</button>
               </div>
-              <p className="text-xs text-slate-400 mt-2">Termíny sa otvárajú v 5-min mriežke; dĺžku určuje typ vyšetrenia v Nastaveniach.</p>
+              <p className="text-xs text-slate-400 mt-2">Termíny sa otvárajú v 5-min mriežke; dĺžku určuje typ vyšetrenia v Nastaveniach. Tip: kliknite na deň v kalendári a otvorte ho jedným tlačidlom.</p>
             </div>
           )}
           <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 grid md:grid-cols-2 gap-5">
             <MonthCalendar monthDate={monthDate}
               onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
-              isAvailable={isAvailableAdmin} selected={selDay} onSelect={setSelDay} />
+              isAvailable={isAvailableAdmin} isSelectable={(iso) => iso >= todayIso}
+              selected={selDay} onSelect={(iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); }} />
             <div>
               <p className="text-sm font-semibold text-slate-700 mb-2">Deň {selDay}</p>
               {dayOrders.length === 0 && dayOpen.length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú otvorené termíny.</p>}
+              {canManage && dayOpen.length === 0 && (
+                <button
+                  onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
+                  className="mt-2 bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">
+                  Otvoriť termíny v tento deň ({wtFrom}–{wtTo}{wDoctor ? ` · ${wDoctor}` : ""})
+                </button>
+              )}
               <div className="space-y-2">
                 {dayOrders.map((o) => <AngioOrderCard key={o.id} order={o} data={data} canManage={canManage} />)}
               </div>

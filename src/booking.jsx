@@ -467,7 +467,10 @@ const StepIndicator = ({ current }) => (
   </div>
 );
 
-const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSelect }) => {
+// isAvailable = deň má termíny (modré zvýraznenie); isSelectable (voliteľné)
+// = deň sa dá kliknúť aj bez termínov (správa: otvorenie termínov klikom
+// na deň). Bez isSelectable sú klikateľné len dostupné dni (pacient).
+const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSelect, isSelectable }) => {
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -495,6 +498,7 @@ const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSele
           if (day === null) return <span key={`empty-${i}`} />;
           const iso = toISODate(new Date(year, month, day));
           const available = isAvailable(iso);
+          const selectable = isSelectable ? isSelectable(iso) : available;
           const isSelected = selected === iso;
           const isToday = iso === todayIso;
           return (
@@ -502,12 +506,13 @@ const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSele
               key={iso}
               type="button"
               title={iso}
-              disabled={!available}
+              disabled={!selectable}
               onClick={() => onSelect(iso)}
               className={`aspect-square rounded-full text-sm font-semibold transition-colors ${
                 isSelected ? "bg-[#2B46A2] text-white"
                 : available ? "bg-[#F0F4FF] text-[#2B46A2] hover:bg-[#d8e8f6]"
-                : "text-[#444444] cursor-default"
+                : selectable ? "text-[#444444] hover:bg-slate-100"
+                : "text-slate-300 cursor-default"
               } ${isToday && !isSelected ? "ring-1 ring-[#2B46A2]" : ""}`}
             >
               {day}
