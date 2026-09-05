@@ -40,23 +40,6 @@ function freeStartsFor(openSlots, takenSet, iso, durationMin, doctors, examTypeI
 }
 
 // ---------- Pacientske objednávanie (verejné) ----------
-// Spoločné pokyny (jeden pokyn = riadok; „* ", „- ", „• " na začiatku sa ignorujú)
-export function notesToLines(text) {
-  return String(text || "").split(/\r?\n/).map((l) => l.trim().replace(/^[*•-]\s*/, "").trim()).filter(Boolean);
-}
-function AngioNotesBox({ text, compact }) {
-  const lines = notesToLines(text);
-  if (lines.length === 0) return null;
-  return (
-    <div data-testid="angio-notes" className={`bg-[#F0F4FF] border-l-4 border-[#2B46A2] rounded-r-[10px] px-4 ${compact ? "py-2" : "py-3"} text-left`}>
-      <p className="text-xs font-bold uppercase tracking-wide text-[#2B46A2] mb-1">Všeobecné pokyny</p>
-      <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-        {lines.map((l, i) => <li key={i}>{l}</li>)}
-      </ul>
-    </div>
-  );
-}
-
 function AngioBookingView({ data }) {
   const [step, setStep] = useState(1);
   const [examTypeId, setExamTypeId] = useState("");
@@ -157,7 +140,6 @@ function AngioBookingView({ data }) {
         <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
-        {data.notes && <div className="mt-4"><AngioNotesBox text={data.notes} /></div>}
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
             className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Nová objednávka</button>
@@ -170,9 +152,6 @@ function AngioBookingView({ data }) {
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-5">
       <h2 className="text-xl font-bold text-[#2B46A2]">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
-      {/* spoločné pokyny — pri každom objednaní, vo všetkých krokoch */}
-      <AngioNotesBox text={data.notes} compact={step !== 1} />
-
       {step === 1 && (
         <div className="space-y-2">
           <p className="text-sm font-semibold text-slate-700">Vyberte typ vyšetrenia / návštevy</p>
@@ -681,7 +660,7 @@ function AngioSettings({ data, isSuper }) {
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
         <h3 className="text-lg font-bold text-[#2B46A2]">Spoločné pokyny pre pacientov</h3>
-        <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich vidí pri každom objednaní (vo všetkých krokoch) a dostane ich v potvrdzovacom e-maili aj v pripomienke deň vopred — platia pre všetky typy vyšetrení.</p>
+        <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich dostane v potvrdzovacom e-maili, pri zmene termínu a v pripomienke deň vopred — na stránke sa nezobrazujú. Platia pre všetky typy vyšetrení.</p>
         <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} />
         <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>
       </div>
