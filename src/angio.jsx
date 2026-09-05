@@ -304,6 +304,39 @@ function AngioOrderLookup({ data }) {
     catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
   };
 
+  // zmena termínu pacientom — výber z otvorených termínov (rovnaké pravidlá ako pri objednaní)
+  const [resched, setResched] = useState(false);
+  const [rMonth, setRMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [rDate, setRDate] = useState("");
+  const [ok, setOk] = useState("");
+  const takenByDate = useMemo(() => {
+    const m = new Map();
+    data.occupied.forEach(({ date: d, time: t }) => { if (!m.has(d)) m.set(d, new Set()); m.get(d).add(t); });
+    return m;
+  }, [data.occupied]);
+  const todayIso = toISODate(new Date());
+  const rStarts = (iso) => {
+    if (!found) return [];
+    const dur = found.durationMin || 15;
+    const [h, mi] = (found.time || "00:00").split(":").map(Number);
+    const own = new Set(Array.from({ length: Math.max(1, Math.round(dur / 5)) }, (_, i) => addMinutes(`${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`, i * 5)));
+    const taken = new Set([...(takenByDate.get(iso) || new Set())].filter((t) => !(iso === found.date && own.has(t))));
+    return freeStartsFor(data.openSlots, taken, iso, dur, data.doctors, found.exam?.typeId)
+      .filter((s) => !(iso === found.date && s.time === found.time))
+      .filter((s) => iso > todayIso || s.time >= earliestTimeFor(iso, ""));
+  };
+  const rAvailable = (iso) => iso >= todayIso && rStarts(iso).length > 0;
+  const pick = async (iso, t) => {
+    if (!window.confirm(`Zmeniť termín na ${iso} o ${t}?`)) return;
+    setBusy(true); setMsg(""); setOk("");
+    try {
+      await data.patientReschedule(found.id, phone.trim(), iso, t);
+      setFound({ ...found, date: iso, time: t, status: "new" });
+      setResched(false); setRDate("");
+      setOk(`Termín je zmenený na ${iso} o ${t}. Potvrdenie pošleme e-mailom${data.smsVerify ? " a SMS" : ""}.`);
+    } catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-3">
       <h3 className="text-lg font-bold text-[#2B46A2]">Už máte objednávku?</h3>
@@ -321,10 +354,38 @@ function AngioOrderLookup({ data }) {
           <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{statuses[found.status] || found.status}</span></p>
           {found.exam?.label && <p className="text-sm text-slate-600">{found.exam.label}</p>}
           <p className="text-sm text-slate-600">Termín: <b>{found.date} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
+          {ok && <p className="text-sm text-[#16A34A] font-semibold">{ok}</p>}
           {(found.status === "new" || found.status === "confirmed") && (
-            <button onClick={cancel} disabled={busy} className="mt-2 bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-[10px] hover:bg-red-50">
-              Zrušiť objednávku
-            </button>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button onClick={() => { setResched(!resched); setOk(""); setMsg(""); }} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">
+                {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
+              </button>
+              <button onClick={cancel} disabled={busy} className="bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-[10px] hover:bg-red-50">
+                Zrušiť objednávku
+              </button>
+            </div>
+          )}
+          {resched && (found.status === "new" || found.status === "confirmed") && (
+            <div data-testid="patient-resched" className="mt-3 bg-[#F8F9FC] border border-slate-200 rounded-[10px] p-3 space-y-3">
+              <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom; neskôr nám napíšte SMS na 0949 000 677.</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <MonthCalendar monthDate={rMonth}
+                  onMonthChange={(delta) => setRMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
+                  isAvailable={rAvailable} selected={rDate} onSelect={(iso) => setRDate(iso)} />
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 mb-2">{rDate ? `Voľné časy — ${rDate}` : "Vyberte deň"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {rDate && rStarts(rDate).map((s) => (
+                      <button key={s.time} onClick={() => pick(rDate, s.time)} disabled={busy}
+                        className="px-3 py-2 rounded-[10px] text-sm font-semibold border bg-white text-[#2B46A2] border-slate-300 hover:border-[#2B46A2]">
+                        {s.time}{s.doctor ? <span className="block text-[10px] font-normal opacity-70">{s.doctor}</span> : null}
+                      </button>
+                    ))}
+                    {rDate && rStarts(rDate).length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú voľné termíny.</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
           {found.status === "rejected" && <p className="text-sm text-[#856404]">Objednávka je zrušená.</p>}
         </div>

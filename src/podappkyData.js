@@ -156,7 +156,7 @@ const ANGIO_CFG = {
   tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist" },
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
     reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order",
-    sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp" },
+    sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp", patientReschedule: "angio_patient_reschedule" },
   smsVerifyKey: "angio_sms_verify", // overenie telefónu SMS kódom (angio-005), 'on'/'off', verejne čitateľné
   doctorsKey: "angio_doctors",
   defaultPricelist: defaultAngioPricelist,
@@ -432,7 +432,25 @@ function useClinicData(cfg, isStaff) {
     }
     const { data, error } = await supabase.rpc(R.lookup, { p_id: id, p_phone: phone });
     if (error) throw new Error(error.message);
-    return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "", exam: { label: data.exam_label || "" } } : null;
+    return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "",
+      exam: { typeId: data.exam_type_id || "", label: data.exam_label || "" }, durationMin: Number(data.duration_min) || 15 } : null;
+  };
+
+  // zmena termínu pacientom (číslo objednávky + telefón) — angio-007; potvrdená → nová
+  const patientReschedule = async (id, phone, date, time) => {
+    const digits = (phone || "").replace(/\D/g, "").slice(-9);
+    if (!supabase) {
+      const list = loadJson(K.orders, []);
+      const i = list.findIndex((x) => x.id.toUpperCase() === String(id).toUpperCase() && x.phone.replace(/\D/g, "").slice(-9) === digits);
+      if (i < 0) throw new Error("Objednávku sme nenašli. Skontrolujte číslo a telefón.");
+      if (!["new", "confirmed"].includes(list[i].status)) throw new Error("Túto objednávku už nie je možné meniť.");
+      if (new Date(`${list[i].date}T${list[i].time}:00`) - Date.now() < 24 * 3600 * 1000) throw new Error("Termín možno online zmeniť najneskôr 24 hodín vopred. Napíšte nám SMS na 0949 000 677 (uveďte číslo objednávky).");
+      list[i] = { ...list[i], date, time, status: "new", statusNote: `Termín zmenil pacient (pôvodne ${list[i].date} ${list[i].time})` };
+      localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
+    }
+    const { error } = await supabase.rpc(R.patientReschedule, { p_id: id, p_phone: phone, p_slot_date: date, p_slot_time: time });
+    if (error) throw new Error(error.message);
+    await reload();
   };
 
   const cancelOrder = async (id, phone) => {
@@ -447,7 +465,7 @@ function useClinicData(cfg, isStaff) {
   return {
     isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
     openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
-    saveSmsVerify, sendOtp, verifyOtp,
+    saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
     lookupOrder, cancelOrder, openAttachment, reload,
   };
 }
