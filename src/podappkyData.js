@@ -12,12 +12,14 @@ export const defaultCtPricelist = [
 ];
 
 // predvyplnené typy návštev Angiologickej ambulancie č. 1
+// description = krátky jednoriadkový popis (pacient pri výbere),
+// instructions = pokyny/príprava (idú do potvrdzovacieho e-mailu a pripomienky)
 export const defaultAngioPricelist = [
-  { id: "ang_prve", label: "Prvé angiologické vyšetrenie", instructions: "Prineste si žiadanku, zoznam liekov a predchádzajúce nálezy (USG, CT, MR).", durationSlots: 6 },
-  { id: "ang_kontrola", label: "Kontrolné angiologické vyšetrenie", instructions: "Prineste si zoznam liekov a nové nálezy od poslednej kontroly.", durationSlots: 3 },
-  { id: "ang_usg_dk", label: "USG ciev dolných končatín", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
-  { id: "ang_usg_krk", label: "USG krčných ciev", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
-  { id: "ang_konzult", label: "Konzultácia", instructions: "Prineste si dokumentáciu, ktorú chcete prekonzultovať.", durationSlots: 3 },
+  { id: "ang_prve", label: "Prvé angiologické vyšetrenie", description: "Komplexné vyšetrenie ciev pri nových ťažkostiach", instructions: "Prineste si žiadanku, zoznam liekov a predchádzajúce nálezy (USG, CT, MR).", durationSlots: 6 },
+  { id: "ang_kontrola", label: "Kontrolné angiologické vyšetrenie", description: "Kontrola u pacientov v našej starostlivosti", instructions: "Prineste si zoznam liekov a nové nálezy od poslednej kontroly.", durationSlots: 3 },
+  { id: "ang_usg_dk", label: "USG ciev dolných končatín", description: "Ultrazvuk tepien a žíl nôh", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
+  { id: "ang_usg_krk", label: "USG krčných ciev", description: "Ultrazvuk krčných tepien", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
+  { id: "ang_konzult", label: "Konzultácia", description: "Konzultácia nálezov a ďalšieho postupu", instructions: "Prineste si dokumentáciu, ktorú chcete prekonzultovať.", durationSlots: 3 },
 ];
 
 // ============================================================
@@ -146,6 +148,7 @@ const ANGIO_CFG = {
     reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order" },
   doctorsKey: "angio_doctors",
   defaultPricelist: defaultAngioPricelist,
+  hasDescription: true, // stĺpec angio_pricelist.description (angio-003)
 };
 
 export function useCtData(isStaff) { return useClinicData(CT_CFG, isStaff); }
@@ -173,7 +176,8 @@ function useClinicData(cfg, isStaff) {
     ]);
     if (!slotsRes.error) setOpenSlots(groupSlots(slotsRes.data));
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(priceRes.data.map((r) => ({
-      id: r.id, label: r.label, instructions: r.instructions || "", durationSlots: Math.max(1, Number(r.duration_slots) || 3),
+      id: r.id, label: r.label, description: r.description || "", instructions: r.instructions || "",
+      durationSlots: Math.max(1, Number(r.duration_slots) || 3),
     })));
     // lekári: personál z settings (aj s e-mailmi), pacient cez public RPC bez e-mailov
     if (isStaff) {
@@ -327,6 +331,7 @@ function useClinicData(cfg, isStaff) {
   const savePricelist = async (list) => {
     if (!supabase) { localStorage.setItem(K.pricelist, JSON.stringify(list)); setPricelist(list); return; }
     const rows = list.map((it, i) => ({ id: it.id, label: it.label, instructions: it.instructions || "",
+      ...(cfg.hasDescription ? { description: it.description || "" } : {}),
       duration_slots: Math.max(1, it.durationSlots || 3), active: true, sort_order: i }));
     const { error } = await supabase.from(T.pricelist).upsert(rows, { onConflict: "id" });
     if (error) throw new Error(error.message);

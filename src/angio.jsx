@@ -131,7 +131,7 @@ function AngioBookingView({ data }) {
             <button key={p.id} onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }}
               className={`w-full text-left border-2 rounded-[10px] p-3 transition-colors ${examTypeId === p.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"}`}>
               <span className="font-bold text-slate-800">{p.label}</span>
-              <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.instructions ? ` · ${p.instructions}` : ""}</span>
+              <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}</span>
             </button>
           ))}
         </div>
@@ -545,10 +545,11 @@ function AngioSettings({ data, isSuper }) {
               </div>
               <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
             </div>
-            <textarea className={inp} rows={2} placeholder="Pokyny / príprava" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
+            <input className={inp} placeholder="Krátky popis (jeden riadok) — pacient ho vidí pri výbere vyšetrenia" value={e.description || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, description: ev.target.value } : x))} />
+            <textarea className={inp} rows={3} placeholder="Pokyny / príprava — tento text dostane pacient v potvrdzovacom e-maili a v pripomienke deň vopred" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
           </div>
         ))}
-        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", instructions: "", durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
+        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", instructions: "", durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
         <div><button onClick={saveExams} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť typy vyšetrení</button></div>
       </div>
 

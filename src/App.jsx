@@ -9,7 +9,7 @@ import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./ang
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v78";
+const APP_VERSION = "v79";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
