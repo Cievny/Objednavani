@@ -20,7 +20,17 @@ export const defaultAngioPricelist = [
   { id: "ang_usg_dk", label: "USG ciev dolných končatín", description: "Ultrazvuk tepien a žíl nôh", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
   { id: "ang_usg_krk", label: "USG krčných ciev", description: "Ultrazvuk krčných tepien", instructions: "Osobitná príprava nie je potrebná. Prineste si žiadanku.", durationSlots: 4 },
   { id: "ang_konzult", label: "Konzultácia", description: "Konzultácia nálezov a ďalšieho postupu", instructions: "Prineste si dokumentáciu, ktorú chcete prekonzultovať.", durationSlots: 3 },
-];
+].map((p) => ({ ...p, requiresReferral: true }));
+
+// Spoločné pokyny angio (jeden pokyn na riadok) — rovnaký text ako seed v angio-004.sql
+export const DEFAULT_ANGIO_NOTES = [
+  "Príďte 10 minút pred termínom, so sebou kartičku poistenca a doklad totožnosti.",
+  "Ak nemôžete prísť, zrušte alebo presuňte termín aspoň 24 hodín vopred – uvoľníte miesto inému pacientovi.",
+  "Položky označené „po dohovore\" sa neobjednávajú priamo online – najprv nás kontaktujte, dohodneme vhodný termín a prípravu.",
+  "Vyšetrenia nalačno objednávame prednostne na ranné hodiny.",
+  "Ak užívate lieky na riedenie krvi, nikdy ich nevysadzujte sami – o postupe rozhodneme spolu.",
+  "Čas termínu je orientačný. Sme špecializované pracovisko najvyššieho typu – termín sa výnimočne môže posunúť pre akútny zákrok. O plánovaných zmenách termínu vás vždy vopred informujeme e-mailom a SMS.",
+].join("\n");
 
 // ============================================================
 // Dátová vrstva pre pod-appky (oddelené od USG):
@@ -142,13 +152,15 @@ const CT_CFG = {
 };
 
 const ANGIO_CFG = {
-  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1" },
+  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1" },
   tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist" },
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
     reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order" },
   doctorsKey: "angio_doctors",
   defaultPricelist: defaultAngioPricelist,
-  hasDescription: true, // stĺpec angio_pricelist.description (angio-003)
+  extendedPricelist: true, // stĺpce angio_pricelist.description (angio-003) a requires_referral (angio-004)
+  notesKey: "angio_common_notes", // spoločné pokyny v settings (angio-004), verejne čitateľné
+  defaultNotes: DEFAULT_ANGIO_NOTES,
 };
 
 export function useCtData(isStaff) { return useClinicData(CT_CFG, isStaff); }
@@ -162,13 +174,22 @@ function useClinicData(cfg, isStaff) {
   const [occupiedRemote, setOccupiedRemote] = useState([]);
   const [pricelist, setPricelist] = useState(() => (isSupabaseConfigured ? cfg.defaultPricelist : loadJson(K.pricelist, cfg.defaultPricelist)));
   const [doctors, setDoctors] = useState(() => (isSupabaseConfigured ? [] : normalizeDoctors(loadJson(K.doctors, []))));
+  // spoločné pokyny pre pacientov (len ambulancie s cfg.notesKey)
+  const loadNotesDemo = () => { const v = localStorage.getItem(K.notes || ""); return v == null ? (cfg.defaultNotes || "") : v; };
+  const [notes, setNotes] = useState(() => (!cfg.notesKey ? "" : isSupabaseConfigured ? "" : loadNotesDemo()));
 
   const reload = useCallback(async () => {
     if (!supabase) {
       setOpenSlots(loadJson(K.slots, {})); setOrders(loadJson(K.orders, []));
       setPricelist(loadJson(K.pricelist, cfg.defaultPricelist));
       setDoctors(normalizeDoctors(loadJson(K.doctors, [])));
+      if (cfg.notesKey) setNotes(loadNotesDemo());
       return;
+    }
+    if (cfg.notesKey) {
+      // kľúč je vo verejnom whiteliste settings (angio-004) — číta aj pacient bez prihlásenia
+      const { data, error } = await supabase.from("settings").select("value").eq("key", cfg.notesKey).maybeSingle();
+      if (!error) setNotes(data == null ? (cfg.defaultNotes || "") : (data.value || ""));
     }
     const [slotsRes, priceRes] = await Promise.all([
       supabase.from(T.slots).select("slot_date, slot_time, doctor"),
@@ -177,6 +198,7 @@ function useClinicData(cfg, isStaff) {
     if (!slotsRes.error) setOpenSlots(groupSlots(slotsRes.data));
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(priceRes.data.map((r) => ({
       id: r.id, label: r.label, description: r.description || "", instructions: r.instructions || "",
+      requiresReferral: r.requires_referral !== false, // CT stĺpec nemá → vždy true
       durationSlots: Math.max(1, Number(r.duration_slots) || 3),
     })));
     // lekári: personál z settings (aj s e-mailmi), pacient cez public RPC bez e-mailov
@@ -331,7 +353,7 @@ function useClinicData(cfg, isStaff) {
   const savePricelist = async (list) => {
     if (!supabase) { localStorage.setItem(K.pricelist, JSON.stringify(list)); setPricelist(list); return; }
     const rows = list.map((it, i) => ({ id: it.id, label: it.label, instructions: it.instructions || "",
-      ...(cfg.hasDescription ? { description: it.description || "" } : {}),
+      ...(cfg.extendedPricelist ? { description: it.description || "", requires_referral: it.requiresReferral !== false } : {}),
       duration_slots: Math.max(1, it.durationSlots || 3), active: true, sort_order: i }));
     const { error } = await supabase.from(T.pricelist).upsert(rows, { onConflict: "id" });
     if (error) throw new Error(error.message);
@@ -345,6 +367,15 @@ function useClinicData(cfg, isStaff) {
   const saveDoctors = async (list) => {
     if (!supabase) { localStorage.setItem(K.doctors, JSON.stringify(list)); setDoctors(normalizeDoctors(list)); return; }
     const { error } = await supabase.from("settings").upsert([{ key: cfg.doctorsKey, value: JSON.stringify(list || []) }], { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    await reload();
+  };
+
+  const saveNotes = async (text) => {
+    if (!cfg.notesKey) return;
+    const value = String(text || "");
+    if (!supabase) { localStorage.setItem(K.notes, value); setNotes(value); return; }
+    const { error } = await supabase.from("settings").upsert([{ key: cfg.notesKey, value }], { onConflict: "key" });
     if (error) throw new Error(error.message);
     await reload();
   };
@@ -371,8 +402,8 @@ function useClinicData(cfg, isStaff) {
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
-    isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, pendingCount,
-    openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors,
+    isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, pendingCount,
+    openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     lookupOrder, cancelOrder, openAttachment, reload,
   };
 }

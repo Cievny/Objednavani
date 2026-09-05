@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
@@ -40,6 +40,23 @@ function freeStartsFor(openSlots, takenSet, iso, durationMin, doctors, examTypeI
 }
 
 // ---------- Pacientske objednávanie (verejné) ----------
+// Spoločné pokyny (jeden pokyn = riadok; „* ", „- ", „• " na začiatku sa ignorujú)
+export function notesToLines(text) {
+  return String(text || "").split(/\r?\n/).map((l) => l.trim().replace(/^[*•-]\s*/, "").trim()).filter(Boolean);
+}
+function AngioNotesBox({ text, compact }) {
+  const lines = notesToLines(text);
+  if (lines.length === 0) return null;
+  return (
+    <div data-testid="angio-notes" className={`bg-[#F0F4FF] border-l-4 border-[#2B46A2] rounded-r-[10px] px-4 ${compact ? "py-2" : "py-3"} text-left`}>
+      <p className="text-xs font-bold uppercase tracking-wide text-[#2B46A2] mb-1">Všeobecné pokyny</p>
+      <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+        {lines.map((l, i) => <li key={i}>{l}</li>)}
+      </ul>
+    </div>
+  );
+}
+
 function AngioBookingView({ data }) {
   const [step, setStep] = useState(1);
   const [examTypeId, setExamTypeId] = useState("");
@@ -70,6 +87,8 @@ function AngioBookingView({ data }) {
 
   const examType = data.pricelist.find((p) => p.id === examTypeId) || null;
   const durationMin = (examType?.durationSlots || 3) * 5;
+  // žiadanka povinná podľa typu (neznámy typ = povinná; rovnaká logika ako trigger angio_require_attachment)
+  const needsReferral = examType ? examType.requiresReferral !== false : true;
 
   const takenByDate = useMemo(() => {
     const m = new Map();
@@ -92,7 +111,7 @@ function AngioBookingView({ data }) {
     if (!form.birthDate) e.birthDate = "Zadajte dátum narodenia.";
     if (form.phone.replace(/\D/g, "").length < 9) e.phone = "Neplatné telefónne číslo (aspoň 9 číslic).";
     if (!form.email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = "Zadajte platný e-mail.";
-    if (files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
+    if (needsReferral && files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
     setErrs(e);
     if (Object.keys(e).length > 0) { setMsg("Skontrolujte a doplňte zvýraznené polia."); return; }
     setBusy(true); setMsg("");
@@ -100,7 +119,7 @@ function AngioBookingView({ data }) {
       const id = newAngioId();
       await data.createOrder({ id, examTypeId, patientName: form.name.trim(), birthDate: form.birthDate || null,
         insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time }, files);
-      setDone({ id, date, time, label: examType?.label });
+      setDone({ id, date, time, label: examType?.label, needsReferral });
       setFiles([]);
     } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
   };
@@ -114,7 +133,8 @@ function AngioBookingView({ data }) {
         <p className="text-slate-700">{done.label}</p>
         <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
-        <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 15 minút pred termínom so žiadankou.</p>
+        <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
+        {data.notes && <div className="mt-4"><AngioNotesBox text={data.notes} /></div>}
       </div>
     );
   }
@@ -122,6 +142,8 @@ function AngioBookingView({ data }) {
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-5">
       <h2 className="text-xl font-bold text-[#2B46A2]">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
+      {/* spoločné pokyny — pri každom objednaní, vo všetkých krokoch */}
+      <AngioNotesBox text={data.notes} compact={step !== 1} />
 
       {step === 1 && (
         <div className="space-y-2">
@@ -131,7 +153,7 @@ function AngioBookingView({ data }) {
             <button key={p.id} onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }}
               className={`w-full text-left border-2 rounded-[10px] p-3 transition-colors ${examTypeId === p.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"}`}>
               <span className="font-bold text-slate-800">{p.label}</span>
-              <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}</span>
+              <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
             </button>
           ))}
         </div>
@@ -198,9 +220,12 @@ function AngioBookingView({ data }) {
               <input className={inp} placeholder="nepovinné" value={form.reason} onChange={set("reason")} />
             </div>
           </div>
-          {/* Nahrávanie žiadanky — povinné */}
-          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-[10px] p-3" : "border border-amber-300 bg-amber-50 rounded-[10px] p-3"}>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Žiadanka (výmenný lístok) — odfoťte alebo nahrajte * <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span></label>
+          {/* Nahrávanie žiadanky — povinné podľa typu vyšetrenia */}
+          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-[10px] p-3" : needsReferral ? "border border-amber-300 bg-amber-50 rounded-[10px] p-3" : "border border-slate-200 bg-[#F8F9FC] rounded-[10px] p-3"}>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              {needsReferral ? "Žiadanka (výmenný lístok) — odfoťte alebo nahrajte *" : "Žiadanka alebo lekárske správy — nepovinné"}{" "}
+              <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span>
+            </label>
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
               className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#E0E4EF]" />
             <Err k="files" />
@@ -522,6 +547,9 @@ function AngioSettings({ data, isSuper }) {
 
   const saveExams = () => { setMsg(""); data.savePricelist(exams.filter((e) => e.label.trim())).then(() => setMsg("✓ Typy vyšetrení uložené.")).catch((e) => setMsg(e.message)); };
   const saveDocs = () => { setMsg(""); data.saveDoctors(docs.filter((d) => d.name.trim())).then(() => setMsg("✓ Lekári uložení.")).catch((e) => setMsg(e.message)); };
+  const [notes, setNotes] = useState(() => data.notes || "");
+  useEffect(() => { setNotes(data.notes || ""); }, [data.notes]); // Supabase: hodnota príde asynchrónne
+  const saveNotesClick = () => { setMsg(""); data.saveNotes(notes).then(() => setMsg("✓ Spoločné pokyny uložené.")).catch((e) => setMsg(e.message)); };
 
   return (
     <div className="space-y-5">
@@ -547,10 +575,21 @@ function AngioSettings({ data, isSuper }) {
             </div>
             <input className={inp} placeholder="Krátky popis (jeden riadok) — pacient ho vidí pri výbere vyšetrenia" value={e.description || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, description: ev.target.value } : x))} />
             <textarea className={inp} rows={3} placeholder="Pokyny / príprava — tento text dostane pacient v potvrdzovacom e-maili a v pripomienke deň vopred" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={e.requiresReferral !== false} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, requiresReferral: ev.target.checked } : x))} />
+              Vyžaduje žiadanku (výmenný lístok) — pacient ju musí priložiť pri objednaní
+            </label>
           </div>
         ))}
-        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", instructions: "", durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
+        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
         <div><button onClick={saveExams} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť typy vyšetrení</button></div>
+      </div>
+
+      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
+        <h3 className="text-lg font-bold text-[#2B46A2]">Spoločné pokyny pre pacientov</h3>
+        <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich vidí pri každom objednaní (vo všetkých krokoch) a dostane ich v potvrdzovacom e-maili aj v pripomienke deň vopred — platia pre všetky typy vyšetrení.</p>
+        <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} />
+        <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>
       </div>
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
@@ -595,7 +634,7 @@ export function AngioPatientApp() {
         <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
         <p className="text-sm text-white/90 mt-2 max-w-xl">
           Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
-          preto je potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
+          preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
         </p>
       </div>
       <AngioBookingView data={data} />
