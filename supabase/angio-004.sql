@@ -19,7 +19,8 @@
 -- ------------------------------------------------------------
 drop policy if exists "settings verejne citanie" on settings;
 create policy "settings verejne citanie" on settings
-  for select using (key in ('iban', 'beneficiary', 'referral_from', 'slot_base_min', 'angio_common_notes'));
+  for select using (key in ('iban', 'beneficiary', 'referral_from', 'slot_base_min', 'angio_common_notes', 'angio_sms_verify'));
+-- (angio_sms_verify je tu preventívne — rovnaký zoznam ako v angio-005, aby poradie spustenia nič nezúžilo)
 
 insert into settings (key, value)
 select 'angio_common_notes', E'Príďte 10 minút pred termínom, so sebou kartičku poistenca a doklad totožnosti.\nAk nemôžete prísť, zrušte alebo presuňte termín aspoň 24 hodín vopred – uvoľníte miesto inému pacientovi.\nPoložky označené „po dohovore" sa neobjednávajú priamo online – najprv nás kontaktujte, dohodneme vhodný termín a prípravu.\nVyšetrenia nalačno objednávame prednostne na ranné hodiny.\nAk užívate lieky na riedenie krvi, nikdy ich nevysadzujte sami – o postupe rozhodneme spolu.\nČas termínu je orientačný. Sme špecializované pracovisko najvyššieho typu – termín sa výnimočne môže posunúť pre akútny zákrok. O plánovaných zmenách termínu vás vždy vopred informujeme e-mailom a SMS.'

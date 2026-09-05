@@ -723,18 +723,20 @@ function AngioSettings({ data, isSuper }) {
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
         <h3 className="text-lg font-bold text-[#2B46A2]">Spoločné pokyny pre pacientov</h3>
         <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich dostane v potvrdzovacom e-maili, pri zmene termínu a v pripomienke deň vopred — na stránke sa nezobrazujú. Platia pre všetky typy vyšetrení.</p>
-        <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} />
-        <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>
+        {!isSuper && <p className="text-xs text-[#856404]">Spoločné pokyny môže meniť len superadmin.</p>}
+        <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} disabled={!isSuper} />
+        {isSuper && <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>}
       </div>
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
         <h3 className="text-lg font-bold text-[#2B46A2]">Overovanie telefónu SMS kódom</h3>
         <p className="text-xs text-slate-400">Pacient si pred odoslaním objednávky nechá poslať 6-miestny kód SMS a zadá ho — objednávka bez overeného čísla neprejde. Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje spustený angio-005.sql a kľúče SMS brány.)</p>
         <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-          <input type="checkbox" data-testid="sms-verify-toggle" checked={smsVerify} onChange={(ev) => setSmsVerify(ev.target.checked)} />
+          <input type="checkbox" data-testid="sms-verify-toggle" checked={smsVerify} onChange={(ev) => setSmsVerify(ev.target.checked)} disabled={!isSuper} />
           Vyžadovať overenie telefónneho čísla SMS kódom pri objednaní
         </label>
-        <div><button onClick={saveSmsVerifyClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť overovanie</button></div>
+        {!isSuper && <p className="text-xs text-[#856404]">Overovanie môže zapnúť/vypnúť len superadmin.</p>}
+        {isSuper && <div><button onClick={saveSmsVerifyClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť overovanie</button></div>}
       </div>
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
