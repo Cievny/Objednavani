@@ -140,6 +140,7 @@ function AngioBookingView({ data }) {
         <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
+        <p className="text-xs text-slate-500 mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
             className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Nová objednávka</button>
@@ -282,8 +283,15 @@ function AngioBookingView({ data }) {
 }
 
 // ---------- Overenie / zrušenie objednávky pacientom ----------
-function AngioOrderLookup({ data }) {
-  const [id, setId] = useState("");
+function AngioOrderLookup({ data, initialId = "" }) {
+  const [id, setId] = useState(initialId || "");
+  // deep-link z e-mailu (#/angio1/objednavka/ANG-…): predvyplniť číslo a prísť na sekciu
+  useEffect(() => {
+    if (!initialId) return;
+    setId(initialId);
+    const el = document.getElementById("angio-lookup");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [initialId]);
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
   const [msg, setMsg] = useState("");
@@ -338,9 +346,9 @@ function AngioOrderLookup({ data }) {
   };
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-3">
+    <div id="angio-lookup" className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-3">
       <h3 className="text-lg font-bold text-[#2B46A2]">Už máte objednávku?</h3>
-      <p className="text-sm text-slate-500">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli.</p>
+      <p className="text-sm text-slate-500">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli. Termín tu môžete zmeniť alebo zrušiť (najneskôr 24 hodín vopred).</p>
       <div className="grid md:grid-cols-2 gap-3">
         <input className={inp} placeholder="Číslo objednávky (ANG-…)" value={id} onChange={(e) => setId(e.target.value)} />
         <input className={inp} placeholder="Telefón zadaný pri objednávke" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -367,7 +375,7 @@ function AngioOrderLookup({ data }) {
           )}
           {resched && (found.status === "new" || found.status === "confirmed") && (
             <div data-testid="patient-resched" className="mt-3 bg-[#F8F9FC] border border-slate-200 rounded-[10px] p-3 space-y-3">
-              <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom; neskôr nám napíšte SMS na 0949 000 677.</p>
+              <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom. Telefón/SMS 0949 000 677 len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
               <div className="grid md:grid-cols-2 gap-4">
                 <MonthCalendar monthDate={rMonth}
                   onMonthChange={(delta) => setRMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
@@ -774,6 +782,9 @@ function AngioSettings({ data, isSuper }) {
 // Verejná pacientska stránka (bez prihlásenia): hero + objednávanie + overenie
 export function AngioPatientApp() {
   const data = useAngioData(false);
+  // deep-link z e-mailu: #/angio1/objednavka/ANG-… → predvyplní „Už máte objednávku?"
+  const hash = window.location.hash || "";
+  const orderLinkId = hash.startsWith("#/angio1/objednavka/") ? decodeURIComponent(hash.slice("#/angio1/objednavka/".length)).trim() : "";
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
@@ -788,7 +799,7 @@ export function AngioPatientApp() {
         </p>
       </div>
       <AngioBookingView data={data} />
-      <AngioOrderLookup data={data} />
+      <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );
 }

@@ -25,7 +25,7 @@ export const defaultAngioPricelist = [
 // Spoločné pokyny angio (jeden pokyn na riadok) — rovnaký text ako seed v angio-004.sql
 export const DEFAULT_ANGIO_NOTES = [
   "Príďte 10 minút pred termínom, so sebou kartičku poistenca a doklad totožnosti.",
-  "Ak nemôžete prísť, zrušte alebo presuňte termín aspoň 24 hodín vopred – uvoľníte miesto inému pacientovi.",
+  "Ak nemôžete prísť, zrušte alebo presuňte termín online (odkaz v e-maili alebo „Už máte objednávku?\" na stránke) aspoň 24 hodín vopred – uvoľníte miesto inému pacientovi. Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.",
   "Položky označené „po dohovore\" sa neobjednávajú priamo online – najprv nás kontaktujte, dohodneme vhodný termín a prípravu.",
   "Vyšetrenia nalačno objednávame prednostne na ranné hodiny.",
   "Ak užívate lieky na riedenie krvi, nikdy ich nevysadzujte sami – o postupe rozhodneme spolu.",
@@ -444,7 +444,7 @@ function useClinicData(cfg, isStaff) {
       const i = list.findIndex((x) => x.id.toUpperCase() === String(id).toUpperCase() && x.phone.replace(/\D/g, "").slice(-9) === digits);
       if (i < 0) throw new Error("Objednávku sme nenašli. Skontrolujte číslo a telefón.");
       if (!["new", "confirmed"].includes(list[i].status)) throw new Error("Túto objednávku už nie je možné meniť.");
-      if (new Date(`${list[i].date}T${list[i].time}:00`) - Date.now() < 24 * 3600 * 1000) throw new Error("Termín možno online zmeniť najneskôr 24 hodín vopred. Napíšte nám SMS na 0949 000 677 (uveďte číslo objednávky).");
+      if (new Date(`${list[i].date}T${list[i].time}:00`) - Date.now() < 24 * 3600 * 1000) throw new Error("Termín možno online zmeniť najneskôr 24 hodín vopred. V naozaj nutnom prípade nám napíšte SMS na 0949 000 677 (uveďte číslo objednávky) – ozveme sa vám späť.");
       list[i] = { ...list[i], date, time, status: "new", statusNote: `Termín zmenil pacient (pôvodne ${list[i].date} ${list[i].time})` };
       localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
     }

@@ -226,7 +226,7 @@ begin
     raise exception 'Túto objednávku už nie je možné meniť.';
   end if;
   if (v_order.slot_date + v_order.slot_time) at time zone 'Europe/Bratislava' < now() + interval '24 hours' then
-    raise exception 'Termín možno online zmeniť najneskôr 24 hodín vopred. Napíšte nám SMS na 0949 000 677 (uveďte číslo objednávky).';
+    raise exception 'Termín možno online zmeniť najneskôr 24 hodín vopred. V naozaj nutnom prípade nám napíšte SMS na 0949 000 677 (uveďte číslo objednávky) – ozveme sa vám späť.';
   end if;
   if p_slot_date = v_order.slot_date and p_slot_time = v_order.slot_time then
     raise exception 'Vybrali ste rovnaký termín, aký už máte.';
