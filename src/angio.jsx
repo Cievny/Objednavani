@@ -39,6 +39,24 @@ function freeStartsFor(openSlots, takenSet, iso, durationMin, doctors, examTypeI
   });
 }
 
+// Jednoduché formátovanie textu (rovnaké pravidlá ako e-mail, angio-006):
+// riadok končiaci „:" = nadpis, „- " = odrážka, prázdny riadok = odsek
+function FormattedText({ text }) {
+  const lines = String(text || "").split(/\r?\n/);
+  const out = []; let list = [];
+  const flush = () => { if (list.length) { out.push(<ul key={`ul${out.length}`} className="list-disc pl-5 space-y-0.5">{list.map((l, i) => <li key={i}>{l}</li>)}</ul>); list = []; } };
+  lines.forEach((raw, i) => {
+    const t = raw.trim();
+    if (!t) { flush(); out.push(<div key={`sp${i}`} className="h-2" />); return; }
+    if (/^[-*•]\s+/.test(t)) { list.push(t.replace(/^[-*•]\s+/, "")); return; }
+    flush();
+    if (/^#\s+/.test(t) || (/:$/.test(t) && t.length <= 60)) out.push(<p key={i} className="font-semibold mt-1">{t.replace(/^#\s+/, "")}</p>);
+    else out.push(<p key={i}>{t}</p>);
+  });
+  flush();
+  return <div className="space-y-0.5">{out}</div>;
+}
+
 // ---------- Pacientske objednávanie (verejné) ----------
 function AngioBookingView({ data }) {
   const [step, setStep] = useState(1);
@@ -55,6 +73,7 @@ function AngioBookingView({ data }) {
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
   // overenie telefónu SMS kódom (ak je zapnuté v Nastaveniach)
   const [otp, setOtp] = useState({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
+  const [aboutOpen, setAboutOpen] = useState(""); // rozbalený popis typu vyšetrenia („Viac o vyšetrení")
   const phoneDigits = (p) => (p || "").replace(/\D/g, "");
   const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
   const sendOtp = async () => {
@@ -158,11 +177,20 @@ function AngioBookingView({ data }) {
           <p className="text-sm font-semibold text-slate-700">Vyberte typ vyšetrenia / návštevy</p>
           {data.pricelist.length === 0 && <p className="text-sm text-slate-400">Zatiaľ nie sú nastavené žiadne typy vyšetrení.</p>}
           {data.pricelist.map((p) => (
-            <button key={p.id} onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }}
-              className={`w-full text-left border-2 rounded-[10px] p-3 transition-colors ${examTypeId === p.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"}`}>
-              <span className="font-bold text-slate-800">{p.label}</span>
-              <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
-            </button>
+            <div key={p.id} className={`border-2 rounded-[10px] transition-colors ${examTypeId === p.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"}`}>
+              <button onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }} className="w-full text-left p-3">
+                <span className="font-bold text-slate-800">{p.label}</span>
+                <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
+              </button>
+              {p.about && (
+                <div className="px-3 pb-2">
+                  <button type="button" onClick={() => setAboutOpen((o) => (o === p.id ? "" : p.id))} className="text-xs font-semibold text-[#2B46A2] hover:underline">
+                    {aboutOpen === p.id ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
+                  </button>
+                  {aboutOpen === p.id && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={p.about} /></div>}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -716,15 +744,16 @@ function AngioSettings({ data, isSuper }) {
               <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
             </div>
             <input className={inp} placeholder="Krátky popis (jeden riadok) — pacient ho vidí pri výbere vyšetrenia" value={e.description || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, description: ev.target.value } : x))} />
-            <textarea className={inp} rows={e.instructions && e.instructions.length > 200 ? 10 : 3} placeholder="Pokyny / príprava — tento text dostane pacient v potvrdzovacom e-maili a v pripomienke deň vopred" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
-            <p className="text-[11px] text-slate-400">Formátovanie v e-maili: riadok končiaci dvojbodkou = tučný nadpis (napr. „Čo priniesť:"), riadky začínajúce „- " = odrážky, prázdny riadok = nový odsek.</p>
+            <textarea className={inp} rows={e.about && e.about.length > 200 ? 8 : 3} placeholder="Popis vyšetrenia — čo to je, pre koho, trvanie, priebeh. Pacient ho vidí na stránke po rozkliknutí ‚Viac o vyšetrení‘ (do e-mailu nejde)" value={e.about || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, about: ev.target.value } : x))} />
+            <textarea className={inp} rows={e.instructions && e.instructions.length > 200 ? 8 : 3} placeholder="Pokyny do e-mailu — len praktické veci: Čo priniesť, Príprava… Pacient ich dostane v potvrdzovacom e-maili a v pripomienke" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
+            <p className="text-[11px] text-slate-400">Formátovanie (popis aj pokyny): riadok končiaci dvojbodkou = tučný nadpis (napr. „Čo priniesť:"), riadky začínajúce „- " = odrážky, prázdny riadok = nový odsek.</p>
             <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
               <input type="checkbox" checked={e.requiresReferral !== false} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, requiresReferral: ev.target.checked } : x))} />
               Vyžaduje žiadanku (výmenný lístok) — pacient ju musí priložiť pri objednaní
             </label>
           </div>
         ))}
-        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
+        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", about: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
         <div><button onClick={saveExams} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť typy vyšetrení</button></div>
       </div>
 

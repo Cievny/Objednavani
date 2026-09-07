@@ -24,12 +24,12 @@ export const defaultAngioPricelist = [
 
 // Spoločné pokyny angio (jeden pokyn na riadok) — rovnaký text ako seed v angio-004.sql
 export const DEFAULT_ANGIO_NOTES = [
-  "Príďte 10 minút pred termínom, so sebou kartičku poistenca a doklad totožnosti.",
-  "Ak nemôžete prísť, zrušte alebo presuňte termín online (odkaz v e-maili alebo „Už máte objednávku?\" na stránke) aspoň 24 hodín vopred – uvoľníte miesto inému pacientovi. Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.",
-  "Položky označené „po dohovore\" sa neobjednávajú priamo online – najprv nás kontaktujte, dohodneme vhodný termín a prípravu.",
-  "Vyšetrenia nalačno objednávame prednostne na ranné hodiny.",
-  "Ak užívate lieky na riedenie krvi, nikdy ich nevysadzujte sami – o postupe rozhodneme spolu.",
-  "Čas termínu je orientačný. Sme špecializované pracovisko najvyššieho typu – termín sa výnimočne môže posunúť pre akútny zákrok. O plánovaných zmenách termínu vás vždy vopred informujeme e-mailom a SMS.",
+  "Príďte 10 minút vopred s kartičkou poistenca a dokladom totožnosti.",
+  "Zmena alebo zrušenie termínu: online, najneskôr 24 hodín vopred (tlačidlo v e-maili). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa späť.",
+  "Položky „po dohovore\" objednávame až po dohode s nami.",
+  "Vyšetrenia nalačno dávame prednostne na ráno.",
+  "Lieky na riedenie krvi nikdy nevysadzujte sami – o postupe rozhodneme spolu.",
+  "Čas termínu je orientačný – ako pracovisko najvyššieho typu ho výnimočne posunieme pre akútny zákrok; o zmenách vás informujeme vopred.",
 ].join("\n");
 
 // ============================================================
@@ -208,7 +208,7 @@ function useClinicData(cfg, isStaff) {
     ]);
     if (!slotsRes.error) setOpenSlots(groupSlots(slotsRes.data));
     if (!priceRes.error && priceRes.data.length > 0) setPricelist(priceRes.data.map((r) => ({
-      id: r.id, label: r.label, description: r.description || "", instructions: r.instructions || "",
+      id: r.id, label: r.label, description: r.description || "", about: r.about || "", instructions: r.instructions || "",
       requiresReferral: r.requires_referral !== false, // CT stĺpec nemá → vždy true
       durationSlots: Math.max(1, Number(r.duration_slots) || 3),
     })));
@@ -370,7 +370,7 @@ function useClinicData(cfg, isStaff) {
   const savePricelist = async (list) => {
     if (!supabase) { localStorage.setItem(K.pricelist, JSON.stringify(list)); setPricelist(list); return; }
     const rows = list.map((it, i) => ({ id: it.id, label: it.label, instructions: it.instructions || "",
-      ...(cfg.extendedPricelist ? { description: it.description || "", requires_referral: it.requiresReferral !== false } : {}),
+      ...(cfg.extendedPricelist ? { description: it.description || "", about: it.about || "", requires_referral: it.requiresReferral !== false } : {}),
       duration_slots: Math.max(1, it.durationSlots || 3), active: true, sort_order: i }));
     const { error } = await supabase.from(T.pricelist).upsert(rows, { onConflict: "id" });
     if (error) throw new Error(error.message);
