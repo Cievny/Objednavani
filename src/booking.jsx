@@ -109,6 +109,8 @@ const defaultSettings = {
   // doplatkové termíny (so žiadankou) sa ponúkajú až od tohto času;
   // prázdne = bez obmedzenia
   referralFrom: "",
+  // overenie telefónu SMS kódom pri objednaní (usg-otp-001)
+  smsVerify: false,
   // fakturačné údaje dodávateľa — kým nie sú vyplnené, faktúry sa nevystavujú
   invoiceName: "",
   invoiceAddress: "",
@@ -539,7 +541,7 @@ const emptyForm = {
   time: "",
 };
 
-const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => {
+const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSendOtp, onVerifyOtp }) => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState([]);
@@ -627,6 +629,28 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
   };
   const goBack = () => { setError(""); setStep((s) => Math.max(1, s - 1)); };
 
+  // overenie telefónu SMS kódom (ak je zapnuté v Nastaveniach platby)
+  const smsVerify = Boolean(settings?.smsVerify && onSendOtp && onVerifyOtp);
+  const [otp, setOtp] = useState({ stage: "idle", phone: "", code: "", msg: "", busy: false, demoCode: "" });
+  const phoneDigits = (p) => (p || "").replace(/\D/g, "");
+  const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
+  const sendOtp = async () => {
+    if (phoneDigits(form.phone).length < 9) { setError("Zadajte platné telefónne číslo (aspoň 9 číslic)."); return; }
+    setError(""); setOtp((o) => ({ ...o, busy: true, msg: "" }));
+    try {
+      const r = await onSendOtp(normalizePhone(form.phone));
+      setOtp({ stage: "sent", phone: form.phone, code: "", msg: "", busy: false, demoCode: r?.demoCode || "" });
+    } catch (err) { setOtp((o) => ({ ...o, busy: false, msg: err?.message || String(err) })); }
+  };
+  const verifyOtp = async () => {
+    setOtp((o) => ({ ...o, busy: true, msg: "" }));
+    try {
+      const r = await onVerifyOtp(normalizePhone(otp.phone), otp.code);
+      if (r?.ok) { setOtp((o) => ({ ...o, stage: "verified", msg: "", busy: false })); setError(""); }
+      else setOtp((o) => ({ ...o, msg: r?.error || "Nesprávny kód.", busy: false }));
+    } catch (err) { setOtp((o) => ({ ...o, busy: false, msg: err?.message || String(err) })); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -638,6 +662,9 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
     }
     if (form.phone.replace(/\D/g, "").length < 9) {
       return setError("Zadajte platné telefónne číslo (aspoň 9 číslic).");
+    }
+    if (smsVerify && !phoneVerified) {
+      return setError("Overte prosím telefónne číslo SMS kódom (tlačidlo pod telefónom).");
     }
     if (isReferral && files.length === 0) {
       return setError("Pri objednávke so žiadankou priložte žiadanku (výmenný lístok) — na mobile ju môžete odfotiť.");
@@ -843,6 +870,30 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit }) => 
             <div>
               <label className={labelCls}>Telefón *</label>
               <input required type="tel" inputMode="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
+              {smsVerify && (
+                <div data-testid="otp-box" className="mt-2 text-sm">
+                  {phoneVerified ? (
+                    <p className="text-[#16A34A] font-semibold">✓ Číslo overené</p>
+                  ) : otp.stage === "sent" && phoneDigits(otp.phone) === phoneDigits(form.phone) ? (
+                    <div className="space-y-2">
+                      <p className="text-slate-600">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
+                      <div className="flex gap-2">
+                        <input className={inputCls} inputMode="numeric" maxLength={6} placeholder="6-miestny kód" value={otp.code}
+                          onChange={(ev) => setOtp((o) => ({ ...o, code: ev.target.value.replace(/\D/g, "").slice(0, 6), msg: "" }))} />
+                        <button type="button" onClick={verifyOtp} disabled={otp.busy || otp.code.length !== 6}
+                          className="bg-[#2B46A2] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] shrink-0">Overiť kód</button>
+                      </div>
+                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-[#2B46A2] hover:underline">Poslať kód znova</button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={sendOtp} disabled={otp.busy}
+                      className="bg-[#F0F4FF] hover:bg-[#E0E4EF] disabled:opacity-50 text-[#2B46A2] text-sm font-semibold px-4 py-2 rounded-[10px]">
+                      {otp.busy ? "Posielam…" : "Poslať overovací SMS kód"}
+                    </button>
+                  )}
+                  {otp.msg && <p className="text-xs text-red-600 mt-1">{otp.msg}</p>}
+                </div>
+              )}
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>E-mail *</label>
@@ -1929,6 +1980,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [sortMode, setSortMode] = useState("termin_asc");
   const [ibanDraft, setIbanDraft] = useState(settings.iban);
   const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
+  const [smsVerifyDraft, setSmsVerifyDraft] = useState(Boolean(settings.smsVerify));
+  useEffect(() => { setSmsVerifyDraft(Boolean(settings.smsVerify)); }, [settings.smsVerify]);
   const [referralFromDraft, setReferralFromDraft] = useState(settings.referralFrom || "");
   const [doctorsDraft, setDoctorsDraft] = useState(() => normalizeDoctors(settings.doctors));
   const [invDraft, setInvDraft] = useState({
@@ -2697,6 +2750,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   Samoplatcovia vidia všetky otvorené termíny. Nechajte prázdne, ak bez obmedzenia.
                 </p>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-[#1A1A2E]">Overovanie telefónu SMS kódom</label>
+                <label className="flex items-center gap-2 text-sm text-[#1A1A2E] mt-2 cursor-pointer">
+                  <input type="checkbox" data-testid="usg-sms-verify-toggle" checked={smsVerifyDraft} onChange={(e) => setSmsVerifyDraft(e.target.checked)} />
+                  Vyžadovať overenie čísla SMS kódom pri objednaní
+                </label>
+                <p className="text-xs text-slate-400 mt-1">
+                  Pacient si pred odoslaním nechá poslať 6-miestny kód a zadá ho; bez overeného čísla objednávka neprejde.
+                  Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje usg-otp-001.sql.)
+                </p>
+              </div>
             </div>
             <button
               onClick={() => run(() => onSaveSettings({
@@ -2704,6 +2768,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 beneficiary: beneficiaryDraft.trim(),
                 doctors: normalizeDoctors(settings.doctors),
                 referralFrom: referralFromDraft,
+                smsVerify: smsVerifyDraft,
               }), "Nastavenia platby uložené.")}
               className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >

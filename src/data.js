@@ -245,6 +245,7 @@ export function useBookingData(isStaff) {
         invoiceDic: kv.invoice_dic || "",
         invoiceOr: kv.invoice_or || "",
         invoicePzs: kv.invoice_pzs || "",
+        smsVerify: kv.usg_sms_verify === "on", // overenie telefónu SMS kódom (usg-otp-001)
       });
     }
     if (isStaff) {
@@ -515,6 +516,9 @@ export function useBookingData(isStaff) {
     if (next.referralFrom !== undefined) {
       rows.push({ key: "referral_from", value: next.referralFrom || "" });
     }
+    if (next.smsVerify !== undefined) {
+      rows.push({ key: "usg_sms_verify", value: next.smsVerify ? "on" : "off" });
+    }
     // fakturačné údaje posiela len sekcia „Fakturačné údaje"
     if (next.invoiceName !== undefined) {
       rows.push(
@@ -676,8 +680,25 @@ export function useBookingData(isStaff) {
 
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
+  // overenie telefónu SMS kódom — demo režim: pevný kód 123456
+  const sendOtp = async (phone) => {
+    if (!supabase) { sessionStorage.setItem("usgDemoOtp", "123456"); return { demoCode: "123456" }; }
+    const { error } = await supabase.rpc("send_phone_otp", { p_phone: phone });
+    throwIf(error);
+    return {};
+  };
+  const verifyOtp = async (phone, code) => {
+    if (!supabase) {
+      if (String(code || "").trim() === sessionStorage.getItem("usgDemoOtp")) return { ok: true, token: "demo-token" };
+      return { ok: false, error: "Nesprávny kód. Skúste znova." };
+    }
+    const { data, error } = await supabase.rpc("verify_phone_otp", { p_phone: phone, p_code: code });
+    throwIf(error);
+    return data && typeof data === "object" ? data : { ok: false, error: "Overenie zlyhalo." };
+  };
+
   return {
-    isSupabase: isSupabaseConfigured, loading,
+    isSupabase: isSupabaseConfigured, loading, sendOtp, verifyOtp,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
     addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
