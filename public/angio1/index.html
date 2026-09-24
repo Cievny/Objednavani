@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<title>Angiologická ambulancia č. 1 — objednanie</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // Krátka adresa /angio1 → aplikácia (#/angio1). Relatívne, aby fungovala
+  // aj v bete (/beta/angio1 → /beta/#/angio1). Voliteľne prenesie ID objednávky:
+  // /angio1/?o=ANG-XXXX → #/angio1/objednavka/ANG-XXXX
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var o = (q.get('o') || '').trim();
+    var target = '../#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : '');
+    location.replace(target);
+  })();
+</script>
+<meta http-equiv="refresh" content="0; url=../#/angio1">
+</head>
+<body style="font-family:Arial,sans-serif;padding:24px;color:#0f172a">
+  <p>Presmerúvame na objednávanie… Ak sa nič nedeje, <a href="../#/angio1">kliknite sem</a>.</p>
+</body>
+</html>
