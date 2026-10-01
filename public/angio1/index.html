@@ -12,8 +12,9 @@
   (function () {
     var q = new URLSearchParams(location.search);
     var o = (q.get('o') || '').trim();
-    var target = '../#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : '');
-    location.replace(target);
+    // koreň aplikácie = cesta bez posledného segmentu /angio1 alebo /angio (s lomkou aj bez, aj /beta/…)
+    var base = location.pathname.replace(/(angio1|angio)\/?(index\.html)?$/, '');
+    location.replace(base + '#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : ''));
   })();
 </script>
 <meta http-equiv="refresh" content="0; url=../#/angio1">
