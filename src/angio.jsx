@@ -469,7 +469,7 @@ function PatientDetails({ order, onCopied }) {
   );
 }
 
-function AngioOrderCard({ order, data, canManage }) {
+function AngioOrderCard({ order, data, canManage, embedded = false }) {
   const [resched, setResched] = useState(false);
   const [rdate, setRdate] = useState(order.date);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -500,6 +500,7 @@ function AngioOrderCard({ order, data, canManage }) {
 
   return (
     <div className={`border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${tone} space-y-2`}>
+      {!embedded && (<>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono font-bold text-sm">{order.date} {order.time}</span>
@@ -509,6 +510,7 @@ function AngioOrderCard({ order, data, canManage }) {
         <span className="text-xs text-slate-500">{order.id}</span>
       </div>
       <p className="text-sm"><b>{order.patientName}</b>{order.exam?.label ? ` · ${order.exam.label}` : ""}{order.durationMin ? ` (${order.durationMin} min)` : ""}</p>
+      </>)}
       {/* karta sa zobrazuje len v správe (personál vrátane lekára) — všetky údaje pacienta */}
       <PatientDetails order={order} onCopied={(ok) => setMsg(ok ? "" : "Kopírovanie do schránky sa nepodarilo.")} />
       {Array.isArray(order.attachments) && order.attachments.length > 0 && (
@@ -565,6 +567,41 @@ function AngioOrderCard({ order, data, canManage }) {
   );
 }
 
+// ---------- Kompaktný riadok objednávky (zoznamy v správe) ----------
+// Jeden riadok: čas · pacient · vyšetrenie · stav; rozbalí sa na plnú kartu.
+const statusChip = (s) => s === "confirmed" ? "bg-[#E8EEFF] text-[#2B46A2]" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
+function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [msg, setMsg] = useState("");
+  const confirm = async (e) => { e.stopPropagation(); setMsg(""); try { await data.setStatus(order.id, "confirmed"); } catch (err) { setMsg(err?.message || String(err)); } };
+  const endTime = order.durationMin ? addMinutes(order.time, order.durationMin) : "";
+  return (
+    <div data-testid="order-row" className={`border border-[#E0E4EF] rounded-[10px] bg-white ${open ? "shadow-sm" : ""}`}>
+      <div role="button" tabIndex={0} onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}
+        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[#F8F9FC] rounded-[10px]">
+        <div className="shrink-0 w-[4.6rem] text-sm font-mono font-bold text-slate-800 leading-tight">
+          {showDate && <span className="block text-[11px] font-sans font-normal text-slate-500">{fmtD(order.date)}</span>}
+          {order.time}{endTime && <span className="block text-[10px] font-normal text-slate-400">–{endTime}</span>}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold text-sm text-slate-800 truncate">{order.patientName}</span>
+            <ArrivedBadge order={order} />
+          </div>
+          <div className="text-xs text-slate-500 truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}</div>
+        </div>
+        <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
+        {canManage && order.status === "new" && (
+          <button type="button" onClick={confirm} className="shrink-0 bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>
+        )}
+        <span className="shrink-0 text-slate-400 text-xs" aria-label={open ? "Zbaliť" : "Rozbaliť"}>{open ? "▴" : "▾"}</span>
+      </div>
+      {msg && <p className="px-3 pb-2 text-xs text-red-600 font-semibold">{msg}</p>}
+      {open && <div className="px-2 pb-2"><AngioOrderCard order={order} data={data} canManage={canManage} embedded /></div>}
+    </div>
+  );
+}
+
 // ---------- Správa ambulancie ----------
 function AngioAdmin({ data, role }) {
   const canManage = role === "superadmin" || role === "sestra";
@@ -589,6 +626,9 @@ function AngioAdmin({ data, role }) {
 
   const takenSet = (iso) => new Set(data.occupied.filter((o) => o.date === iso).map((o) => o.time));
   const dayOpen = (data.openSlots[selDay] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+  const dayFree = dayOpen.filter((s) => !takenSet(selDay).has(s.time));
+  const [winOpen, setWinOpen] = useState(false);   // formulár „Otvoriť termíny" zbalený
+  const [freeOpen, setFreeOpen] = useState(false); // zoznam voľných buniek zbalený
   const dayOrders = active.filter((o) => o.date === selDay).sort((a, b) => a.time.localeCompare(b.time));
   const isAvailableAdmin = (iso) => (data.openSlots[iso] || []).length > 0;
 
@@ -620,7 +660,7 @@ function AngioAdmin({ data, role }) {
           <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
             <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Dnešný program</h3>
             {todayProgram.length === 0 ? <p className="text-sm text-slate-400">Dnes nie sú objednaní žiadni pacienti.</p>
-              : <div className="space-y-2">{todayProgram.map((o) => <AngioOrderCard key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
+              : <div className="space-y-1.5">{todayProgram.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
           </div>
         </div>
       )}
@@ -629,8 +669,12 @@ function AngioAdmin({ data, role }) {
         <div className="space-y-4">
           {canManage && (
             <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
-              <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Otvoriť termíny</h3>
-              <div className="flex flex-wrap gap-2 items-end">
+              <button type="button" onClick={() => setWinOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
+                <h3 className="text-lg font-bold text-[#2B46A2]">Otvoriť termíny</h3>
+                <span className="text-sm text-slate-500">{winOpen ? "▴ Skryť" : "▾ Rozbaliť"}</span>
+              </button>
+              {winOpen && (<>
+              <div className="flex flex-wrap gap-2 items-end mt-3">
                 <label className="text-sm">Od dňa<br /><input type="date" className={inp} value={wFrom} onChange={(e) => setWFrom(e.target.value)} /></label>
                 <label className="text-sm">Do dňa<br /><input type="date" className={inp} value={wTo} onChange={(e) => setWTo(e.target.value)} /></label>
                 <label className="text-sm">Od<br /><input type="time" className={inp} value={wtFrom} onChange={(e) => setWtFrom(e.target.value)} /></label>
@@ -644,6 +688,7 @@ function AngioAdmin({ data, role }) {
                 <button onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor }), "✓ Termíny otvorené.")} className="bg-[#2B46A2] text-white font-semibold px-4 py-2 rounded-[10px]">Otvoriť termíny</button>
               </div>
               <p className="text-xs text-slate-400 mt-2">Termíny sa otvárajú v 5-min mriežke; dĺžku určuje typ vyšetrenia v Nastaveniach. Tip: kliknite na deň v kalendári a otvorte ho jedným tlačidlom.</p>
+              </>)}
             </div>
           )}
           <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 grid md:grid-cols-2 gap-5">
@@ -652,7 +697,10 @@ function AngioAdmin({ data, role }) {
               isAvailable={isAvailableAdmin} isSelectable={(iso) => iso >= todayIso}
               selected={selDay} onSelect={(iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); }} />
             <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">Deň {selDay}</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-slate-700">{fmtD(selDay)}</p>
+                <p className="text-xs text-slate-500">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"} · {dayFree.length} voľných buniek</p>
+              </div>
               {dayOrders.length === 0 && dayOpen.length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú otvorené termíny.</p>}
               {canManage && dayOpen.length === 0 && (
                 <button
@@ -661,20 +709,24 @@ function AngioAdmin({ data, role }) {
                   Otvoriť termíny v tento deň ({wtFrom}–{wtTo}{wDoctor ? ` · ${wDoctor}` : ""})
                 </button>
               )}
-              <div className="space-y-2">
-                {dayOrders.map((o) => <AngioOrderCard key={o.id} order={o} data={data} canManage={canManage} />)}
+              <div className="space-y-1.5">
+                {dayOrders.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}
               </div>
-              {canManage && dayOpen.length > 0 && (
+              {canManage && dayFree.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs text-slate-500 mb-1">Voľné 5-min bunky ({dayOpen.filter((s) => !takenSet(selDay).has(s.time)).length}):</p>
-                  <div className="flex flex-wrap gap-1">
-                    {dayOpen.filter((s) => !takenSet(selDay).has(s.time)).map((s) => (
-                      <button key={s.time} onClick={() => run(() => data.closeSlot(selDay, s.time))} title="Zavrieť termín"
-                        className="text-xs bg-[#F0FDF4] border border-[#16A34A]/40 text-[#16A34A] rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
-                        {s.time} ✕
-                      </button>
-                    ))}
-                  </div>
+                  <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-slate-500 hover:text-[#2B46A2]">
+                    {freeOpen ? "▴ Skryť voľné bunky" : `▾ Voľné 5-min bunky (${dayFree.length}) — zavrieť jednotlivo`}
+                  </button>
+                  {freeOpen && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {dayFree.map((s) => (
+                        <button key={s.time} onClick={() => run(() => data.closeSlot(selDay, s.time))} title="Zavrieť termín"
+                          className="text-xs bg-[#F0FDF4] border border-[#16A34A]/40 text-[#16A34A] rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
+                          {s.time} ✕
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -694,7 +746,7 @@ function AngioAdmin({ data, role }) {
             <span className="text-xs text-slate-500">{filtered.length} objednávok</span>
           </div>
           {filtered.length === 0 ? <p className="text-sm text-slate-400">Žiadne objednávky.</p>
-            : <div className="space-y-2">{filtered.map((o) => <AngioOrderCard key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
+            : <div className="space-y-1.5">{filtered.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} showDate />)}</div>}
         </div>
       )}
 
