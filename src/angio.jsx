@@ -622,7 +622,11 @@ function AngioAdmin({ data, role }) {
   const pending = data.orders.filter((o) => o.status === "new");
   const todayProgram = active.filter((o) => o.date === todayIso).sort((a, b) => a.time.localeCompare(b.time));
   const arrivedToday = todayProgram.filter((o) => o.arrivedAt && (o.status === "new" || o.status === "confirmed")).length;
-  const next7 = (() => { const e = new Date(); e.setDate(e.getDate() + 7); const ei = toISODate(e); return active.filter((o) => o.date >= todayIso && o.date <= ei).length; })();
+  const in7Iso = (() => { const e = new Date(); e.setDate(e.getDate() + 7); return toISODate(e); })();
+  const next7 = active.filter((o) => o.date >= todayIso && o.date <= in7Iso).length;
+  // filter rozsahu pre zoznam Objednávky (dlaždice v Prehľade naň odkazujú)
+  const [fRange, setFRange] = useState("all"); // all | today | week | arrived
+  const showList = (status, range) => { setFStatus(status); setFRange(range); setFText(""); setTab("orders"); };
 
   const takenSet = (iso) => new Set(data.occupied.filter((o) => o.date === iso).map((o) => o.time));
   const dayOpen = (data.openSlots[selDay] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
@@ -634,6 +638,10 @@ function AngioAdmin({ data, role }) {
 
   const filtered = data.orders
     .filter((o) => fStatus === "all" ? o.status !== "rejected" : o.status === fStatus)
+    .filter((o) => fRange === "today" ? o.date === todayIso
+      : fRange === "week" ? (o.date >= todayIso && o.date <= in7Iso)
+      : fRange === "arrived" ? (o.date === todayIso && o.arrivedAt && (o.status === "new" || o.status === "confirmed"))
+      : true)
     .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.phone.includes(q); })
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
@@ -652,10 +660,19 @@ function AngioAdmin({ data, role }) {
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-[12px] p-4 text-center shadow-sm"><div className="text-2xl font-extrabold text-[#2B46A2]">{todayProgram.length}</div><div className="text-xs text-slate-500">dnešný program</div></div>
-            <div className="bg-white rounded-[12px] p-4 text-center shadow-sm"><div className="text-2xl font-extrabold text-emerald-600">{arrivedToday}</div><div className="text-xs text-slate-500">v čakárni</div></div>
-            <div className="bg-white rounded-[12px] p-4 text-center shadow-sm"><div className="text-2xl font-extrabold text-amber-600">{pending.length}</div><div className="text-xs text-slate-500">nové (na potvrdenie)</div></div>
-            <div className="bg-white rounded-[12px] p-4 text-center shadow-sm"><div className="text-2xl font-extrabold text-[#2B46A2]">{next7}</div><div className="text-xs text-slate-500">objednaní — 7 dní</div></div>
+            {[
+              { n: todayProgram.length, label: "dnešný program", color: "text-[#2B46A2]", go: () => showList("all", "today"), id: "today" },
+              { n: arrivedToday, label: "v čakárni", color: "text-emerald-600", go: () => showList("all", "arrived"), id: "arrived" },
+              { n: pending.length, label: "nové (na potvrdenie)", color: "text-amber-600", go: () => showList("new", "all"), id: "new" },
+              { n: next7, label: "objednaní — 7 dní", color: "text-[#2B46A2]", go: () => showList("all", "week"), id: "week" },
+            ].map((t) => (
+              <button key={t.id} type="button" data-testid={`stat-${t.id}`} onClick={t.go} title="Zobraziť zoznam"
+                className="bg-white rounded-[12px] p-4 text-center shadow-sm hover:shadow-md hover:bg-[#F8F9FC] active:bg-[#F0F4FF] transition">
+                <div className={`text-2xl font-extrabold ${t.color}`}>{t.n}</div>
+                <div className="text-xs text-slate-500">{t.label}</div>
+                <div className="text-[10px] text-[#2B46A2] mt-1">zobraziť ›</div>
+              </button>
+            ))}
           </div>
           <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
             <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Dnešný program</h3>
@@ -741,6 +758,12 @@ function AngioAdmin({ data, role }) {
               <option value="all">Aktívne</option>
               <option value="new">Nové</option><option value="confirmed">Potvrdené</option>
               <option value="done">Vykonané</option><option value="rejected">Kôš (zrušené)</option>
+            </select>
+            <select className={inp + " w-auto"} value={fRange} onChange={(e) => setFRange(e.target.value)} data-testid="range-filter">
+              <option value="all">Všetky dni</option>
+              <option value="today">Dnes</option>
+              <option value="week">Najbližších 7 dní</option>
+              <option value="arrived">V čakárni (dnes)</option>
             </select>
             <input className={inp + " flex-1 min-w-[10rem]"} placeholder="Hľadať meno / číslo / telefón" value={fText} onChange={(e) => setFText(e.target.value)} />
             <span className="text-xs text-slate-500">{filtered.length} objednávok</span>
