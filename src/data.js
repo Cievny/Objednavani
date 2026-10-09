@@ -171,6 +171,24 @@ export function useAuth() {
   // Demo režim bez Supabase sa správa ako superadmin.
   const [role, setRole] = useState(isSupabaseConfigured ? null : "superadmin");
   const [doctorName, setDoctorName] = useState("");
+  // MFA (TOTP, audit vlna 8): level = aktuálna úroveň (aal1/aal2),
+  // hasFactor = má overený autentifikátor; ready = načítané
+  const noMfa = { ready: true, level: "aal1", hasFactor: false, factorId: null };
+  const [mfa, setMfa] = useState(isSupabaseConfigured ? { ...noMfa, ready: false } : noMfa);
+
+  const refreshMfa = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const [{ data: aal }, { data: factors }] = await Promise.all([
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        supabase.auth.mfa.listFactors(),
+      ]);
+      const verified = (factors?.totp || []).filter((f) => f.status === "verified");
+      setMfa({ ready: true, level: aal?.currentLevel || "aal1", hasFactor: verified.length > 0, factorId: verified[0]?.id || null });
+    } catch {
+      setMfa((m) => ({ ...m, ready: true }));
+    }
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -181,13 +199,35 @@ export function useAuth() {
 
   useEffect(() => {
     if (!supabase) return;
-    if (!session) { setRole(null); setDoctorName(""); return; }
+    if (!session) { setRole(null); setDoctorName(""); setMfa(noMfa); return; }
+    setMfa((m) => ({ ...m, ready: false }));
+    refreshMfa();
     supabase.from("staff_roles").select("role, doctor_name").eq("user_id", session.user.id).maybeSingle()
       .then(({ data }) => {
         setRole(data?.role || "none");
         setDoctorName(data?.doctor_name || "");
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // zápis nového TOTP faktora → { id, secret, uri } (QR kreslí mfa.jsx)
+  const mfaEnroll = async () => {
+    const { data: f } = await supabase.auth.mfa.listFactors();
+    for (const x of (f?.all || [])) {
+      if (x.status === "unverified") await supabase.auth.mfa.unenroll({ factorId: x.id });
+    }
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "NÚSCH objednávanie " + new Date().toISOString().slice(0, 10) });
+    if (error) throw new Error(error.message || "Faktor sa nepodarilo vytvoriť.");
+    return { id: data.id, secret: data.totp?.secret || "", uri: data.totp?.uri || "" };
+  };
+  // overenie kódu (pri zápise aj pri prihlásení) → relácia prejde na AAL2
+  const mfaVerify = async (factorId, code) => {
+    const id = factorId || mfa.factorId;
+    if (!id) throw new Error("Chýba autentifikátor — obnovte stránku.");
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: id, code: String(code || "").replace(/\D/g, "") });
+    if (error) throw new Error("Nesprávny alebo expirovaný kód. Skúste znova.");
+    await refreshMfa();
+  };
 
   const signIn = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -195,7 +235,7 @@ export function useAuth() {
   };
   const signOut = () => supabase?.auth.signOut();
 
-  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut, role, doctorName };
+  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut, role, doctorName, mfa, mfaEnroll, mfaVerify };
 }
 
 // --- hlavný hook s dátami a akciami ---
@@ -235,7 +275,8 @@ export function useBookingData(isStaff) {
         doctors = Array.isArray(docs) ? docs : [];
       }
       setSettings({
-        iban: kv.iban || defaultSettings.iban,
+        // IBAN bez záložnej hodnoty (audit vlna 8): chýbajúci = QR sa nezobrazí
+        iban: kv.iban || "",
         beneficiary: kv.beneficiary || defaultSettings.beneficiary,
         doctors: normalizeDoctors(doctors),
         referralFrom: (kv.referral_from || "").slice(0, 5), // normalizuj „14:00:00" → „14:00"
@@ -476,7 +517,9 @@ export function useBookingData(isStaff) {
     await reload();
   };
 
-  const setPaid = async (orderId, paid = true) => {
+  // ručné označenie platby: len cez RPC mark_order_paid (dôvod ≥ 10 znakov,
+  // audit, kópia e-mailom); priamy update orders.paid databáza odmietne
+  const setPaid = async (orderId, paid = true, reason = "") => {
     const paidAt = paid ? new Date().toISOString() : null;
     if (!supabase) {
       // demo: prijatie platby vystaví faktúru (ako DB trigger)
@@ -487,7 +530,7 @@ export function useBookingData(isStaff) {
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid, paidAt } : o)));
       return;
     }
-    const { error } = await supabase.from("orders").update({ paid, paid_at: paidAt }).eq("id", orderId);
+    const { error } = await supabase.rpc("mark_order_paid", { p_id: orderId, p_paid: paid, p_reason: reason });
     throwIf(error);
     await reload();
   };
@@ -507,9 +550,8 @@ export function useBookingData(isStaff) {
   const saveSettings = async (next) => {
     // demo: merge — sekcie ukladajú len svoje polia, ostatné sa nesmú stratiť
     if (!supabase) { setSettings((prev) => ({ ...prev, ...next })); return; }
+    // iban/beneficiary sa z aplikácie neukladajú (chránené databázou — audit vlna 8)
     const rows = [
-      { key: "iban", value: next.iban },
-      { key: "beneficiary", value: next.beneficiary },
       { key: "doctors", value: JSON.stringify(next.doctors || []) },
     ];
     // doplatkové hodiny posiela len sekcia „Nastavenia platby"
@@ -620,7 +662,7 @@ export function useBookingData(isStaff) {
     if (!supabase) return null; // demo režim správu používateľov nemá
     const { data, error } = await supabase.rpc("list_staff");
     throwIf(error);
-    return (data || []).map((r) => ({ email: r.email, role: r.role || "", doctorName: r.doctor_name || "" }));
+    return (data || []).map((r) => ({ email: r.email, role: r.role || "", doctorName: r.doctor_name || "", mfa: Boolean(r.mfa) }));
   };
   const setStaffRole = async (email, role, doctorName = "") => {
     if (!supabase) throw new Error("Správa používateľov funguje len v ostrej prevádzke (Supabase).");

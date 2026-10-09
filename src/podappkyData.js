@@ -62,7 +62,8 @@ function useSharedSettings() {
     supabase.from("settings").select("key, value").then(({ data, error }) => {
       if (error || !data) return;
       const kv = Object.fromEntries(data.map((r) => [r.key, r.value]));
-      setSettings((prev) => ({ ...prev, iban: kv.iban || prev.iban, beneficiary: kv.beneficiary || prev.beneficiary }));
+      // bez záložného IBAN-u (audit vlna 8): chýbajúci = QR sa nezobrazí
+      setSettings((prev) => ({ ...prev, iban: kv.iban || "", beneficiary: kv.beneficiary || prev.beneficiary }));
     });
   }, []);
   return settings;
@@ -104,7 +105,7 @@ export function useAdhocData() {
   };
 
   // manuálne „platba prijatá" (test bez banky) — vystaví faktúru
-  const markPaid = async (id) => {
+  const markPaid = async (id, reason = "") => {
     if (!supabase) {
       const list = loadJson(ADHOC_KEY, []).map((p) => (p.id === id ? { ...p, paid: true, paidAt: new Date().toISOString() } : p));
       localStorage.setItem(ADHOC_KEY, JSON.stringify(list));
@@ -124,7 +125,7 @@ export function useAdhocData() {
       setPayments(list);
       return;
     }
-    const { error } = await supabase.rpc("mark_adhoc_paid", { p_id: id });
+    const { error } = await supabase.rpc("mark_adhoc_paid", { p_id: id, p_reason: reason });
     if (error) throw new Error(error.message || "Platbu sa nepodarilo potvrdiť.");
     await reload();
   };

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 
@@ -103,7 +104,9 @@ export function orderTone(order) {
 }
 
 const defaultSettings = {
-  iban: "SK3112000000198742637541", // DEMO IBAN — nastavte vlastný v správe!
+  // IBAN sa z aplikácie nenastavuje (audit vlna 8): zdroj je payment_identity
+  // v databáze; bez platného a pripnutého IBAN-u sa QR pacientovi nezobrazí
+  iban: "",
   beneficiary: "NÚSCH, a.s.",
   doctors: [], // mená lekárov priraditeľných k termínom
   // doplatkové termíny (so žiadankou) sa ponúkajú až od tohto času;
@@ -981,17 +984,25 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               {createdOrder.hasReferral ? "Platba doplatku (so žiadankou)" : "Platba za vyšetrenie (samoplatca)"}
             </h3>
             <p className="text-3xl font-bold text-[#2B46A2]">{formatPrice(createdOrder.price)}</p>
-            <p className="text-sm text-slate-500">Naskenujte QR kód v aplikácii vašej banky (PAY by square):</p>
-            <PaymentQr order={createdOrder} settings={settings} />
-            <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700">
-              <p><strong>IBAN:</strong> {settings.iban}</p>
-              <p><strong>Príjemca:</strong> {settings.beneficiary}</p>
-              <p><strong>Variabilný symbol:</strong> {createdOrder.variableSymbol}</p>
-              <p><strong>Suma:</strong> {formatPrice(createdOrder.price)}</p>
-              {settings.iban === defaultSettings.iban && (
-                <p className="text-red-600 font-bold">⚠ DEMO IBAN — toto NIE JE účet NÚSCH. Skutočný IBAN musí pracovisko nastaviť v správe pred spustením.</p>
-              )}
-            </div>
+            {paymentReady(settings) ? (
+              <>
+                <p className="text-sm text-slate-500">Naskenujte QR kód v aplikácii vašej banky (PAY by square):</p>
+                <PaymentQr order={createdOrder} settings={settings} />
+                <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-details">
+                  <p><strong>IBAN:</strong> {settings.iban}</p>
+                  <p><strong>Príjemca:</strong> {settings.beneficiary}</p>
+                  <p><strong>Variabilný symbol:</strong> {createdOrder.variableSymbol}</p>
+                  <p><strong>Suma:</strong> {formatPrice(createdOrder.price)}</p>
+                  <p className="text-xs text-slate-500 pt-1">Platbu posielajte výlučne na IBAN uvedený tu a v potvrdzovacom e-maile — pracovisko platobné údaje nikdy nemení telefonicky ani SMS.</p>
+                </div>
+              </>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-pending">
+                <p><strong>{PAYMENT_PENDING_TEXT}</strong></p>
+                <p><strong>Variabilný symbol:</strong> {createdOrder.variableSymbol}</p>
+                <p><strong>Suma:</strong> {formatPrice(createdOrder.price)}</p>
+              </div>
+            )}
             {createdOrder.hasReferral && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-[10px]">
                 <strong>Nezabudnite si na vyšetrenie priniesť žiadanku (výmenný lístok)</strong> — bez nej platí plná samoplatcovská cena.
@@ -1116,6 +1127,8 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
   const [cancelText, setCancelText] = useState("");
   const [docOpen, setDocOpen] = useState(false);
   const [docChoice, setDocChoice] = useState("");
+  const [paidOpen, setPaidOpen] = useState(false);
+  const [paidReason, setPaidReason] = useState("");
   // na výber len lekári, ktorí dané vyšetrenie robia (okrem aktuálneho)
   const docOptions = normalizeDoctors(doctors).filter((d) => d.name !== order.doctor && doctorDoesExam(doctors, d.name, order.exam.typeId));
   const canAct = order.status === "new" || order.status === "confirmed";
@@ -1179,9 +1192,33 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         </div>
       )}
 
+      {paidOpen && (
+        <div className="bg-emerald-50 border border-emerald-300 rounded-[10px] p-3 space-y-2" data-testid="paid-reason-box">
+          <p className="text-sm font-semibold text-emerald-800">Ručné označenie platby — uveďte dôvod (zapíše sa do auditu a pošle kópia superadminovi)</p>
+          <input
+            value={paidReason}
+            onChange={(e) => setPaidReason(e.target.value)}
+            placeholder="napr. hotovosť pri okienku, doklad č. 123 (min. 10 znakov)"
+            className="w-full p-2 bg-white border border-[#767676] rounded-[8px] text-sm"
+            data-testid="paid-reason"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              disabled={paidReason.trim().length < 10}
+              onClick={() => { onSetPaid(order.id, true, paidReason.trim()); setPaidOpen(false); setPaidReason(""); }}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+              data-testid="paid-confirm"
+            >
+              Potvrdiť platbu
+            </button>
+            <button onClick={() => { setPaidOpen(false); setPaidReason(""); }} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] text-sm font-semibold px-3 py-2 rounded transition-colors">Zrušiť</button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 pt-1">
-        {!order.paid && order.price > 0 && canAct && (
-          <button onClick={() => onSetPaid(order.id, true)} className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+        {!order.paid && order.price > 0 && canAct && !paidOpen && (
+          <button onClick={() => setPaidOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded transition-colors" data-testid="paid-open">
             💰 Platba prijatá
           </button>
         )}
@@ -1509,15 +1546,21 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
         Nové konto najprv pozvite v Supabase (Authentication → Users → Invite user) — po prvom prihlásení sa objaví
         v tomto zozname a tu mu priradíte rolu. Bez roly sa do správy nedostane. Superadmin vidí všetko; sestra
         objednávky, termíny a poradie cenníka; lekár len svoje objednávky a svoju štatistiku.
+        Rolu <b>superadmin</b> nemožno prideliť ani odobrať z aplikácie — len v SQL editore Supabase (GO-LIVE.md).
+        Každý používateľ si pri prvom prihlásení nastaví dvojfaktorové overenie (MFA).
       </p>
       {rows.length === 0 && !msg && <p className="text-slate-400">Žiadne kontá.</p>}
       <div className="space-y-2">
         {rows.map((u) => (
           <div key={u.email} className="bg-white border border-[#E0E4EF] rounded-[10px] p-3 flex flex-wrap items-center gap-2">
             <span className="flex-1 min-w-[180px] text-sm font-semibold truncate">{u.email}</span>
+            {u.mfa
+              ? <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded px-2 py-1" title="Dvojfaktorové overenie je aktívne">MFA ✓</span>
+              : <span className="text-xs font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-1" title="Používateľ si ešte nenastavil autentifikátor — urobí to pri najbližšom prihlásení">bez MFA</span>}
+            {u.role === "superadmin" && <span className="text-xs text-slate-500" title="Rola superadmin sa spravuje len v SQL editore Supabase">(len cez SQL editor)</span>}
             <select
               value={u.role}
-              disabled={busy}
+              disabled={busy || u.role === "superadmin"}
               onChange={(e) => {
                 const role = e.target.value;
                 if (!role) { apply(() => onRemoveStaffRole(u.email), `Rola odobratá: ${u.email}`); return; }
@@ -1529,7 +1572,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
               }}
               className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
             >
-              {["", "superadmin", "sestra", "lekar"].map((r) => <option key={r} value={r}>{roleLabels[r]}</option>)}
+              {(u.role === "superadmin" ? ["superadmin"] : ["", "sestra", "lekar"]).map((r) => <option key={r} value={r}>{roleLabels[r]}</option>)}
             </select>
             {(u.role === "lekar" || u.pendingDoctor) && (
               <select
@@ -1978,8 +2021,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [fText, setFText] = useState("");
   const [fDate, setFDate] = useState("");
   const [sortMode, setSortMode] = useState("termin_asc");
-  const [ibanDraft, setIbanDraft] = useState(settings.iban);
-  const [beneficiaryDraft, setBeneficiaryDraft] = useState(settings.beneficiary);
+  const payState = paymentStatus(settings); // IBAN je len na čítanie (audit vlna 8)
   const [smsVerifyDraft, setSmsVerifyDraft] = useState(Boolean(settings.smsVerify));
   useEffect(() => { setSmsVerifyDraft(Boolean(settings.smsVerify)); }, [settings.smsVerify]);
   const [referralFromDraft, setReferralFromDraft] = useState(settings.referralFrom || "");
@@ -1995,8 +2037,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
   // nastavenia sa načítavajú z databázy až po prvom vykreslení — drafty dorovnať
   const doctorsKey = JSON.stringify(settings.doctors || []);
-  useEffect(() => { setIbanDraft(settings.iban); }, [settings.iban]);
-  useEffect(() => { setBeneficiaryDraft(settings.beneficiary); }, [settings.beneficiary]);
   useEffect(() => { setReferralFromDraft(settings.referralFrom || ""); }, [settings.referralFrom]);
   useEffect(() => {
     setInvDraft({
@@ -2715,8 +2755,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               <button
                 type="button"
                 onClick={() => run(() => onSaveSettings({
-                  iban: settings.iban,
-                  beneficiary: settings.beneficiary,
                   doctors: normalizeDoctors(doctorsDraft),
                 }), "Lekári uložení.")}
                 className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
@@ -2729,13 +2767,16 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
             <h3 className="text-lg font-bold text-[#2B46A2]">Nastavenia platby</h3>
             <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-semibold text-[#1A1A2E]">IBAN pracoviska</label>
-                <input value={ibanDraft} onChange={(e) => setIbanDraft(e.target.value)} className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] font-mono text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#1A1A2E]">Názov príjemcu</label>
-                <input value={beneficiaryDraft} onChange={(e) => setBeneficiaryDraft(e.target.value)} className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E]" />
+              <div className="md:col-span-2 bg-white border border-[#E0E4EF] rounded-[10px] p-3 text-sm space-y-1" data-testid="payment-identity">
+                <p><span className="text-slate-500">IBAN pracoviska:</span> <b className="font-mono">{settings.iban || "— nenastavený —"}</b></p>
+                <p><span className="text-slate-500">Príjemca:</span> <b>{settings.beneficiary || "—"}</b></p>
+                {payState.ok
+                  ? <p className="text-xs text-emerald-700 font-semibold">✓ Platobné údaje sú platné a zhodné s pripnutým IBAN-om — pacient vidí QR kód.</p>
+                  : <p className="text-xs text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">⚠ {payState.reason} Pacientom sa QR kód nezobrazuje — platobné údaje dostanú e-mailom z databázy.</p>}
+                <p className="text-xs text-slate-400">
+                  Účet sa z bezpečnostných dôvodov nedá zmeniť z aplikácie (ani superadminom). Zmena = SQL editor Supabase
+                  (tabuľka payment_identity) + nový deploy s pripnutým IBAN-om — postup v GO-LIVE.md, „Runbook: zmena IBAN".
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#1A1A2E]">Termíny so žiadankou (doplatok) najskôr od</label>
@@ -2764,8 +2805,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </div>
             <button
               onClick={() => run(() => onSaveSettings({
-                iban: ibanDraft.trim(),
-                beneficiary: beneficiaryDraft.trim(),
                 doctors: normalizeDoctors(settings.doctors),
                 referralFrom: referralFromDraft,
                 smsVerify: smsVerifyDraft,
@@ -2774,9 +2813,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             >
               Uložiť nastavenia platby
             </button>
-            {settings.iban === defaultSettings.iban && (
-              <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">Používa sa DEMO IBAN — pred spustením nastavte skutočný účet pracoviska.</p>
-            )}
           </div>
           <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
             <h3 className="text-lg font-bold text-[#2B46A2]">Fakturačné údaje</h3>
@@ -2806,8 +2842,6 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </div>
             <button
               onClick={() => run(() => onSaveSettings({
-                iban: settings.iban,
-                beneficiary: settings.beneficiary,
                 doctors: normalizeDoctors(settings.doctors),
                 invoiceName: invDraft.name.trim(),
                 invoiceAddress: invDraft.address.trim(),

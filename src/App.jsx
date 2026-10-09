@@ -6,10 +6,11 @@ import AdhocPaymentApp from "./adhoc.jsx";
 import CtApp from "./ct.jsx";
 import CheckinView from "./checkin.jsx";
 import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./angio.jsx";
+import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v92";
+const APP_VERSION = "v93";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -20,7 +21,9 @@ const APP_MODE = import.meta.env.VITE_APP_MODE || "combined";
 // odlišuje sa štítkom v hlavičke a noindexom, aby sa nemýlila s produkciou
 const IS_BETA = import.meta.env.VITE_BETA === "1";
 
-const ADMIN_ACCESS_CODE = "nusch2026";
+// Demo kód sa do buildu dostane len cez VITE_DEMO_CODE (lokálny .env);
+// produkčný bundle ho neobsahuje (audit vlna 8)
+const ADMIN_ACCESS_CODE = import.meta.env.VITE_DEMO_CODE || "";
 const ADMIN_UNLOCK_KEY = "usgAdminUnlocked_v1";
 
 function useHashRoute() {
@@ -40,7 +43,7 @@ const CodeGate = ({ onUnlock }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (code === ADMIN_ACCESS_CODE) {
+    if (ADMIN_ACCESS_CODE && code === ADMIN_ACCESS_CODE) {
       sessionStorage.setItem(ADMIN_UNLOCK_KEY, "1");
       onUnlock();
     } else {
@@ -52,6 +55,7 @@ const CodeGate = ({ onUnlock }) => {
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 max-w-md mx-auto text-center">
       <h2 className="text-xl font-bold text-[#2B46A2] mb-2">Prístup pre pracovisko</h2>
       <p className="text-sm text-slate-500 mb-4">Zadajte prístupový kód sonografického pracoviska.</p>
+      {!ADMIN_ACCESS_CODE && <p className="text-xs text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-2 rounded mb-3">Demo kód nie je nakonfigurovaný (VITE_DEMO_CODE).</p>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="password"
@@ -208,30 +212,33 @@ export default function App() {
     </div>
   );
 
-  const renderAdmin = () => {
-    if (auth.isSupabase) {
-      if (!auth.ready) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
-      if (!auth.session) return <LoginGate auth={auth} />;
-      if (auth.role === null) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
-      return adminContent;
+  // Spoločná brána personálu (audit vlna 8): prihlásenie → rola → MFA.
+  // Konto s rolou bez autentifikátora si ho musí zapísať (povinné pre celý
+  // personál); konto s autentifikátorom musí každé prihlásenie potvrdiť kódom.
+  const STAFF_ROLES = ["superadmin", "sestra", "lekar"];
+  const staffGate = (node, requireRole) => {
+    if (!auth.isSupabase) {
+      return codeUnlocked ? node : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
     }
-    return codeUnlocked ? adminContent : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
+    const loading = <p className="text-center text-slate-400 py-10">Načítavam…</p>;
+    if (!auth.ready) return loading;
+    if (!auth.session) return <LoginGate auth={auth} />;
+    if (auth.role === null || !auth.mfa?.ready) return loading;
+    if (requireRole && !STAFF_ROLES.includes(auth.role)) {
+      return <p className="text-center text-slate-500 py-10">Tento účet nemá pridelenú rolu personálu. Požiadajte správcu o prístup.</p>;
+    }
+    if (STAFF_ROLES.includes(auth.role)) {
+      if (auth.mfa.hasFactor && auth.mfa.level !== "aal2") return <MfaChallenge auth={auth} />;
+      if (!auth.mfa.hasFactor) return <MfaEnroll auth={auth} />;
+    }
+    return node;
   };
+
+  const renderAdmin = () => staffGate(adminContent, false);
 
   // skryté pod-appky sú prístupné až po prihlásení personálu (počas testu neverejné)
   // — vyžadujú skutočnú rolu personálu, nielen prihlásené konto (nie „bez roly")
-  const renderGated = (node) => {
-    if (auth.isSupabase) {
-      if (!auth.ready) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
-      if (!auth.session) return <LoginGate auth={auth} />;
-      if (auth.role === null) return <p className="text-center text-slate-400 py-10">Načítavam…</p>;
-      if (!["superadmin", "sestra", "lekar"].includes(auth.role)) {
-        return <p className="text-center text-slate-500 py-10">Tento účet nemá pridelenú rolu personálu. Požiadajte správcu o prístup.</p>;
-      }
-      return node;
-    }
-    return codeUnlocked ? node : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
-  };
+  const renderGated = (node) => staffGate(node, true);
 
   return (
     <div className="bg-[#F8F9FC] text-slate-900 min-h-screen font-sans">

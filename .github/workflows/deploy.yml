@@ -10,6 +10,8 @@ name: Nasadenie na GitHub Pages
 # takže nemôže bežať v privilegovanom jobe ani prepísať produkčné dist/.
 # Deploy práva (pages:write, id-token) má len job „deploy", ktorý len
 # skladá hotové artefakty.
+# Audit vlna 8: všetky akcie pinnuté na commit SHA (Dependabot ich posúva),
+# npm ci --ignore-scripts aj pre produkciu, VITE_PINNED_IBAN v oboch buildoch.
 on:
   push:
     branches: [main]
@@ -32,15 +34,19 @@ jobs:
       # Publishable (anon) kľúč je určený pre prehliadač — jeho zverejnenie je bezpečné.
       VITE_SUPABASE_URL: https://cfavtobowqevetlumktt.supabase.co
       VITE_SUPABASE_ANON_KEY: sb_publishable_Mpfr8oWitG8spNC2ZsqXtQ_qlalHZ3i
+      # Pripnutý IBAN (audit vlna 8): QR/IBAN sa pacientovi zobrazí len ak sa
+      # IBAN z databázy zhoduje s týmto. Zmena účtu = runbook v GO-LIVE.md.
+      VITE_PINNED_IBAN: SK5583300000002802052362
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # --ignore-scripts aj v produkcii: závislosti nesmú spúšťať lifecycle skripty
+      - run: npm ci --ignore-scripts
       - name: Build pacientskej stránky
         run: npm run build
         env:
@@ -55,7 +61,7 @@ jobs:
           cp -r dist/*       out/
           cp -r dist-admin/* out/sprava/
           echo "objednanie.cievny.sk" > out/CNAME
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: site-prod
           path: out
@@ -68,11 +74,12 @@ jobs:
     env:
       VITE_SUPABASE_URL: https://cfavtobowqevetlumktt.supabase.co
       VITE_SUPABASE_ANON_KEY: sb_publishable_Mpfr8oWitG8spNC2ZsqXtQ_qlalHZ3i
+      VITE_PINNED_IBAN: SK5583300000002802052362
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: beta
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -87,7 +94,7 @@ jobs:
           mkdir -p out/sprava
           cp -r dist/*       out/
           cp -r dist-admin/* out/sprava/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: site-beta
           path: out
@@ -103,16 +110,16 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site-prod
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site-beta
           path: dist/beta
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

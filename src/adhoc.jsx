@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PaymentQr } from "./booking.jsx";
+import { paymentReady, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { useAdhocData } from "./podappkyData.js";
 
 // Testovacia pod-appka: ad-hoc platba za ľubovoľný výkon.
@@ -36,7 +37,11 @@ export default function AdhocPaymentApp() {
 
   const doMarkPaid = async (id) => {
     setMsg("");
-    try { await markPaid(id); } catch (err) { setMsg(err?.message || String(err)); }
+    // ručné označenie vyžaduje dôvod (audit vlna 8) — zapíše sa do audit_log
+    const reason = window.prompt("Dôvod ručného označenia platby (min. 10 znakov, napr. hotovosť pri okienku, doklad č. 12):", "");
+    if (reason === null) return;
+    if (reason.trim().length < 10) { setMsg("Uveďte dôvod ručného označenia platby (aspoň 10 znakov)."); return; }
+    try { await markPaid(id, reason.trim()); } catch (err) { setMsg(err?.message || String(err)); }
   };
 
   const doResend = async (id) => {
@@ -85,13 +90,19 @@ export default function AdhocPaymentApp() {
           <h2 className="text-xl font-bold text-[#2B46A2] mb-1">Platba za: {created.itemName}</h2>
           <p className="text-slate-600 mb-4">Suma <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
           <div className="flex flex-col md:flex-row gap-5 items-start">
-            <PaymentQr
-              order={{ price: created.amount, variableSymbol: created.variableSymbol, patient: { name: created.patientName }, date: "", time: "" }}
-              settings={settings}
-              note={`${created.itemName}${created.patientName ? " " + created.patientName : ""}`}
-            />
+            {paymentReady(settings) ? (
+              <PaymentQr
+                order={{ price: created.amount, variableSymbol: created.variableSymbol, patient: { name: created.patientName }, date: "", time: "" }}
+                settings={settings}
+                note={`${created.itemName}${created.patientName ? " " + created.patientName : ""}`}
+              />
+            ) : (
+              <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] p-4 text-sm max-w-xs">
+                QR kód sa nezobrazuje — platobné údaje nie sú overené (IBAN v databáze chýba alebo sa nezhoduje s pripnutým). {PAYMENT_PENDING_TEXT}
+              </div>
+            )}
             <div className="text-sm text-slate-700 space-y-1">
-              <p><span className="text-slate-500">IBAN:</span> <b className="font-mono">{settings.iban}</b></p>
+              {paymentReady(settings) && <p><span className="text-slate-500">IBAN:</span> <b className="font-mono">{settings.iban}</b></p>}
               <p><span className="text-slate-500">Suma:</span> <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
               <p><span className="text-slate-500">Variabilný symbol:</span> <b className="font-mono">{created.variableSymbol}</b></p>
               <p><span className="text-slate-500">Doklad:</span> {created.id}</p>

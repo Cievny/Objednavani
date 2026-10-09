@@ -1,0 +1,24 @@
+# Audit vlna 8: týždenné návrhy aktualizácií závislostí (npm) aj GitHub Actions
+# (akcie sú pinnuté na commit SHA — Dependabot ich posúva s komentárom verzie).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bratislava
+    open-pull-requests-limit: 5
+    target-branch: beta
+    groups:
+      minor-a-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Bratislava
+    target-branch: beta

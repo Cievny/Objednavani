@@ -12,7 +12,23 @@ const betaNoindex = () => ({
   },
 })
 
+// Audit vlna 8: CSP connect-src len na KONKRÉTNY projektový host Supabase
+// (z VITE_SUPABASE_URL), nie na *.supabase.co; demo build bez Supabase má
+// len 'self'. Zároveň zakáže vkladanie do rámov a odosielanie formulárov inam.
+const cspPin = () => ({
+  name: 'csp-pin',
+  transformIndexHtml(html) {
+    const url = process.env.VITE_SUPABASE_URL || ''
+    let host = ''
+    try { host = url ? new URL(url).host : '' } catch { host = '' }
+    const connect = host ? `'self' https://${host} wss://${host}` : `'self'`
+    return html
+      .replace("connect-src 'self' https://*.supabase.co wss://*.supabase.co", `connect-src ${connect}`)
+      .replace("base-uri 'self'", "base-uri 'self'; frame-src 'none'; form-action 'self'")
+  },
+})
+
 export default defineConfig({
   base: './',
-  plugins: [react(), tailwindcss(), betaNoindex()],
+  plugins: [react(), tailwindcss(), betaNoindex(), cspPin()],
 })

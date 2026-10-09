@@ -86,3 +86,86 @@ treba dokončiť body nižšie.
       `audit-vlna4-001.sql`
 - Záťažové testy: 20 súbežných na 1 termín → prejde 1; limit 3/telefón;
       300 objednávok/10 spojení bez chýb; ~6600 čítaní/s pri 100 klientoch.
+
+## 9. Audit vlna 8 — zabezpečenie pred ostrým spustením platieb (v93, `audit-vlna8-001.sql`)
+
+Princíp: hranica dôvery je `session_user`. Aplikácia ide cez rolu
+`authenticator`, SQL editor a cron cez `postgres`. Ochranné triggery pustia
+zmenu IBAN-u, chránených nastavení a roly superadmin LEN z SQL editora —
+žiadny účet personálu (ani superadmin) ani ukradnutý token ich z API nezmení.
+
+### Čo skript robí
+- Kľúče (Resend, BulkGate, Fio) presunuté do **Supabase Vault**; funkcie čítajú
+  `app_secret('…')`. Rotácia = Dashboard → Vault → upraviť hodnotu (funkcie sa
+  neprepisujú). Mená: `resend_api_key`, `bulkgate_app_id`,
+  `bulkgate_app_token`, `fio_token`.
+- **IBAN**: tabuľka `payment_identity` (1 riadok, mení sa len v SQL editore),
+  zrkadlo `settings.iban`, kontrola mod-97 + zákaz demo účtu, e-maily/faktúry
+  čítajú `payment_iban()`; bez platného IBAN-u e-mail povie „platobné údaje
+  pošleme dodatočne" a zapíše `health_events`. Frontend má IBAN pripnutý
+  (`VITE_PINNED_IBAN` v deploy.yml) — QR sa ukáže len pri zhode.
+- `settings`: `iban, beneficiary, notify_email, copy_email, mail_from,
+  mfa_enforce` chránené triggerom; audit každej zmeny nastavení, rolí, cenníka,
+  CT a angio objednávok (`audit_log`).
+- Objednávky: VS unikátny; cena/VS/typ/created_at nemenné z API; `paid` mení
+  len Fio párovanie alebo `mark_order_paid(id, paid, dôvod)` (sestra/superadmin,
+  dôvod ≥ 10 znakov, audit `paid-manual`, kópia na `copy_email`).
+- **MFA (TOTP)** pre celý personál: aplikácia vyžaduje zápis autentifikátora
+  pri prvom prihlásení a kód pri každom ďalšom; databáza (`mfa_ok()`) pri
+  `settings.mfa_enforce = 'on'` bez AAL2 nevydá žiadne údaje.
+- Prílohy: lekár vidí len prílohy svojich pacientov, mazať smie len
+  sestra/superadmin; `create_order` overí, že prílohy patria k objednávke.
+- Rate-limity cez `client_ip()` (cf-connecting-ip), IP limity na
+  lookup/zrušenie/presun, OTP z kryptografického generátora.
+- `set_staff_role` nevie prideliť ani zmeniť superadmina; `health_events`.
+
+### Checklist spustenia
+- [ ] Dashboard → Database → Extensions → **supabase_vault** = ON
+- [ ] Authentication → Multi-factor → **TOTP = Enabled**; password min. 12
+- [ ] SQL editor: spustiť `supabase/audit-vlna8-001.sql`; prečítať NOTICE
+      (Vault 4 kľúče, payment_identity = ostrý IBAN, 0 chýb)
+- [ ] Dashboard → Vault: skontrolovať 4 kľúče (ak niektorý chýba, doplniť
+      presne pod uvedeným menom)
+- [ ] Nasadiť v93 (beta → overiť → main). Bez v93 staršia aplikácia zobrazí
+      pri ukladaní IBAN-u chybu „chránené" (neškodné).
+- [ ] Každý člen personálu sa prihlási a zapíše autentifikátor (Google /
+      Microsoft Authenticator). Stav vidno v Správa → Používatelia (MFA ✓).
+- [ ] Po ~14 dňoch, keď majú všetci MFA ✓:
+      `update settings set value = 'on' where key = 'mfa_enforce';`
+- [ ] Resend: revoknúť starý kľúč `re_4uoat2NB_…`; DNS DMARC `p=quarantine`
+- [ ] Fio: token iba na čítanie („Pouze sledování")
+- [ ] Supabase org: 2FA pre všetkých členov, Members prečistiť
+- [ ] GitHub: 2FA povinné; branch protection `main` (PR + Code Owners review,
+      bez force-push) a `beta` (push len vlastník, bez force-push)
+- [ ] Po nasadení: Dashboard → Advisors → Security bez ERROR nálezov
+
+### Runbook: zmena IBAN
+1. SQL editor (ako postgres):
+   `update payment_identity set iban = 'SK…', beneficiary = 'NÚSCH, a.s.';`
+   (neplatný alebo demo IBAN sa odmietne; zmena sa zapíše do `audit_log`
+   a zrkadlí do `settings.iban`, e-maily ho posielajú okamžite)
+2. `deploy.yml`: `VITE_PINNED_IBAN` v oboch build joboch → commit do `beta`
+   → overiť na /beta/ (QR sa zobrazí) → fast-forward `main`.
+3. Medzi krokmi 1 a 2 pacient vidí „platobné údaje pošleme e-mailom" — e-mail
+   už obsahuje nový IBAN.
+
+### Runbook: rotácia kľúča
+Dashboard → Vault → secret (`resend_api_key` / `bulkgate_app_token` /
+`fio_token`) → nová hodnota. Žiadny SQL ani deploy. Starý kľúč revoknúť
+u poskytovateľa.
+
+### Runbook: správa superadminov (len SQL editor)
+```sql
+insert into staff_roles (user_id, role)
+select id, 'superadmin' from auth.users where email = 'meno@nusch.sk'
+on conflict (user_id) do update set role = 'superadmin', doctor_name = '';
+-- odobrať: update staff_roles set role = 'sestra' where user_id = (select id from auth.users where email = '…');
+```
+
+### Runbook: stratený autentifikátor
+Dashboard → Authentication → Users → používateľ → Factors → odstrániť.
+Pri najbližšom prihlásení si zapíše nový.
+
+### Prístup, ktorý triggery obchádza
+SQL editor, Supabase konektor/PAT a servisný kľúč bežia ako `postgres`.
+Držte ich v správcovi hesiel, prístup len vlastník.

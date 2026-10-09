@@ -1,0 +1,9 @@
+# Audit vlna 8: každá zmena v nasadení, databázových skriptoch a platobnej
+# logike vyžaduje schválenie vlastníka (branch protection „Require review
+# from Code Owners" na vetve main).
+*                         @cievny
+/.github/                 @cievny
+/supabase/                @cievny
+/src/iban.js              @cievny
+/src/data.js              @cievny
+/src/booking.jsx          @cievny
