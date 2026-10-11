@@ -159,6 +159,7 @@ function AngioBookingView({ data }) {
         <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
+        <p className="text-sm text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] px-3 py-2 mt-3 text-left"><b>Termín je orientačný.</b> Vzhľadom na charakter nášho ústavu môže byť potrebné prednostne ošetriť akútneho pacienta a váš čas sa môže posunúť. Ďakujeme za pochopenie.</p>
         <p className="text-xs text-slate-500 mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
@@ -216,6 +217,9 @@ function AngioBookingView({ data }) {
               </div>
             </div>
           </div>
+          <p data-testid="orientacny-termin" className="text-sm text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] px-3 py-2">
+            <b>Termín vyšetrenia je orientačný.</b> Vzhľadom na charakter nášho ústavu – špecializovaného pracoviska najvyššieho typu – môže byť potrebné prednostne ošetriť akútneho pacienta a váš čas sa môže posunúť. Ďakujeme za pochopenie; o plánovaných zmenách vás vopred informujeme.
+          </p>
           {time && <button onClick={() => setStep(3)} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold py-3 px-5 rounded-[10px]">Pokračovať</button>}
         </div>
       )}
