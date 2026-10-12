@@ -29,7 +29,7 @@ export const DEFAULT_ANGIO_NOTES = [
   "Položky „po dohovore\" objednávame až po dohode s nami.",
   "Vyšetrenia nalačno dávame prednostne na ráno.",
   "Lieky na riedenie krvi nikdy nevysadzujte sami – o postupe rozhodneme spolu.",
-  "Termín vyšetrenia je orientačný. Vzhľadom na charakter nášho ústavu – špecializovaného pracoviska najvyššieho typu – môže byť potrebné prednostne ošetriť akútneho pacienta a váš čas sa môže posunúť. Ďakujeme za pochopenie; o plánovaných zmenách vás vopred informujeme e-mailom a SMS.",
+  "Čas termínu je orientačný – ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.",
 ].join("\n");
 
 // ============================================================

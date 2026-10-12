@@ -4,6 +4,6 @@
 --   Nahrádza len poslednú odrážku; ostatné pokyny ostávajú. Idempotentné.
 -- ============================================================
 update settings
-set value = regexp_replace(value, E'(^|\\n)[^\\n]*orientačn[^\\n]*', E'\\1Termín vyšetrenia je orientačný. Vzhľadom na charakter nášho ústavu – špecializovaného pracoviska najvyššieho typu – môže byť potrebné prednostne ošetriť akútneho pacienta a váš čas sa môže posunúť. Ďakujeme za pochopenie; o plánovaných zmenách vás vopred informujeme e-mailom a SMS.')
-where key = 'angio_common_notes' and value ~ 'orientačn' and value not like '%charakter nášho ústavu%';
+set value = regexp_replace(value, E'(^|\\n)[^\\n]*orientačn[^\\n]*', E'\\1Čas termínu je orientačný – ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.')
+where key = 'angio_common_notes' and value ~ 'orientačn' and value not like '%Ďakujeme za pochopenie%';
 -- Kontrola: select value from settings where key = 'angio_common_notes';
