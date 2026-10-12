@@ -34,3 +34,11 @@ button:not(:disabled) {
     transition: none !important;
   }
 }
+
+/* vodorovná lišta kotiev na mobile – bez viditeľného posuvníka */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

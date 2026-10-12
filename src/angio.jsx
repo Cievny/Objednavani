@@ -5,6 +5,7 @@ import {
   insuranceOptions, normalizePhone, ArrivedBadge,
 } from "./booking.jsx";
 import { useAngioData } from "./podappkyData.js";
+import ZachranNohuLanding from "./zachrannohu.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -960,6 +961,14 @@ export function AngioPatientApp() {
   const landingKey = (hash.match(/^#\/angio1\/([a-z0-9-]+)\/?$/) || [])[1];
   const landing = landingKey && landingKey !== "objednavka" && landingKey !== "sprava" ? ANGIO_LANDINGS[landingKey] || null : null;
   const landingExam = findLandingExam(landing, data.pricelist);
+  if (landing && landingExam) {
+    return (
+      <ZachranNohuLanding landing={landing} exam={landingExam}>
+        <AngioBookingView data={data} landing={landing} />
+        <AngioOrderLookup data={data} initialId={orderLinkId} />
+      </ZachranNohuLanding>
+    );
+  }
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
@@ -967,41 +976,13 @@ export function AngioPatientApp() {
           <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
           <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Späť na hlavnú stránku</a>
         </div>
-        {landing && landingExam ? (
-          <>
-            <h1 data-testid="landing-title" className="text-3xl md:text-4xl font-extrabold leading-tight">{landing.title}</h1>
-            <p className="text-base text-white/95 mt-2 max-w-xl">{landing.subtitle}</p>
-            <a href="#objednat" data-testid="landing-cta" onClick={(e) => { e.preventDefault(); document.getElementById("objednat")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-              className="inline-block mt-4 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
-              {landing.cta} ›
-            </a>
-            <p className="text-xs text-white/80 mt-3">{landing.clinic}</p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
-            <p className="text-sm text-white/90 mt-2 max-w-xl">
-              Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
-              preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
-            </p>
-          </>
-        )}
+        <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
+        <p className="text-sm text-white/90 mt-2 max-w-xl">
+          Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
+          preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
+        </p>
       </div>
-      {landing && landingExam && (
-        <div data-testid="landing-points" className="grid md:grid-cols-3 gap-3">
-          {landing.points.map((pt) => (
-            <div key={pt.title} className={`rounded-[15px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] ${pt.urgent ? "bg-[#FFF1F1] border border-[#F5B5B5]" : "bg-white"}`}>
-              <p className={`font-bold text-base mb-2 ${pt.urgent ? "text-[#B91C1C]" : "text-[#2B46A2]"}`}><span className="mr-1" aria-hidden="true">{pt.icon}</span>{pt.title}</p>
-              <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5">
-                {pt.lines.map((l, i) => <li key={i}>{l}</li>)}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-      <div id="objednat" className="scroll-mt-4">
-        <AngioBookingView data={data} landing={landing} />
-      </div>
+      <AngioBookingView data={data} landing={null} />
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );
