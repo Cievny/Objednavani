@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMsg } from "./toast.jsx";
 import { PaymentQr } from "./booking.jsx";
 import { paymentReady, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { useAdhocData } from "./podappkyData.js";
@@ -15,7 +16,7 @@ export default function AdhocPaymentApp() {
   const [email, setEmail] = useState("");
   const [created, setCreated] = useState(null); // { id, variableSymbol, itemName, amount, patientName }
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
 
   const submit = async (e) => {
     e.preventDefault();

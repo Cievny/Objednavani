@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useMsg } from "./toast.jsx";
 import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
@@ -1502,7 +1503,7 @@ const roleLabels = { superadmin: "Superadmin", sestra: "Sestra", lekar: "Lekár"
 
 const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) => {
   const [rows, setRows] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
@@ -1752,7 +1753,7 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
 // Editor LEN poradia cenníka (pre sestru) — ceny a texty needituje
 const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
   const [rows, setRows] = useState(pricelist);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const priceKey = pricelist.map((p) => p.id).join("|");
   useEffect(() => { setRows(pricelist); }, [priceKey]);
 
@@ -1872,7 +1873,7 @@ const printInvoice = (inv) => {
 const InvoicesTab = ({ onList, onIssueMissing }) => {
   const [invoices, setInvoices] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [busy, setBusy] = useState(false);
 
   const load = async () => {

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
@@ -42,7 +43,7 @@ function CtBookingView({ data }) {
   const [files, setFiles] = useState([]);
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [errs, setErrs] = useState({});
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
 
@@ -223,7 +224,7 @@ function CtOrderLookup({ data }) {
   const [id, setId] = useState("");
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [busy, setBusy] = useState(false);
 
   const search = async () => {
@@ -275,7 +276,7 @@ function CtOrderCard({ order, data, canManage }) {
   const [rdate, setRdate] = useState(order.date);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelText, setCancelText] = useState("");
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const active = order.status === "new" || order.status === "confirmed";
 
   const takenByDate = useMemo(() => {
@@ -377,7 +378,7 @@ function CtAdmin({ data, role }) {
   const [selDay, setSelDay] = useState(todayIso);
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [fStatus, setFStatus] = useState("all"), [fText, setFText] = useState("");
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
 
   const run = async (fn, ok) => { setMsg(""); try { await fn(); if (ok) setMsg(ok); } catch (e) { setMsg(e?.message || String(e)); } };
 
@@ -505,7 +506,7 @@ function CtAdmin({ data, role }) {
 function CtSettings({ data, isSuper }) {
   const [exams, setExams] = useState(() => data.pricelist.map((p) => ({ ...p })));
   const [docs, setDocs] = useState(() => normalizeDoctors(data.doctors));
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const slug = () => "ct_" + Math.random().toString(36).slice(2, 10);
   // presun typu v zozname (poradie = sort_order = poradie pre pacienta)
   const move = (i, d) => setExams((p) => { const j = i + d; if (j < 0 || j >= p.length) return p; const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n; });

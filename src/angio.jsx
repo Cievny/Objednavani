@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
@@ -93,7 +94,7 @@ function AngioBookingView({ data, landing = null }) {
   const [files, setFiles] = useState([]);
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [errs, setErrs] = useState({});
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
   // overenie telefónu SMS kódom (ak je zapnuté v Nastaveniach)
@@ -372,7 +373,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
   }, [initialId]);
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const [busy, setBusy] = useState(false);
 
   const search = async () => {
@@ -524,7 +525,7 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
   const [rdate, setRdate] = useState(order.date);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelText, setCancelText] = useState("");
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const active = order.status === "new" || order.status === "confirmed";
 
   const takenByDate = useMemo(() => {
@@ -622,7 +623,7 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 const statusChip = (s) => s === "confirmed" ? "bg-[#E8EEFF] text-[#2B46A2]" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
 function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const confirm = async (e) => { e.stopPropagation(); setMsg(""); try { await data.setStatus(order.id, "confirmed"); } catch (err) { setMsg(err?.message || String(err)); } };
   const endTime = order.durationMin ? addMinutes(order.time, order.durationMin) : "";
   return (
@@ -664,7 +665,7 @@ function AngioAdmin({ data, role }) {
   const [selDay, setSelDay] = useState(todayIso);
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [fStatus, setFStatus] = useState("all"), [fText, setFText] = useState("");
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
 
   const run = async (fn, ok) => { setMsg(""); try { await fn(); if (ok) setMsg(ok); } catch (e) { setMsg(e?.message || String(e)); } };
 
@@ -844,7 +845,7 @@ const cbChip = (s) => s === "new" ? "bg-amber-100 text-amber-800" : s === "booke
 function AngioCallbackRow({ cb, data, canManage }) {
   const [status, setStatus] = useState(cb.status);
   const [note, setNote] = useState(cb.statusNote || "");
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   useEffect(() => { setStatus(cb.status); setNote(cb.statusNote || ""); }, [cb.status, cb.statusNote]);
   const dirty = status !== cb.status || note !== (cb.statusNote || "");
   const save = async () => { setMsg(""); try { await data.setCallbackStatus(cb.id, status, note); setMsg("✓ Uložené."); } catch (e) { setMsg(e?.message || String(e)); } };
@@ -896,7 +897,7 @@ function AngioCallbacks({ data, canManage }) {
 function AngioSettings({ data, isSuper }) {
   const [exams, setExams] = useState(() => data.pricelist.map((p) => ({ ...p })));
   const [docs, setDocs] = useState(() => normalizeDoctors(data.doctors));
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useMsg();
   const slug = () => "ang_" + Math.random().toString(36).slice(2, 10);
   // presun typu v zozname (poradie = sort_order = poradie pre pacienta)
   const move = (i, d) => setExams((p) => { const j = i + d; if (j < 0 || j >= p.length) return p; const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n; });
