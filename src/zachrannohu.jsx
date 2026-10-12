@@ -69,6 +69,17 @@ const goTo = (id) => (e) => {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
+// fotografie v public/zachrannohu/*.webp (base podľa buildu: / alebo /beta/)
+const IMG = (name) => `${import.meta.env.BASE_URL}zachrannohu/${name}.webp`;
+function Photo({ name, alt, className = "", fallback = null, eager = false }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return fallback;
+  return (
+    <img src={IMG(name)} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" onError={() => setFailed(true)}
+      data-testid={`img-${name}`} className={`block w-full h-auto object-cover rounded-[12px] ${className}`} />
+  );
+}
+
 const H2 = ({ children }) => <h2 className="text-2xl md:text-3xl font-extrabold text-[#1E3580] leading-tight">{children}</h2>;
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-7 ${className}`}>{children}</div>
@@ -170,7 +181,8 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
       </nav>
 
       {/* hero */}
-      <header id="hero" className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+      <header id="hero" className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 shadow-[0_2px_12px_rgba(0,0,0,0.08)] grid md:grid-cols-[3fr_2fr] gap-6 items-center">
+        <div>
         <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
         <h1 data-testid="landing-title" className="text-3xl md:text-5xl font-extrabold leading-tight mt-2 max-w-2xl">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
         <p className="text-base md:text-lg text-white/95 mt-3 max-w-xl">Rýchle cievne vyšetrenie <b>do týždňa</b>. Bez poplatku, bez žiadanky, 15 – 20 minút. Zistíme, či je príčinou nehojacej sa rany <b>zlé prekrvenie</b> — a nasmerujeme vás tam, kde vám pomôžu.</p>
@@ -180,6 +192,8 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
           </a>
           <a href="#samotest" onClick={goTo("samotest")} className="inline-block border-2 border-white/70 text-white font-semibold text-base px-5 py-3 rounded-[12px] hover:bg-white/10">Zistiť, či sa mám objednať ↓</a>
         </div>
+        </div>
+        <Photo name="hero" eager alt="Starší pár na prechádzke v jesennom parku" className="aspect-[3/2] shadow-lg" />
       </header>
 
       {/* čísla */}
@@ -203,7 +217,7 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
               <p>Zúženie rastie <b>roky, potichu a často bez bolesti</b>. Pri cukrovke je citlivosť znížená, takže prvým znamením býva práve rana, ktorá sa nehojí, alebo zmena farby prsta.</p>
               <p className="bg-[#F0F4FF] rounded-[10px] p-3"><b className="text-[#1E3580]">Naša úloha:</b> rozlíšiť, či sa rana nehojí pre zlé prekrvenie. Ultrazvuk a meranie tlakov to spoľahlivo odhalia. Ak prekrvenie chýba, zúženú tepnu dnes vieme vo väčšine prípadov spriechodniť cez malý vpich, bez veľkej operácie.</p>
             </div>
-            <ArteryIllustration />
+            <Photo name="tepna" alt="Zúžená tepna v nohe: za zúžením tečie do chodidla málo krvi a rana na palci sa nehojí" className="aspect-[4/3] bg-[#F0F4FF]" fallback={<ArteryIllustration />} />
           </div>
         </Card>
       </section>
@@ -216,6 +230,7 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
         <Card>
           <H2>Ako prebieha vyšetrenie</H2>
           <p className="text-slate-600 mt-1 mb-4">Päť jednoduchých krokov. Žiadna bolesť, žiadne ihly, žiadna príprava vopred.</p>
+          <div className="grid md:grid-cols-2 gap-6 items-start">
           <ol className="space-y-3">
             {STEPS.map((s) => (
               <li key={s.n} className="flex gap-3">
@@ -224,6 +239,11 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
               </li>
             ))}
           </ol>
+          <figure className="md:sticky md:top-20">
+            <Photo name="vysetrenie" alt="Lekár vyšetruje ultrazvukom tepny na nohe pacienta ležiaceho na lehátku" className="aspect-[3/2]" />
+            <figcaption className="text-xs text-slate-500 mt-2">Ultrazvuk ciev dolnej končatiny: sonda s gélom, bez ihiel a bez žiarenia.</figcaption>
+          </figure>
+          </div>
           {exam?.about && (
             <details className="mt-4 text-sm text-slate-700">
               <summary className="cursor-pointer font-semibold text-[#2B46A2]">Viac o vyšetrení (podrobné pokyny)</summary>
@@ -248,6 +268,10 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
               </tbody>
             </table>
           </div>
+          <figure className="mt-5">
+            <Photo name="zakrok" alt="Tri fázy zákroku cez cievu: tepna zúžená plakom, balónik roztláča zúženie, stent drží tepnu otvorenú" className="aspect-[16/9]" />
+            <figcaption className="text-xs text-slate-500 mt-2">Ako vyzerá zákrok cez cievu: zúžená tepna → balónik roztlačí usadeninu → stent (jemná sieťka) drží tepnu otvorenú. Vstup je malým vpichom, zvyčajne v slabine.</figcaption>
+          </figure>
           <p className="text-xs text-slate-500 mt-3">O presnom postupe vždy rozhoduje lekár podľa vášho celkového zdravotného stavu.</p>
         </Card>
       </section>
