@@ -25,9 +25,30 @@ export const ANGIO_LANDINGS = {
     examTypeId: "ang_vnwtrvq2",
     labelMatch: /zachr[áa][ňn] nohu/i,
     title: "Zachráň nohu",
-    subtitle: "Rýchle zhodnotenie nehojacej sa rany, vredu alebo zmeny farby prsta či chodidla — Angiologická ambulancia č. 1, NÚSCH, a.s.",
-    intro: "Objednajte sa online, bez poplatku a bez žiadanky. Termín si vyberiete sami, potvrdenie príde e-mailom a SMS.",
-    urgent: "Nečakajte na termín a volajte 155, ak máte náhlu silnú bolesť nohy, noha je bledá či chladná, necítite ju alebo ňou nevládzete hýbať, ak máte čierny prst alebo ranu s horúčkou. Pri náhlom uzávere cievy rozhodujú hodiny.",
+    subtitle: "Nehojaca sa rana, vred alebo zmena farby prsta či chodidla? Objednajte sa na rýchle cievne vyšetrenie — termín do týždňa, bez poplatku a bez žiadanky.",
+    cta: "Objednať sa — termín do týždňa",
+    clinic: "Angiologická ambulancia č. 1 · NÚSCH, a.s. Bratislava",
+    // tri hlavné body pre pacienta, ktorý sem príde z inej stránky alebo náhodne
+    points: [
+      { icon: "🩹", title: "Pre koho", lines: [
+        "Rana na nohe, ktorá sa nehojí viac ako 2 týždne.",
+        "Vred alebo zmena farby prsta či chodidla.",
+        "Bolesť nohy v pokoji, najmä v noci.",
+        "Najmä pri cukrovke, fajčení alebo po cievnom zákroku.",
+      ] },
+      { icon: "📅", title: "Ako to funguje", lines: [
+        "Objednáte sa online, termín máte do týždňa.",
+        "Bez poplatku a bez žiadanky.",
+        "Vyšetrenie trvá 15 – 20 minút: pulzy, tlaky na nohe, ultrazvuk ciev.",
+        "Ďalší postup sa dozviete hneď na mieste.",
+      ] },
+      { icon: "🚨", title: "Kedy nečakať a volať 155", urgent: true, lines: [
+        "Náhla silná bolesť nohy, noha je bledá alebo chladná.",
+        "Necítite nohu alebo ňou nevládzete hýbať.",
+        "Čierny prst alebo rana s horúčkou a zimnicou.",
+        "Pri náhlom uzávere cievy rozhodujú hodiny — nečakajte na termín.",
+      ] },
+    ],
   },
 };
 export const findLandingExam = (landing, pricelist) => {
@@ -948,14 +969,13 @@ export function AngioPatientApp() {
         </div>
         {landing && landingExam ? (
           <>
-            <h1 data-testid="landing-title" className="text-2xl md:text-3xl font-extrabold leading-tight">{landing.title}</h1>
-            <p className="text-sm text-white/90 mt-1 max-w-xl">{landing.subtitle}</p>
-            <p className="text-sm text-white/90 mt-2 max-w-xl">{landing.intro}</p>
-            {landing.urgent && (
-              <p data-testid="landing-urgent" className="mt-3 max-w-xl text-sm bg-white text-[#B91C1C] border-l-4 border-[#D32821] rounded-[8px] px-3 py-2">
-                <b>Kedy nečakať:</b> {landing.urgent}
-              </p>
-            )}
+            <h1 data-testid="landing-title" className="text-3xl md:text-4xl font-extrabold leading-tight">{landing.title}</h1>
+            <p className="text-base text-white/95 mt-2 max-w-xl">{landing.subtitle}</p>
+            <a href="#objednat" data-testid="landing-cta" onClick={(e) => { e.preventDefault(); document.getElementById("objednat")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+              className="inline-block mt-4 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
+              {landing.cta} ›
+            </a>
+            <p className="text-xs text-white/80 mt-3">{landing.clinic}</p>
           </>
         ) : (
           <>
@@ -967,7 +987,21 @@ export function AngioPatientApp() {
           </>
         )}
       </div>
-      <AngioBookingView data={data} landing={landing} />
+      {landing && landingExam && (
+        <div data-testid="landing-points" className="grid md:grid-cols-3 gap-3">
+          {landing.points.map((pt) => (
+            <div key={pt.title} className={`rounded-[15px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.08)] ${pt.urgent ? "bg-[#FFF1F1] border border-[#F5B5B5]" : "bg-white"}`}>
+              <p className={`font-bold text-base mb-2 ${pt.urgent ? "text-[#B91C1C]" : "text-[#2B46A2]"}`}><span className="mr-1" aria-hidden="true">{pt.icon}</span>{pt.title}</p>
+              <ul className="text-sm text-slate-700 space-y-1 list-disc pl-5">
+                {pt.lines.map((l, i) => <li key={i}>{l}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+      <div id="objednat" className="scroll-mt-4">
+        <AngioBookingView data={data} landing={landing} />
+      </div>
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );
