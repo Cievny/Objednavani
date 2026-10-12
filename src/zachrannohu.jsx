@@ -9,7 +9,7 @@ import { useState } from "react";
 
 const NAV = [
   ["cisla", "Čísla"], ["co-je-to", "Čo je to"], ["samotest", "Samotest"], ["vysetrenie", "Vyšetrenie"],
-  ["nalez", "Čo ak…"], ["urgent", "Kedy volať 155"], ["myty", "Mýty"],
+  ["nalez", "Čo bude ďalej"], ["urgent", "Kedy volať 155"], ["myty", "Mýty"],
 ];
 
 const STATS = [
@@ -31,13 +31,13 @@ const STEPS = [
   { n: "2", title: "Rozhovor a pohľad na nohu", text: "Lekár sa spýta, ako dlho sa rana nehojí, čo vás bolí a aké lieky užívate. Pozrie si ranu, farbu a teplotu nohy." },
   { n: "3", title: "Pulzy a tlaky", text: "Nahmatá pulzy a manžetou zmeria tlak na členku, pri cukrovke aj na prste. Je to ako meranie tlaku na ruke." },
   { n: "4", title: "Ultrazvuk ciev", text: "Sondou s gélom prejde po nohe a na obrazovke vidí, kde a ako veľmi je tepna zúžená. Nič nebolí." },
-  { n: "5", title: "Výsledok a plán hneď", text: "Ešte v ambulancii sa dozviete, čo rane chýba a čo bude ďalej: ošetrenie rany, lieky, podrobnejšie zobrazenie ciev alebo zákrok." },
+  { n: "5", title: "Výsledok a smer hneď", text: "Ešte v ambulancii sa dozviete, či má rana cievnu príčinu, a dostanete správu s odporúčaním: ošetrovanie u vášho chirurga, zákrok na cievach u nás alebo ďalšia starostlivosť u angiológa vo vašom regióne." },
 ];
 
 const FINDINGS = [
-  ["Prekrvenie je v poriadku", "Rana má inú príčinu. Dostanete plán ošetrenia rany a odporúčania; sledujeme vás."],
-  ["Tepna je zúžená", "Lieky, chôdza, odvykanie od fajčenia a kontrola cukrovky. Ak to nestačí, zákrok cez cievu (balónik alebo stent) — bez veľkej operácie."],
-  ["Tepna je takmer uzavretá", "Plánovaný zákrok cez cievu alebo bypass, ktorý vráti krv do rany. Plánovaný zákrok dáva nohe oveľa lepšiu šancu než zákrok v núdzi."],
+  ["Prekrvenie je dostatočné", "Rana nemá cievnu príčinu. Ošetrovanie pokračuje u vášho chirurga alebo v ambulancii, ktorá sa o ranu stará — dostanete pre nich správu z vyšetrenia."],
+  ["Zlé prekrvenie, ktoré treba riešiť", "Navrhneme vám obnovenie prietoku (revaskularizáciu): zákrok cez cievu balónikom alebo stentom, prípadne bypass. Naplánujeme ho u nás v NÚSCH."],
+  ["Zlé prekrvenie, ktoré zatiaľ zákrok nevyžaduje", "Lieky, chôdza, kontrola cukrovky a odvykanie od fajčenia. Odovzdáme vás so správou angiológovi vo vašom regióne, ktorý sa o vás bude ďalej starať."],
 ];
 
 const URGENT = [
@@ -173,7 +173,7 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
       <header id="hero" className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
         <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
         <h1 data-testid="landing-title" className="text-3xl md:text-5xl font-extrabold leading-tight mt-2 max-w-2xl">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
-        <p className="text-base md:text-lg text-white/95 mt-3 max-w-xl">Rýchle cievne vyšetrenie <b>do týždňa</b>. Bez poplatku, bez žiadanky, 15 – 20 minút. Zistíme, či do rany tečie dosť krvi — a čo s tým.</p>
+        <p className="text-base md:text-lg text-white/95 mt-3 max-w-xl">Rýchle cievne vyšetrenie <b>do týždňa</b>. Bez poplatku, bez žiadanky, 15 – 20 minút. Zistíme, či je príčinou nehojacej sa rany <b>zlé prekrvenie</b> — a nasmerujeme vás tam, kde vám pomôžu.</p>
         <div className="flex flex-wrap gap-3 mt-5">
           <a href="#objednat" onClick={goTo("objednat")} data-testid="landing-cta" className="inline-block bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
             {landing?.cta || "Objednať sa — termín do týždňa"} ›
@@ -201,7 +201,7 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
               <H2>Prečo sa rana nehojí?</H2>
               <p>Tepny v nohách sú ako <b>záhradná hadica</b>. Keď sa na jednom mieste zúžia usadeninami, do chodidla tečie málo krvi. Rana potrebuje na hojenie kyslík a živiny z krvi — bez nich sa <b>nezahojí, nech ju ošetrujete akokoľvek</b>.</p>
               <p>Zúženie rastie <b>roky, potichu a často bez bolesti</b>. Pri cukrovke je citlivosť znížená, takže prvým znamením býva práve rana, ktorá sa nehojí, alebo zmena farby prsta.</p>
-              <p className="bg-[#F0F4FF] rounded-[10px] p-3"><b className="text-[#1E3580]">Dobrá správa:</b> ultrazvuk a meranie tlakov zúženie spoľahlivo odhalia a zúženú tepnu dnes vieme vo väčšine prípadov spriechodniť cez malý vpich, bez veľkej operácie.</p>
+              <p className="bg-[#F0F4FF] rounded-[10px] p-3"><b className="text-[#1E3580]">Naša úloha:</b> rozlíšiť, či sa rana nehojí pre zlé prekrvenie. Ultrazvuk a meranie tlakov to spoľahlivo odhalia. Ak prekrvenie chýba, zúženú tepnu dnes vieme vo väčšine prípadov spriechodniť cez malý vpich, bez veľkej operácie.</p>
             </div>
             <ArteryIllustration />
           </div>
@@ -236,14 +236,14 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
       {/* čo ak niečo nájdu */}
       <section id="nalez" className="scroll-mt-16">
         <Card>
-          <H2>Čo ak niečo nájdu?</H2>
-          <p className="text-slate-700 mt-2">Nález zúženej tepny <b>nie je rozsudok</b>. Väčšinu zúžení dnes riešime liekmi alebo zákrokom cez cievu, po ktorom idete na druhý deň domov. Rozhoduje, aby sa to stihlo, kým je rana malá.</p>
+          <H2>Čo bude po vyšetrení?</H2>
+          <p className="text-slate-700 mt-2">Vyšetrenie odpovie na jednu otázku: <b>tečie do rany dosť krvi?</b> Podľa odpovede vás nasmerujeme tam, kde vám najviac pomôžu — nikto neodchádza bez odporúčania. Nález zúženej tepny <b>nie je rozsudok</b>; rozhoduje, aby sa to stihlo, kým je rana malá.</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm border-collapse">
-              <thead><tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]"><th className="py-2 pr-3">Nález</th><th className="py-2">Čo bude ďalej</th></tr></thead>
+              <thead><tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]"><th className="py-2 pr-3">Výsledok</th><th className="py-2">Kam ďalej</th></tr></thead>
               <tbody>
                 {FINDINGS.map(([a, b]) => (
-                  <tr key={a} className="border-b border-[#F0F2F5] align-top"><td className="py-2 pr-3 font-bold text-[#1E3580] whitespace-nowrap">{a}</td><td className="py-2 text-slate-700">{b}</td></tr>
+                  <tr key={a} className="border-b border-[#F0F2F5] align-top"><td className="py-2 pr-3 font-bold text-[#1E3580] min-w-[9rem]">{a}</td><td className="py-2 text-slate-700">{b}</td></tr>
                 ))}
               </tbody>
             </table>
