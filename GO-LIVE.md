@@ -92,6 +92,32 @@ treba dokončiť body nižšie.
 - Záťažové testy: 20 súbežných na 1 termín → prejde 1; limit 3/telefón;
       300 objednávok/10 spojení bez chýb; ~6600 čítaní/s pri 100 klientoch.
 
+## 10. Audit vlna 9 — kontrola zmien v95–v100 (Zachráň nohu, spätné volania)
+
+Dva nezávislé prechody kódu + Security Advisors. Bez HIGH nálezu. Opravy:
+
+- `supabase/angio-013.sql` (spustiť v SQL editore): žiadosť o spätné volanie
+  sa vždy uloží (globálny strop len potlačí SMS/e-mail), odpoveď pri duplicite
+  je rovnaká ako pri novej žiadosti (nič neprezradí o cudzom čísle), meno len
+  z písmen (žiadne odkazy v SMS od „NUSCH"), IPv6 limit po /64, update len
+  superadmin/sestra, žiadne TRUNCATE práva, IP sa maže po 7 dňoch, žiadosti
+  po 90 dňoch. Bez overenia OTP zámerne (jednoduchosť pre seniorov) — pri
+  hovore si overte, že volaný o žiadosť naozaj stojí.
+- `supabase/audit-vlna9-001.sql` (po angio-013): search_path pre 6 funkcií,
+  trigger funkcie bez EXECUTE pre anon/authenticated, stará `create_order`
+  bez príloh zrušená, `mfa_ok()` v `reschedule_order`, `create_adhoc_payment`,
+  `resend_adhoc_email`, `issue_missing_invoices`, `list_staff`.
+- Frontend v100: hlášky formulára len známe slovenské (inak všeobecná veta),
+  kotvy fungujú aj v novej karte, fokus po posune, väčšie dotykové plochy,
+  `aria-pressed`/`role=alert`, obrázky sa pri chybe skryjú, krátka adresa
+  `/zachrannohu/` má CSP a cieľ len na vlastnom origine.
+
+Úlohy mimo kódu:
+- [ ] Supabase → Authentication → Attack protection: zapnúť „Leaked password protection"
+- [ ] Druhý člen personálu si zapíše autentifikátor (predpoklad pre `mfa_enforce = on`)
+- [ ] Správa → Angio → Nastavenia: mobil pre SMS spätných volaní
+- [ ] pg_net/btree_gist v schéme public: advisor WARN, ponechané (presun by menil volania `net.*`)
+
 ## 9. Audit vlna 8 — zabezpečenie pred ostrým spustením platieb (v93, `audit-vlna8-001.sql`)
 
 Princíp: hranica dôvery je `session_user`. Aplikácia ide cez rolu

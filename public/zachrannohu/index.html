@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-mPgokRrJOIf/qctBgnql9SH6+iSgqJcEWHnarb2kFfs='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'">
 <title>Zachráň nohu — objednajte sa na vyšetrenie | NÚSCH, a.s.</title>
 <meta name="description" content="Rýchle zhodnotenie nehojacej sa rany, vredu alebo zmeny farby prsta či chodidla. Online objednanie do Angiologickej ambulancie č. 1 NÚSCH, bez poplatku a bez žiadanky.">
 <link rel="canonical" href="https://objednanie.cievny.sk/zachrannohu/">
@@ -35,11 +36,13 @@
   // s predvybraným vyšetrením „Zachráň nohu"). Relatívne, aby fungovala aj
   // v bete (/beta/zachrannohu → /beta/#/angio1/zachrannohu). Voliteľne
   // prenesie ID objednávky: /zachrannohu/?o=ANG-XXXX → #/angio1/objednavka/ANG-XXXX
+  // Cieľ je vždy na tomto origine (base len z cesty bez úvodných lomiek), ID len [A-Za-z0-9-].
   (function () {
     var q = new URLSearchParams(location.search);
     var o = (q.get('o') || '').trim();
-    var base = location.pathname.replace(/(zachrannohu|angio1|angio)\/?(index\.html)?$/, '');
-    location.replace(base + (o ? '#/angio1/objednavka/' + encodeURIComponent(o) : '#/angio1/zachrannohu'));
+    if (!/^[A-Za-z0-9-]{1,40}$/.test(o)) o = '';
+    var base = '/' + location.pathname.replace(/^\/+/, '').replace(/(zachrannohu|angio1|angio)\/?(index\.html)?$/, '');
+    location.replace(location.origin + base + (o ? '#/angio1/objednavka/' + o : '#/angio1/zachrannohu'));
   })();
 </script>
 </head>

@@ -25,31 +25,7 @@ export const ANGIO_LANDINGS = {
   zachrannohu: {
     examTypeId: "ang_vnwtrvq2",
     labelMatch: /zachr[áa][ňn] nohu/i,
-    title: "Zachráň nohu",
-    subtitle: "Nehojaca sa rana, vred alebo zmena farby prsta či chodidla? Objednajte sa na rýchle cievne vyšetrenie — termín do týždňa, bez poplatku a bez žiadanky.",
     cta: "Objednať sa — termín do týždňa",
-    clinic: "Angiologická ambulancia č. 1 · NÚSCH, a.s. Bratislava",
-    // tri hlavné body pre pacienta, ktorý sem príde z inej stránky alebo náhodne
-    points: [
-      { icon: "🩹", title: "Pre koho", lines: [
-        "Rana na nohe, ktorá sa nehojí viac ako 2 týždne.",
-        "Vred alebo zmena farby prsta či chodidla.",
-        "Bolesť nohy v pokoji, najmä v noci.",
-        "Najmä pri cukrovke, fajčení alebo po cievnom zákroku.",
-      ] },
-      { icon: "📅", title: "Ako to funguje", lines: [
-        "Objednáte sa online, termín máte do týždňa.",
-        "Bez poplatku a bez žiadanky.",
-        "Vyšetrenie trvá 15 – 20 minút: pulzy, tlaky na nohe, ultrazvuk ciev.",
-        "Ďalší postup sa dozviete hneď na mieste.",
-      ] },
-      { icon: "🚨", title: "Kedy nečakať a volať 155", urgent: true, lines: [
-        "Náhla silná bolesť nohy, noha je bledá alebo chladná.",
-        "Necítite nohu alebo ňou nevládzete hýbať.",
-        "Čierny prst alebo rana s horúčkou a zimnicou.",
-        "Pri náhlom uzávere cievy rozhodujú hodiny — nečakajte na termín.",
-      ] },
-    ],
   },
 };
 export const findLandingExam = (landing, pricelist) => {
@@ -861,6 +837,8 @@ function AngioAdmin({ data, role }) {
 }
 
 // ---------- Spätné volania („Zavolajte mi späť", angio-013) ----------
+// +421 949 123 456 z normalizovaného čísla (len číslice) — zobrazuje sa overené číslo, nie surový vstup pacienta
+const fmtIntlPhone = (n) => (n && /^\d{11,15}$/.test(n) ? `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}` : "");
 const CB_STATUSES = { new: "Nová", called: "Volané", booked: "Objednaný", unreachable: "Nedovolali sme sa", closed: "Uzavreté" };
 const cbChip = (s) => s === "new" ? "bg-amber-100 text-amber-800" : s === "booked" ? "bg-emerald-100 text-emerald-800" : s === "unreachable" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
 function AngioCallbackRow({ cb, data, canManage }) {
@@ -877,7 +855,7 @@ function AngioCallbackRow({ cb, data, canManage }) {
     <div data-testid="callback-row" className="border border-[#E0E4EF] rounded-[10px] bg-white p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-slate-800">{cb.patientName}</span>
-        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-[#2B46A2] hover:underline" data-testid="callback-phone">{cb.phone}</a>
+        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-[#2B46A2] hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
         <span className="text-xs text-slate-500">volať {prefTxt}</span>
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
         <span className="ml-auto text-xs text-slate-400">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>

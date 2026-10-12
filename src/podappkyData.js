@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
-import { defaultSettings, toISODate, loadJson, genSlots, normalizeDoctors } from "./booking.jsx";
+import { defaultSettings, toISODate, loadJson, genSlots, normalizeDoctors, normalizePhone } from "./booking.jsx";
 
 // predvyplnené CT typy vyšetrení (demo aj prvé naplnenie)
 export const defaultCtPricelist = [
@@ -489,7 +489,7 @@ function useClinicData(cfg, isStaff) {
       if (ph.replace(/\D/g, "").length < 9) throw new Error("Zadajte platné telefónne číslo (napr. 0949 123 456).");
       const list = loadJson(K.callbacks, []);
       const id = "ZV-" + Math.random().toString(16).slice(2, 10).toUpperCase();
-      list.unshift({ id, patientName: nm, phone: ph, phoneNorm: ph.replace(/\D/g, ""), pref, source, status: "new", statusNote: "", createdAt: new Date().toISOString(), updatedAt: "" });
+      list.unshift({ id, patientName: nm, phone: ph, phoneNorm: normalizePhone(ph).replace(/\D/g, ""), pref, source, status: "new", statusNote: "", createdAt: new Date().toISOString(), updatedAt: "" });
       localStorage.setItem(K.callbacks, JSON.stringify(list));
       return { ok: true, id };
     }
@@ -521,7 +521,11 @@ function useClinicData(cfg, isStaff) {
     isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
     openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
-    callbacks, newCallbackCount, requestCallback, setCallbackStatus, callbackSmsTo, saveCallbackSmsTo,
+    // spätné volania len pre ambulancie s tabuľkou (angio); CT/USG dostanú null
+    callbacks, newCallbackCount, callbackSmsTo,
+    requestCallback: T.callbacks ? requestCallback : null,
+    setCallbackStatus: T.callbacks ? setCallbackStatus : null,
+    saveCallbackSmsTo: T.callbacks && cfg.callbackSmsKey ? saveCallbackSmsTo : null,
     lookupOrder, cancelOrder, openAttachment, reload,
   };
 }

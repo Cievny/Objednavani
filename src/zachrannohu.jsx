@@ -64,10 +64,19 @@ const SOURCES = [
   "AHA Scientific Statement: Diabetic Foot Ulcers in the Cardiovascular Patient Population (2024)",
 ];
 
+// plynulý posun na sekciu + presun fokusu (klávesnica/čítačka); rešpektuje prefers-reduced-motion.
+// href odkazov = aktuálna adresa stránky, aby otvorenie v novej karte neskončilo na úvodnej stránke USG.
 const goTo = (id) => (e) => {
+  const el = document.getElementById(id);
+  if (!el) return;
   e.preventDefault();
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const reduce = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  if (typeof el.focus === "function") el.focus({ preventScroll: true });
 };
+const hereHref = () => window.location.hash || "#/angio1/zachrannohu";
+// známe (slovenské) hlášky zo servera; čokoľvek iné (výpadok siete, nespustený skript) → všeobecná veta
+const friendlyError = (msg) => (/^(Zadajte|Príliš veľa|Vašu žiadosť)/.test(msg || "") ? msg : "Nepodarilo sa odoslať. Skúste to prosím znova o chvíľu.");
 
 // fotografie v public/zachrannohu/*.webp (base podľa buildu: / alebo /beta/)
 const IMG = (name) => `${import.meta.env.BASE_URL}zachrannohu/${name}.webp`;
@@ -77,6 +86,19 @@ function Photo({ name, alt, className = "", fallback = null, eager = false, test
   return (
     <img src={IMG(name)} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" onError={() => setFailed(true)}
       data-testid={testId || `img-${name}`} className={`block w-full h-auto object-cover ${rounded ? "rounded-[12px]" : ""} ${className}`} />
+  );
+}
+
+// obrázok s popiskom; pri chybe načítania sa celý blok skryje (žiadne prázdne miesto)
+function PhotoFigure({ name, alt, caption, className = "", figureClass = "" }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <figure className={figureClass}>
+      <img src={IMG(name)} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)}
+        data-testid={`img-${name}`} className={`block w-full h-auto object-cover rounded-[12px] ${className}`} />
+      <figcaption className="text-xs text-slate-500 mt-2">{caption}</figcaption>
+    </figure>
   );
 }
 
@@ -106,11 +128,11 @@ function SelfTest() {
       <div className="space-y-3">
         {QUESTIONS.map((q, i) => (
           <div key={i} className="border border-[#E0E4EF] rounded-[10px] p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid={`q${i + 1}`}>
-            <p className="flex-1 text-sm text-slate-800">{q.t}</p>
+            <p className="flex-1 text-base text-slate-800">{q.t}</p>
             <div className="flex gap-2 shrink-0">
               {[["Áno", true], ["Nie", false]].map(([lbl, v]) => (
-                <button key={lbl} type="button" onClick={() => setAns((a) => a.map((x, j) => (j === i ? v : x)))}
-                  className={`px-4 py-2 rounded-[10px] text-sm font-bold border-2 transition-colors ${ans[i] === v ? (v ? "bg-[#D32821] border-[#D32821] text-white" : "bg-[#2B46A2] border-[#2B46A2] text-white") : "bg-white border-slate-300 text-slate-700 hover:border-[#2B46A2]"}`}>
+                <button key={lbl} type="button" onClick={() => setAns((a) => a.map((x, j) => (j === i ? v : x)))} aria-pressed={ans[i] === v}
+                  className={`min-h-[44px] px-5 py-2 rounded-[10px] text-base font-bold border-2 transition-colors ${ans[i] === v ? (v ? "bg-[#D32821] border-[#D32821] text-white" : "bg-[#2B46A2] border-[#2B46A2] text-white") : "bg-white border-slate-300 text-slate-700 hover:border-[#2B46A2]"}`}>
                   {lbl}
                 </button>
               ))}
@@ -125,7 +147,7 @@ function SelfTest() {
           <Cta className={`mt-4 ${strong ? "!bg-white !text-[#D32821] hover:!bg-[#FFF1F1]" : ""}`}>Chcem sa objednať ›</Cta>
         </div>
       ) : (
-        <p className="mt-4 text-xs text-slate-400">Výsledok sa zobrazí po zodpovedaní všetkých otázok.</p>
+        <p className="mt-4 text-xs text-slate-500">Výsledok sa zobrazí po zodpovedaní všetkých otázok.</p>
       )}
       <p className="mt-3 text-xs text-slate-500">Test nenahrádza vyšetrenie. Pri náhlej silnej bolesti a bledej či studenej nohe volajte 155.</p>
     </Card>
@@ -179,7 +201,7 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
   const submit = async (e) => {
     e.preventDefault(); setErr(""); setBusy(true);
     try { const r = await onRequest({ name, phone, pref, source }); setDone(r || { ok: true }); }
-    catch (ex) { setErr(ex?.message || String(ex)); }
+    catch (ex) { setErr(friendlyError(ex?.message || String(ex))); }
     finally { setBusy(false); }
   };
   const prefLbl = pref === "dopoludnia" ? "dopoludnia" : pref === "popoludni" ? "popoludní" : "v pracovnom čase";
@@ -189,9 +211,9 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
       <h2 className="text-2xl md:text-3xl font-extrabold text-[#1E3580] leading-tight">Nejde vám objednanie online? Zavoláme vám.</h2>
       <p className="text-slate-700 mt-2 text-base md:text-lg">Napíšte nám meno a telefónne číslo. <b>Zavoláme vám najneskôr nasledujúci pracovný deň</b> a termín dohodneme spolu. Nič iné vypĺňať nemusíte.</p>
       {done ? (
-        <div className="mt-5 rounded-[12px] bg-[#F0F4FF] border border-[#c9d6f5] p-5 text-[#1E3580]" data-testid="callback-done">
+        <div className="mt-5 rounded-[12px] bg-[#F0F4FF] border border-[#c9d6f5] p-5 text-[#1E3580]" data-testid="callback-done" role="status" aria-live="polite">
           <p className="text-xl font-extrabold">Ďakujeme, {name.trim()}.</p>
-          <p className="mt-1 text-base">{done.duplicate ? "Vašu žiadosť už máme." : "Žiadosť sme prijali."} Zavoláme vám na číslo <b>{phone.trim()}</b> {prefLbl}, najneskôr nasledujúci pracovný deň. Telefón majte prosím pri sebe.</p>
+          <p className="mt-1 text-base">Žiadosť sme prijali. Zavoláme vám na číslo <b>{phone.trim()}</b> {prefLbl}, najneskôr nasledujúci pracovný deň. Telefón majte prosím pri sebe.</p>
           <p className="mt-3 text-sm text-slate-600">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
         </div>
       ) : (
@@ -204,16 +226,16 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
             <span className="block text-sm font-bold text-slate-700 mb-1">Telefónne číslo</span>
             <input className={field} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="napr. 0949 123 456" data-testid="cb-phone" required />
           </label>
-          <div>
-            <span className="block text-sm font-bold text-slate-700 mb-1">Kedy vám môžeme volať?</span>
+          <fieldset className="border-0 p-0 m-0">
+            <legend className="block text-sm font-bold text-slate-700 mb-1">Kedy vám môžeme volať?</legend>
             <div className="flex flex-wrap gap-2">
               {[["", "Kedykoľvek"], ["dopoludnia", "Dopoludnia"], ["popoludni", "Popoludní"]].map(([v, l]) => (
-                <button key={v || "any"} type="button" onClick={() => setPref(v)} data-testid={`cb-pref-${v || "any"}`}
-                  className={`px-4 py-2.5 rounded-[10px] text-base font-bold border-2 ${pref === v ? "bg-[#2B46A2] border-[#2B46A2] text-white" : "bg-white border-slate-300 text-slate-700 hover:border-[#2B46A2]"}`}>{l}</button>
+                <button key={v || "any"} type="button" onClick={() => setPref(v)} data-testid={`cb-pref-${v || "any"}`} aria-pressed={pref === v}
+                  className={`min-h-[44px] px-4 py-2.5 rounded-[10px] text-base font-bold border-2 ${pref === v ? "bg-[#2B46A2] border-[#2B46A2] text-white" : "bg-white border-slate-300 text-slate-700 hover:border-[#2B46A2]"}`}>{l}</button>
               ))}
             </div>
-          </div>
-          {err && <p className="text-red-600 font-semibold" data-testid="cb-error">{err}</p>}
+          </fieldset>
+          {err && <p className="text-red-600 font-semibold" data-testid="cb-error" role="alert">{err}</p>}
           <button type="submit" disabled={busy} data-testid="cb-submit"
             className="w-full md:w-auto bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-lg font-bold px-8 py-4 rounded-[12px] shadow">
             {busy ? "Odosielam…" : "Zavolajte mi späť ›"}
@@ -233,16 +255,16 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="font-extrabold text-[#1E3580] whitespace-nowrap mr-1">Zachráň nohu</span>
           {NAV.map(([id, lbl]) => (
-            <a key={id} href={`#${id}`} onClick={goTo(id)} className={`whitespace-nowrap text-sm font-semibold px-3 py-1.5 rounded-full ${id === "urgent" ? "bg-[#FFF1F1] text-[#B91C1C]" : "bg-[#F0F2F5] text-[#2B46A2] hover:bg-[#E0E4EF]"}`} data-testid={`nav-${id}`}>{lbl}</a>
+            <a key={id} href={hereHref()} onClick={goTo(id)} className={`whitespace-nowrap text-sm font-semibold px-3 py-2.5 min-h-[40px] inline-flex items-center rounded-full ${id === "urgent" ? "bg-[#FFF1F1] text-[#B91C1C]" : "bg-[#F0F2F5] text-[#2B46A2] hover:bg-[#E0E4EF]"}`} data-testid={`nav-${id}`}>{lbl}</a>
           ))}
-          <a href="#objednat" onClick={goTo("objednat")} className="whitespace-nowrap text-sm font-bold px-4 py-1.5 rounded-full bg-[#2B46A2] text-white hover:bg-[#1E3580] ml-auto" data-testid="nav-objednat">Objednať sa</a>
+          <a href={hereHref()} onClick={goTo("objednat")} className="whitespace-nowrap text-sm font-bold px-4 py-2.5 min-h-[40px] inline-flex items-center rounded-full bg-[#2B46A2] text-white hover:bg-[#1E3580] ml-auto" data-testid="nav-objednat">Objednať sa</a>
         </div>
       </nav>
 
       {/* hero: vľavo modrý panel s textom, vpravo svetlý panel s 3D nohou od okraja po okraj */}
-      <header id="hero" className="relative overflow-hidden rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] grid md:grid-cols-[11fr_9fr]">
+      <header id="hero" tabIndex={-1} className="relative overflow-hidden rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] grid md:grid-cols-[11fr_9fr]">
         <div className="bg-gradient-to-br from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 flex flex-col justify-center md:min-h-[440px]">
-          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
+          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/85 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
           <h1 data-testid="landing-title" className="text-3xl md:text-[2.75rem] font-extrabold leading-tight mt-3">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
           <p className="text-base md:text-lg text-white/95 mt-4">Zistíme, či je príčinou <b>zlé prekrvenie</b>, a nasmerujeme vás tam, kde vám pomôžu.</p>
           <ul className="flex flex-wrap gap-2 mt-4" aria-label="Základné informácie">
@@ -251,33 +273,34 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
             ))}
           </ul>
           <div className="flex flex-wrap gap-3 mt-6">
-            <a href="#objednat" onClick={goTo("objednat")} data-testid="landing-cta" className="inline-block bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
+            <a href={hereHref()} onClick={goTo("objednat")} data-testid="landing-cta" className="inline-block bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
               {landing?.cta || "Objednať sa — termín do týždňa"} ›
             </a>
-            <a href="#samotest" onClick={goTo("samotest")} className="inline-block border-2 border-white/70 text-white font-semibold text-base px-5 py-3 rounded-[12px] hover:bg-white/10">Zistiť, či sa mám objednať ↓</a>
+            <a href={hereHref()} onClick={goTo("samotest")} className="inline-block border-2 border-white/70 text-white font-semibold text-base px-5 py-3 rounded-[12px] hover:bg-white/10">Zistiť, či sa mám objednať ↓</a>
           </div>
           {requestCallback && (
-            <p className="mt-4 text-sm md:text-base text-white/90">Nejde vám objednanie online? <a href="#zavolame" onClick={goTo("zavolame")} data-testid="hero-callback-link" className="font-bold underline underline-offset-2 hover:text-white">Nechajte nám číslo, zavoláme vám ›</a></p>
+            <p className="mt-4 text-sm md:text-base text-white/90">Nejde vám objednanie online? <a href={hereHref()} onClick={goTo("zavolame")} data-testid="hero-callback-link" className="font-bold underline underline-offset-2 hover:text-white">Nechajte nám číslo, zavoláme vám ›</a></p>
           )}
         </div>
         <div className="bg-[#F3F6FB] h-[300px] md:h-auto">
-          <Photo name="tepna" eager rounded={false} testId="img-tepna-hero" alt="Zúžená tepna v nohe: za zúžením tečie do chodidla málo krvi a rana na palci sa nehojí" className="h-full w-full object-cover object-[50%_20%]" />
+          <Photo name="tepna" eager rounded={false} testId="img-tepna-hero" alt="Zúžená tepna v nohe: za zúžením tečie do chodidla málo krvi a rana na palci sa nehojí" className="h-full w-full object-cover object-[50%_20%]"
+            fallback={<div className="h-full w-full flex items-center justify-center p-6"><ArteryIllustration /></div>} />
         </div>
       </header>
 
       {/* čísla */}
-      <section id="cisla" className="scroll-mt-16 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section id="cisla" tabIndex={-1} className="scroll-mt-16 outline-none grid grid-cols-2 md:grid-cols-4 gap-3">
         {STATS.map((s) => (
           <div key={s.n} className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-4 text-center">
             <p className="text-3xl md:text-4xl font-extrabold text-[#D32821]">{s.n}</p>
             <p className="text-sm text-slate-700 mt-1">{s.t}</p>
-            {s.src && <p className="text-[11px] text-slate-400 mt-1">{s.src}</p>}
+            {s.src && <p className="text-[11px] text-slate-500 mt-1">{s.src}</p>}
           </div>
         ))}
       </section>
 
       {/* čo je to */}
-      <section id="co-je-to" className="scroll-mt-16">
+      <section id="co-je-to" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <div className="grid md:grid-cols-2 gap-6 items-center">
             <div className="space-y-3 text-slate-700">
@@ -297,10 +320,10 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       </section>
 
       {/* samotest */}
-      <section id="samotest" className="scroll-mt-16"><SelfTest /></section>
+      <section id="samotest" tabIndex={-1} className="scroll-mt-16 outline-none"><SelfTest /></section>
 
       {/* vyšetrenie */}
-      <section id="vysetrenie" className="scroll-mt-16">
+      <section id="vysetrenie" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <H2>Ako prebieha vyšetrenie</H2>
           <p className="text-slate-600 mt-1 mb-4">Päť jednoduchých krokov. Žiadna bolesť, žiadne ihly, žiadna príprava vopred.</p>
@@ -313,22 +336,13 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
               </li>
             ))}
           </ol>
-          <figure className="md:sticky md:top-20">
-            <Photo name="vysetrenie" alt="Lekár vyšetruje ultrazvukom tepny na nohe pacienta ležiaceho na lehátku" className="aspect-[3/2]" />
-            <figcaption className="text-xs text-slate-500 mt-2">Ultrazvuk ciev dolnej končatiny: sonda s gélom, bez ihiel a bez žiarenia.</figcaption>
-          </figure>
+          <PhotoFigure name="vysetrenie" figureClass="md:sticky md:top-20" className="aspect-[3/2]" alt="Lekár vyšetruje ultrazvukom tepny na nohe pacienta ležiaceho na lehátku" caption="Ultrazvuk ciev dolnej končatiny: sonda s gélom, bez ihiel a bez žiarenia." />
           </div>
-          {exam?.about && (
-            <details className="mt-4 text-sm text-slate-700">
-              <summary className="cursor-pointer font-semibold text-[#2B46A2]">Viac o vyšetrení (podrobné pokyny)</summary>
-              <div className="mt-2 whitespace-pre-line">{exam.about}</div>
-            </details>
-          )}
         </Card>
       </section>
 
       {/* čo ak niečo nájdu */}
-      <section id="nalez" className="scroll-mt-16">
+      <section id="nalez" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <H2>Čo bude po vyšetrení?</H2>
           <p className="text-slate-700 mt-2">Vyšetrenie odpovie na jednu otázku: <b>tečie do rany dosť krvi?</b> Podľa odpovede vás nasmerujeme tam, kde vám najviac pomôžu — nikto neodchádza bez odporúčania. Nález zúženej tepny <b>nie je rozsudok</b>; rozhoduje, aby sa to stihlo, kým je rana malá.</p>
@@ -342,16 +356,13 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
               </tbody>
             </table>
           </div>
-          <figure className="mt-5">
-            <Photo name="zakrok" alt="Tri fázy zákroku cez cievu: tepna zúžená plakom, balónik roztláča zúženie, stent drží tepnu otvorenú" className="aspect-[16/9]" />
-            <figcaption className="text-xs text-slate-500 mt-2">Ako vyzerá zákrok cez cievu: zúžená tepna → balónik roztlačí usadeninu → stent (jemná sieťka) drží tepnu otvorenú. Vstup je malým vpichom, zvyčajne v slabine.</figcaption>
-          </figure>
+          <PhotoFigure name="zakrok" figureClass="mt-5" className="aspect-[16/9]" alt="Tri fázy zákroku cez cievu: tepna zúžená plakom, balónik roztláča zúženie, stent drží tepnu otvorenú" caption="Ako vyzerá zákrok cez cievu: zúžená tepna → balónik roztlačí usadeninu → stent (jemná sieťka) drží tepnu otvorenú. Vstup je malým vpichom, zvyčajne v slabine." />
           <p className="text-xs text-slate-500 mt-3">O presnom postupe vždy rozhoduje lekár podľa vášho celkového zdravotného stavu.</p>
         </Card>
       </section>
 
       {/* urgent */}
-      <section id="urgent" className="scroll-mt-16">
+      <section id="urgent" tabIndex={-1} className="scroll-mt-16 outline-none">
         <div className="bg-[#FFF1F1] border-2 border-[#D32821] rounded-[15px] p-5 md:p-7" data-testid="landing-urgent">
           <h2 className="text-2xl md:text-3xl font-extrabold text-[#B91C1C] leading-tight">Kedy okamžite volať 155 / 112</h2>
           <p className="text-slate-700 mt-2">Ak sa objaví čokoľvek z tohto, <b>nečakajte na termín</b>. Pri náhlom uzávere tepny rozhodujú hodiny.</p>
@@ -363,7 +374,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       </section>
 
       {/* mýty */}
-      <section id="myty" className="scroll-mt-16">
+      <section id="myty" tabIndex={-1} className="scroll-mt-16 outline-none">
         <H2>Mýty vs. realita</H2>
         <div className="mt-3"><Myths /></div>
       </section>
@@ -375,17 +386,17 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
         <div className="relative p-6 md:p-10 max-w-xl">
           <h2 className="text-2xl md:text-4xl font-extrabold leading-tight">15 minút vyšetrenia. Roky chôdze po vlastných.</h2>
           <p className="mt-3 text-white/95">Nehojaca sa rana nie je kozmetický problém. Čím skôr zistíme, či do nohy tečie dosť krvi, tým jednoduchšie ju vieme zachrániť.</p>
-          <a href="#objednat" onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">Objednať sa — termín do týždňa ›</a>
+          <a href={hereHref()} onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">Objednať sa — termín do týždňa ›</a>
         </div>
       </section>
 
       {/* objednanie */}
-      <section id="objednat" className="scroll-mt-16 space-y-4">
+      <section id="objednat" tabIndex={-1} className="scroll-mt-16 outline-none space-y-4">
         {children}
       </section>
 
       {requestCallback && (
-        <section id="zavolame" className="scroll-mt-16">
+        <section id="zavolame" tabIndex={-1} className="scroll-mt-16 outline-none">
           <CallbackCard onRequest={requestCallback} source="zachrannohu" />
         </section>
       )}
