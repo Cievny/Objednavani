@@ -71,12 +71,12 @@ const goTo = (id) => (e) => {
 
 // fotografie v public/zachrannohu/*.webp (base podľa buildu: / alebo /beta/)
 const IMG = (name) => `${import.meta.env.BASE_URL}zachrannohu/${name}.webp`;
-function Photo({ name, alt, className = "", fallback = null, eager = false }) {
+function Photo({ name, alt, className = "", fallback = null, eager = false, testId = null, rounded = true }) {
   const [failed, setFailed] = useState(false);
   if (failed) return fallback;
   return (
     <img src={IMG(name)} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" onError={() => setFailed(true)}
-      data-testid={`img-${name}`} className={`block w-full h-auto object-cover rounded-[12px] ${className}`} />
+      data-testid={testId || `img-${name}`} className={`block w-full h-auto object-cover ${rounded ? "rounded-[12px]" : ""} ${className}`} />
   );
 }
 
@@ -180,20 +180,27 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
         </div>
       </nav>
 
-      {/* hero */}
-      <header id="hero" className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 shadow-[0_2px_12px_rgba(0,0,0,0.08)] grid md:grid-cols-[3fr_2fr] gap-6 items-center">
-        <div>
-        <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
-        <h1 data-testid="landing-title" className="text-3xl md:text-5xl font-extrabold leading-tight mt-2 max-w-2xl">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
-        <p className="text-base md:text-lg text-white/95 mt-3 max-w-xl">Rýchle cievne vyšetrenie <b>do týždňa</b>. Bez poplatku, bez žiadanky, 15 – 20 minút. Zistíme, či je príčinou nehojacej sa rany <b>zlé prekrvenie</b> — a nasmerujeme vás tam, kde vám pomôžu.</p>
-        <div className="flex flex-wrap gap-3 mt-5">
-          <a href="#objednat" onClick={goTo("objednat")} data-testid="landing-cta" className="inline-block bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
-            {landing?.cta || "Objednať sa — termín do týždňa"} ›
-          </a>
-          <a href="#samotest" onClick={goTo("samotest")} className="inline-block border-2 border-white/70 text-white font-semibold text-base px-5 py-3 rounded-[12px] hover:bg-white/10">Zistiť, či sa mám objednať ↓</a>
+      {/* hero: vľavo modrý panel s textom, vpravo svetlý panel s 3D nohou od okraja po okraj */}
+      <header id="hero" className="relative overflow-hidden rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] grid md:grid-cols-[11fr_9fr]">
+        <div className="bg-gradient-to-br from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 flex flex-col justify-center md:min-h-[440px]">
+          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
+          <h1 data-testid="landing-title" className="text-3xl md:text-[2.75rem] font-extrabold leading-tight mt-3">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
+          <p className="text-base md:text-lg text-white/95 mt-4">Zistíme, či je príčinou <b>zlé prekrvenie</b>, a nasmerujeme vás tam, kde vám pomôžu.</p>
+          <ul className="flex flex-wrap gap-2 mt-4" aria-label="Základné informácie">
+            {["bez poplatku", "bez žiadanky", "termín do 7 dní", "15 – 20 minút"].map((c) => (
+              <li key={c} className="text-xs md:text-sm font-semibold bg-white/15 border border-white/30 rounded-full px-3 py-1">{c}</li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-3 mt-6">
+            <a href="#objednat" onClick={goTo("objednat")} data-testid="landing-cta" className="inline-block bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">
+              {landing?.cta || "Objednať sa — termín do týždňa"} ›
+            </a>
+            <a href="#samotest" onClick={goTo("samotest")} className="inline-block border-2 border-white/70 text-white font-semibold text-base px-5 py-3 rounded-[12px] hover:bg-white/10">Zistiť, či sa mám objednať ↓</a>
+          </div>
         </div>
+        <div className="bg-[#F3F6FB] h-[300px] md:h-auto">
+          <Photo name="tepna" eager rounded={false} testId="img-tepna-hero" alt="Zúžená tepna v nohe: za zúžením tečie do chodidla málo krvi a rana na palci sa nehojí" className="h-full w-full object-cover object-[50%_20%]" />
         </div>
-        <Photo name="hero" eager alt="Starší pár na prechádzke v jesennom parku" className="aspect-[3/2] shadow-lg" />
       </header>
 
       {/* čísla */}
@@ -217,7 +224,12 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
               <p>Zúženie rastie <b>roky, potichu a často bez bolesti</b>. Pri cukrovke je citlivosť znížená, takže prvým znamením býva práve rana, ktorá sa nehojí, alebo zmena farby prsta.</p>
               <p className="bg-[#F0F4FF] rounded-[10px] p-3"><b className="text-[#1E3580]">Naša úloha:</b> rozlíšiť, či sa rana nehojí pre zlé prekrvenie. Ultrazvuk a meranie tlakov to spoľahlivo odhalia. Ak prekrvenie chýba, zúženú tepnu dnes vieme vo väčšine prípadov spriechodniť cez malý vpich, bez veľkej operácie.</p>
             </div>
-            <Photo name="tepna" alt="Zúžená tepna v nohe: za zúžením tečie do chodidla málo krvi a rana na palci sa nehojí" className="aspect-[4/3] bg-[#F0F4FF]" fallback={<ArteryIllustration />} />
+            <figure>
+              <div className="aspect-square overflow-hidden rounded-[12px] bg-[#F3F6FB]">
+                <Photo name="tepna" rounded={false} alt="Detail: usadenina (plak) zužuje tepnu v stehne, pod ňou je prietok slabý" className="h-full w-full object-cover object-[50%_10%] scale-[1.7] origin-[50%_10%]" fallback={<ArteryIllustration />} />
+              </div>
+              <figcaption className="text-xs text-slate-500 mt-2">Usadenina (plak) zužuje tepnu v stehne; pod zúžením je prietok slabý a rana na prste sa nehojí.</figcaption>
+            </figure>
           </div>
         </Card>
       </section>
@@ -294,11 +306,15 @@ export default function ZachranNohuLanding({ landing, exam, children }) {
         <div className="mt-3"><Myths /></div>
       </section>
 
-      {/* záverečná výzva */}
-      <section className="rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-10 text-center shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-2xl md:text-4xl font-extrabold leading-tight">15 minút vyšetrenia. Roky chôdze po vlastných.</h2>
-        <p className="mt-3 text-white/90 max-w-xl mx-auto">Nehojaca sa rana nie je kozmetický problém. Čím skôr zistíme, či do nohy tečie dosť krvi, tým jednoduchšie ju vieme zachrániť.</p>
-        <a href="#objednat" onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">Objednať sa — termín do týždňa ›</a>
+      {/* záverečná výzva: fotka páru ako pozadie, modrý prekryv */}
+      <section className="relative overflow-hidden rounded-[15px] text-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] min-h-[360px] flex items-center">
+        <Photo name="par" alt="Starší pár na prechádzke v jesennom parku" rounded={false} className="absolute inset-0 h-full w-full object-cover object-[75%_50%]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1E3580]/90 via-[#1E3580]/70 to-[#2B46A2]/30" aria-hidden="true" />
+        <div className="relative p-6 md:p-10 max-w-xl">
+          <h2 className="text-2xl md:text-4xl font-extrabold leading-tight">15 minút vyšetrenia. Roky chôdze po vlastných.</h2>
+          <p className="mt-3 text-white/95">Nehojaca sa rana nie je kozmetický problém. Čím skôr zistíme, či do nohy tečie dosť krvi, tým jednoduchšie ju vieme zachrániť.</p>
+          <a href="#objednat" onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-[#2B46A2] font-bold text-base px-6 py-3 rounded-[12px] shadow hover:bg-[#F0F4FF]">Objednať sa — termín do týždňa ›</a>
+        </div>
       </section>
 
       {/* objednanie */}
