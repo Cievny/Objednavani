@@ -222,6 +222,12 @@ function AngioBookingView({ data, landing = null }) {
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-5">
       <h2 className="text-xl font-bold text-[#2B46A2]">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
+      {step < 3 && data.requestCallback && (
+        <p className="text-sm text-slate-600 -mt-2">Nedarí sa vám objednať online?{" "}
+          <a href="#zavolame" data-testid="booking-callback-link" className="font-bold text-[#2B46A2] underline underline-offset-2 hover:text-[#1E3580]"
+            onClick={(e) => { const el = document.getElementById("zavolame"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>
+            Nechajte nám číslo, zavoláme vám ›</a></p>
+      )}
       {step === 1 && (
         <div className="space-y-2">
           <p className="text-sm font-semibold text-slate-700">Vyberte typ vyšetrenia / návštevy</p>
@@ -1056,7 +1062,7 @@ export function AngioPatientApp() {
         </p>
       </div>
       <AngioBookingView data={data} landing={null} />
-      <CallbackCard onRequest={data.requestCallback} source="angio1" />
+      <section id="zavolame" className="scroll-mt-16"><CallbackCard onRequest={data.requestCallback} source="angio1" /></section>
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );
