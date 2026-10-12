@@ -156,11 +156,13 @@ const CT_CFG = {
 };
 
 const ANGIO_CFG = {
-  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1", smsVerify: "angioSmsVerify_v1" },
-  tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist" },
+  keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1", smsVerify: "angioSmsVerify_v1", callbacks: "angioCallbacks_v1", callbackSmsTo: "angioCallbackSmsTo_v1" },
+  tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist", callbacks: "angio_callbacks" },
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
     reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order",
-    sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp", patientReschedule: "angio_patient_reschedule" },
+    sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp", patientReschedule: "angio_patient_reschedule",
+    requestCallback: "angio_request_callback" },
+  callbackSmsKey: "angio_callback_sms_to", // mobil pracoviska pre SMS o žiadosti o spätné volanie (angio-013), číta len personál
   smsVerifyKey: "angio_sms_verify", // overenie telefónu SMS kódom (angio-005), 'on'/'off', verejne čitateľné
   doctorsKey: "angio_doctors",
   defaultPricelist: defaultAngioPricelist,
@@ -186,6 +188,9 @@ function useClinicData(cfg, isStaff) {
   // overenie telefónu SMS kódom — demo: localStorage 'on'/'off' (predvolene vypnuté)
   const loadSmsVerifyDemo = () => localStorage.getItem(K.smsVerify || "") === "on";
   const [smsVerify, setSmsVerify] = useState(() => (!cfg.smsVerifyKey || isSupabaseConfigured ? false : loadSmsVerifyDemo()));
+  // žiadosti „Zavolajte mi späť" (angio-013) — len personál; demo: localStorage
+  const [callbacks, setCallbacks] = useState(() => (!T.callbacks || isSupabaseConfigured || !isStaff ? [] : loadJson(K.callbacks, [])));
+  const [callbackSmsTo, setCallbackSmsTo] = useState(() => (!cfg.callbackSmsKey || isSupabaseConfigured ? "" : localStorage.getItem(K.callbackSmsTo) || ""));
 
   const reload = useCallback(async () => {
     if (!supabase) {
@@ -194,6 +199,7 @@ function useClinicData(cfg, isStaff) {
       setDoctors(normalizeDoctors(loadJson(K.doctors, [])));
       if (cfg.notesKey) setNotes(loadNotesDemo());
       if (cfg.smsVerifyKey) setSmsVerify(loadSmsVerifyDemo());
+      if (T.callbacks && isStaff) { setCallbacks(loadJson(K.callbacks, [])); setCallbackSmsTo(localStorage.getItem(K.callbackSmsTo) || ""); }
       return;
     }
     if (cfg.notesKey || cfg.smsVerifyKey) {
@@ -238,6 +244,17 @@ function useClinicData(cfg, isStaff) {
         createdAt: r.created_at || "",
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
+      if (T.callbacks) {
+        const [cbRes, smsRes] = await Promise.all([
+          supabase.from(T.callbacks).select("*").order("created_at", { ascending: false }),
+          cfg.callbackSmsKey ? supabase.from("settings").select("value").eq("key", cfg.callbackSmsKey).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        if (!cbRes.error) setCallbacks((cbRes.data || []).map((r) => ({
+          id: r.id, patientName: r.patient_name, phone: r.phone_raw || r.phone, phoneNorm: r.phone, pref: r.pref || "",
+          source: r.source || "", status: r.status, statusNote: r.status_note || "", createdAt: r.created_at || "", updatedAt: r.updated_at || "",
+        })));
+        if (smsRes && !smsRes.error) setCallbackSmsTo(smsRes.data?.value || "");
+      }
     } else {
       const { data, error } = await supabase.rpc(R.booked);
       if (!error) setOccupiedRemote((data || []).map((r) => ({ date: r.slot_date, time: (r.slot_time || "").slice(0, 5) })));
@@ -464,12 +481,47 @@ function useClinicData(cfg, isStaff) {
     await reload();
   };
 
+  // „Zavolajte mi späť": pacient (bez prihlásenia) → RPC; demo: localStorage
+  const requestCallback = async ({ name, phone, pref = "", source = "angio1" }) => {
+    if (!supabase) {
+      const nm = String(name || "").trim().replace(/\s+/g, " "), ph = String(phone || "").trim();
+      if (nm.length < 3) throw new Error("Zadajte prosím meno a priezvisko.");
+      if (ph.replace(/\D/g, "").length < 9) throw new Error("Zadajte platné telefónne číslo (napr. 0949 123 456).");
+      const list = loadJson(K.callbacks, []);
+      const id = "ZV-" + Math.random().toString(16).slice(2, 10).toUpperCase();
+      list.unshift({ id, patientName: nm, phone: ph, phoneNorm: ph.replace(/\D/g, ""), pref, source, status: "new", statusNote: "", createdAt: new Date().toISOString(), updatedAt: "" });
+      localStorage.setItem(K.callbacks, JSON.stringify(list));
+      return { ok: true, id };
+    }
+    const { data, error } = await supabase.rpc(R.requestCallback, { p_name: name, p_phone: phone, p_pref: pref, p_source: source });
+    if (error) throw new Error(error.message);
+    return data || { ok: true };
+  };
+  const setCallbackStatus = async (id, status, statusNote = "") => {
+    if (!supabase) {
+      const list = loadJson(K.callbacks, []).map((c) => (c.id === id ? { ...c, status, statusNote, updatedAt: new Date().toISOString() } : c));
+      localStorage.setItem(K.callbacks, JSON.stringify(list)); setCallbacks(list); return;
+    }
+    const { error } = await supabase.from(T.callbacks).update({ status, status_note: statusNote }).eq("id", id);
+    if (error) throw new Error(error.message);
+    await reload();
+  };
+  const saveCallbackSmsTo = async (value) => {
+    const v = String(value || "").trim();
+    if (!supabase) { localStorage.setItem(K.callbackSmsTo, v); setCallbackSmsTo(v); return; }
+    const { error } = await supabase.from("settings").upsert([{ key: cfg.callbackSmsKey, value: v }], { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    await reload();
+  };
+  const newCallbackCount = callbacks.filter((c) => c.status === "new").length;
+
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
     isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
     openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
+    callbacks, newCallbackCount, requestCallback, setCallbackStatus, callbackSmsTo, saveCallbackSmsTo,
     lookupOrder, cancelOrder, openAttachment, reload,
   };
 }

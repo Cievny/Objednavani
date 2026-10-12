@@ -53,6 +53,11 @@ treba dokončiť body nižšie.
 
 - [ ] Overiť schválenie odosielateľa „NUSCH" (gText) a kredit
 - [ ] Testovacia SMS na 0917911202 (objednávka + potvrdenie platby)
+- [ ] Spätné volania (v99, `supabase/angio-013.sql`): spustiť skript v SQL editore,
+      potom Správa → Angio → Nastavenia → „Spätné volania — mobil pre SMS" zadať
+      mobil pracoviska. Pacient na stránke nechá meno + číslo („Zavolajte mi späť"),
+      príde SMS na mobil + e-mail na kópiu objednávok; žiadosti sú v záložke
+      Spätné volania (sľub: hovor najneskôr nasledujúci pracovný deň).
 
 ## 6. Prevádzkové návyky
 

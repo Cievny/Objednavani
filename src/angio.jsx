@@ -5,7 +5,7 @@ import {
   insuranceOptions, normalizePhone, ArrivedBadge,
 } from "./booking.jsx";
 import { useAngioData } from "./podappkyData.js";
-import ZachranNohuLanding from "./zachrannohu.jsx";
+import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -713,7 +713,8 @@ function AngioAdmin({ data, role }) {
     .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.phone.includes(q); })
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
-  const tabs = [["overview", "Prehľad"], ["calendar", "Kalendár"], ["orders", "Objednávky"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
+  const cbNew = data.newCallbackCount || 0;
+  const tabs = [["overview", "Prehľad"], ["calendar", "Kalendár"], ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
   const btn = "shrink-0 px-4 py-2 rounded-[10px] text-sm font-bold transition-colors";
 
   return (
@@ -742,6 +743,12 @@ function AngioAdmin({ data, role }) {
               </button>
             ))}
           </div>
+          {cbNew > 0 && (
+            <button type="button" data-testid="stat-callbacks" onClick={() => setTab("callbacks")}
+              className="w-full text-left bg-amber-50 border border-amber-200 text-amber-900 rounded-[12px] px-4 py-3 text-sm font-semibold hover:bg-amber-100">
+              📞 {cbNew === 1 ? "1 pacient prosí" : `${cbNew} pacienti prosia`} o zavolanie späť — zobraziť ›
+            </button>
+          )}
           <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
             <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Dnešný program</h3>
             {todayProgram.length === 0 ? <p className="text-sm text-slate-400">Dnes nie sú objednaní žiadni pacienti.</p>
@@ -841,7 +848,62 @@ function AngioAdmin({ data, role }) {
         </div>
       )}
 
+      {tab === "callbacks" && <AngioCallbacks data={data} canManage={canManage} />}
       {tab === "settings" && canManage && <AngioSettings data={data} isSuper={isSuper} />}
+    </div>
+  );
+}
+
+// ---------- Spätné volania („Zavolajte mi späť", angio-013) ----------
+const CB_STATUSES = { new: "Nová", called: "Volané", booked: "Objednaný", unreachable: "Nedovolali sme sa", closed: "Uzavreté" };
+const cbChip = (s) => s === "new" ? "bg-amber-100 text-amber-800" : s === "booked" ? "bg-emerald-100 text-emerald-800" : s === "unreachable" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
+function AngioCallbackRow({ cb, data, canManage }) {
+  const [status, setStatus] = useState(cb.status);
+  const [note, setNote] = useState(cb.statusNote || "");
+  const [msg, setMsg] = useState("");
+  useEffect(() => { setStatus(cb.status); setNote(cb.statusNote || ""); }, [cb.status, cb.statusNote]);
+  const dirty = status !== cb.status || note !== (cb.statusNote || "");
+  const save = async () => { setMsg(""); try { await data.setCallbackStatus(cb.id, status, note); setMsg("✓ Uložené."); } catch (e) { setMsg(e?.message || String(e)); } };
+  const when = cb.createdAt ? new Date(cb.createdAt) : null;
+  const whenTxt = when ? `${fmtD(toISODate(when))} ${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}` : "";
+  const prefTxt = cb.pref === "dopoludnia" ? "dopoludnia" : cb.pref === "popoludni" ? "popoludní" : "kedykoľvek";
+  return (
+    <div data-testid="callback-row" className="border border-[#E0E4EF] rounded-[10px] bg-white p-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-slate-800">{cb.patientName}</span>
+        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-[#2B46A2] hover:underline" data-testid="callback-phone">{cb.phone}</a>
+        <span className="text-xs text-slate-500">volať {prefTxt}</span>
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
+        <span className="ml-auto text-xs text-slate-400">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>
+      </div>
+      {canManage && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <select className="p-2 bg-white border border-slate-300 rounded-[8px] text-sm" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="callback-status">
+            {Object.entries(CB_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input className="flex-1 min-w-[12rem] p-2 bg-white border border-slate-300 rounded-[8px] text-sm" placeholder="Poznámka (napr. objednaný na 20.10. 9:00, číslo objednávky)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="callback-note" />
+          <button type="button" onClick={save} disabled={!dirty} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-[8px]">Uložiť</button>
+          {msg && <span className={`text-xs font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</span>}
+        </div>
+      )}
+      {!canManage && cb.statusNote && <p className="text-xs text-slate-600">{cb.statusNote}</p>}
+    </div>
+  );
+}
+function AngioCallbacks({ data, canManage }) {
+  const [onlyOpen, setOnlyOpen] = useState(true);
+  const list = (data.callbacks || []).filter((c) => (onlyOpen ? c.status === "new" || c.status === "unreachable" : true));
+  return (
+    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-lg font-bold text-[#2B46A2]">Spätné volania</h3>
+        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} data-testid="callbacks-only-open" /> len nevybavené
+        </label>
+      </div>
+      <p className="text-xs text-slate-400">Pacienti, ktorí nezvládli online objednanie a nechali nám číslo (stránka Zachráň nohu / angio). Sľúbili sme im hovor najneskôr nasledujúci pracovný deň. Po hovore zmeňte stav a objednajte ich cez stránku objednávania.</p>
+      {list.length === 0 ? <p className="text-sm text-slate-400" data-testid="callbacks-empty">{onlyOpen ? "Žiadne nevybavené žiadosti." : "Zatiaľ žiadne žiadosti."}</p>
+        : <div className="space-y-2">{list.map((cb) => <AngioCallbackRow key={cb.id} cb={cb} data={data} canManage={canManage} />)}</div>}
     </div>
   );
 }
@@ -863,6 +925,9 @@ function AngioSettings({ data, isSuper }) {
   useEffect(() => { setSmsVerify(!!data.smsVerify); }, [data.smsVerify]);
   const saveSmsVerifyClick = () => { setMsg(""); data.saveSmsVerify(smsVerify).then(() => setMsg(smsVerify ? "✓ Overovanie telefónu zapnuté." : "✓ Overovanie telefónu vypnuté.")).catch((e) => setMsg(e.message)); };
   const saveNotesClick = () => { setMsg(""); data.saveNotes(notes).then(() => setMsg("✓ Spoločné pokyny uložené.")).catch((e) => setMsg(e.message)); };
+  const [cbSmsTo, setCbSmsTo] = useState(() => data.callbackSmsTo || "");
+  useEffect(() => { setCbSmsTo(data.callbackSmsTo || ""); }, [data.callbackSmsTo]);
+  const saveCbSmsToClick = () => { setMsg(""); data.saveCallbackSmsTo(cbSmsTo).then(() => setMsg("✓ Mobil pre SMS uložený.")).catch((e) => setMsg(e.message)); };
 
   return (
     <div className="space-y-5">
@@ -920,6 +985,14 @@ function AngioSettings({ data, isSuper }) {
       </div>
 
       <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
+        <h3 className="text-lg font-bold text-[#2B46A2]">Spätné volania — mobil pre SMS</h3>
+        <p className="text-xs text-slate-400">Keď pacient na stránke nechá číslo („Zavolajte mi späť"), príde SMS na tento mobil a e-mail na kópiu objednávok. Prázdne = SMS sa neposiela, e-mail áno. (Vyžaduje spustený angio-013.sql.)</p>
+        <input className={inp} type="tel" placeholder="napr. 0949 000 677" value={cbSmsTo} onChange={(ev) => setCbSmsTo(ev.target.value)} disabled={!isSuper} data-testid="callback-sms-to" />
+        {!isSuper && <p className="text-xs text-[#856404]">Mobil môže zmeniť len superadmin.</p>}
+        {isSuper && <div><button onClick={saveCbSmsToClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť mobil</button></div>}
+      </div>
+
+      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
         <h3 className="text-lg font-bold text-[#2B46A2]">Lekári ambulancie</h3>
         {!isSuper && <p className="text-xs text-[#856404]">Zoznam lekárov môže meniť len superadmin.</p>}
         {docs.map((d, i) => (
@@ -963,7 +1036,7 @@ export function AngioPatientApp() {
   const landingExam = findLandingExam(landing, data.pricelist);
   if (landing && landingExam) {
     return (
-      <ZachranNohuLanding landing={landing} exam={landingExam}>
+      <ZachranNohuLanding landing={landing} exam={landingExam} requestCallback={data.requestCallback}>
         <AngioBookingView data={data} landing={landing} />
         <AngioOrderLookup data={data} initialId={orderLinkId} />
       </ZachranNohuLanding>
@@ -983,6 +1056,7 @@ export function AngioPatientApp() {
         </p>
       </div>
       <AngioBookingView data={data} landing={null} />
+      <CallbackCard onRequest={data.requestCallback} source="angio1" />
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );
