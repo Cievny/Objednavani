@@ -15,6 +15,27 @@ import { useAngioData } from "./podappkyData.js";
 
 export const CLINIC_NAME = "Angiologická ambulancia č. 1";
 
+// Vstupy s jedným predvybraným vyšetrením (#/angio1/<kľúč>): pacient nevidí
+// zoznam ostatných typov, ide rovno na výber termínu. Termíny, lekári
+// a správa sú spoločné s ambulanciou. Vyšetrenie sa hľadá podľa id, náhradne
+// podľa názvu (keby sa id v cenníku zmenilo); ak nie je aktívne, zobrazí sa
+// bežný zoznam.
+export const ANGIO_LANDINGS = {
+  zachrannohu: {
+    examTypeId: "ang_vnwtrvq2",
+    labelMatch: /zachr[áa][ňn] nohu/i,
+    title: "Zachráň nohu",
+    subtitle: "Rýchle zhodnotenie nehojacej sa rany, vredu alebo zmeny farby prsta či chodidla — Angiologická ambulancia č. 1, NÚSCH, a.s.",
+    intro: "Objednajte sa online, bez poplatku a bez žiadanky. Termín si vyberiete sami, potvrdenie príde e-mailom a SMS.",
+    urgent: "Nečakajte na termín a volajte 155, ak máte náhlu silnú bolesť nohy, noha je bledá či chladná, necítite ju alebo ňou nevládzete hýbať, ak máte čierny prst alebo ranu s horúčkou. Pri náhlom uzávere cievy rozhodujú hodiny.",
+  },
+};
+export const findLandingExam = (landing, pricelist) => {
+  if (!landing) return null;
+  const list = pricelist || [];
+  return list.find((p) => p.id === landing.examTypeId) || list.find((p) => landing.labelMatch.test(p.label || "")) || null;
+};
+
 const newAngioId = () => {
   const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   const b = new Uint8Array(10); (window.crypto || window.msCrypto).getRandomValues(b);
@@ -58,9 +79,15 @@ function FormattedText({ text }) {
 }
 
 // ---------- Pacientske objednávanie (verejné) ----------
-function AngioBookingView({ data }) {
+function AngioBookingView({ data, landing = null }) {
   const [step, setStep] = useState(1);
   const [examTypeId, setExamTypeId] = useState("");
+  // vstup s jedným vyšetrením: predvybrať a preskočiť krok 1 (aj po „Nová objednávka")
+  const landingExam = findLandingExam(landing, data.pricelist);
+  useEffect(() => {
+    if (landingExam && step === 1 && !examTypeId) { setExamTypeId(landingExam.id); setStep(2); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [landingExam?.id, step, examTypeId]);
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -198,8 +225,23 @@ function AngioBookingView({ data }) {
 
       {step === 2 && (
         <div className="space-y-4">
-          <button onClick={() => setStep(1)} className="text-sm text-[#2B46A2] hover:underline">← Zmeniť vyšetrenie</button>
-          <p className="text-sm text-slate-600">Vybrané: <b>{examType?.label}</b></p>
+          {landingExam
+            ? (
+              <div data-testid="landing-exam" className="border-2 border-[#2B46A2] bg-[#F0F4FF] rounded-[10px] p-3">
+                <p className="font-bold text-slate-800">{examType?.label}</p>
+                <p className="text-xs text-slate-500 mt-1">Trvanie ~{(examType?.durationSlots || 3) * 5} min{examType?.description ? ` · ${examType.description}` : ""}{examType?.requiresReferral === false ? " · bez žiadanky" : ""}</p>
+                {examType?.about && (
+                  <>
+                    <button type="button" onClick={() => setAboutOpen((o) => (o ? "" : examType.id))} className="text-xs font-semibold text-[#2B46A2] hover:underline mt-1">
+                      {aboutOpen ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
+                    </button>
+                    {aboutOpen && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={examType.about} /></div>}
+                  </>
+                )}
+              </div>
+            )
+            : <button onClick={() => setStep(1)} className="text-sm text-[#2B46A2] hover:underline">← Zmeniť vyšetrenie</button>}
+          {!landingExam && <p className="text-sm text-slate-600">Vybrané: <b>{examType?.label}</b></p>}
           <div className="grid md:grid-cols-2 gap-5">
             <MonthCalendar monthDate={monthDate}
               onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
@@ -893,6 +935,10 @@ export function AngioPatientApp() {
   // deep-link z e-mailu: #/angio1/objednavka/ANG-… → predvyplní „Už máte objednávku?"
   const hash = window.location.hash || "";
   const orderLinkId = hash.startsWith("#/angio1/objednavka/") ? decodeURIComponent(hash.slice("#/angio1/objednavka/".length)).trim() : "";
+  // vstup s jedným vyšetrením: #/angio1/zachrannohu
+  const landingKey = (hash.match(/^#\/angio1\/([a-z0-9-]+)\/?$/) || [])[1];
+  const landing = landingKey && landingKey !== "objednavka" && landingKey !== "sprava" ? ANGIO_LANDINGS[landingKey] || null : null;
+  const landingExam = findLandingExam(landing, data.pricelist);
   return (
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
@@ -900,13 +946,28 @@ export function AngioPatientApp() {
           <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
           <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Späť na hlavnú stránku</a>
         </div>
-        <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
-        <p className="text-sm text-white/90 mt-2 max-w-xl">
-          Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
-          preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
-        </p>
+        {landing && landingExam ? (
+          <>
+            <h1 data-testid="landing-title" className="text-2xl md:text-3xl font-extrabold leading-tight">{landing.title}</h1>
+            <p className="text-sm text-white/90 mt-1 max-w-xl">{landing.subtitle}</p>
+            <p className="text-sm text-white/90 mt-2 max-w-xl">{landing.intro}</p>
+            {landing.urgent && (
+              <p data-testid="landing-urgent" className="mt-3 max-w-xl text-sm bg-white text-[#B91C1C] border-l-4 border-[#D32821] rounded-[8px] px-3 py-2">
+                <b>Kedy nečakať:</b> {landing.urgent}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
+            <p className="text-sm text-white/90 mt-2 max-w-xl">
+              Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
+              preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
+            </p>
+          </>
+        )}
       </div>
-      <AngioBookingView data={data} />
+      <AngioBookingView data={data} landing={landing} />
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>
   );

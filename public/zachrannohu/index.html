@@ -2,24 +2,53 @@
 <html lang="sk">
 <head>
 <meta charset="utf-8">
-<title>Angiologická ambulancia č. 1 — objednanie</title>
-<meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zachráň nohu — objednajte sa na vyšetrenie | NÚSCH, a.s.</title>
+<meta name="description" content="Rýchle zhodnotenie nehojacej sa rany, vredu alebo zmeny farby prsta či chodidla. Online objednanie do Angiologickej ambulancie č. 1 NÚSCH, bez poplatku a bez žiadanky.">
+<link rel="canonical" href="https://objednanie.cievny.sk/zachrannohu/">
+<!-- Náhľad pri zdieľaní (LinkedIn, Facebook, WhatsApp, iMessage). Roboty JavaScript
+     nespúšťajú, preto si náhľad berú z tejto stránky; ľudí presmeruje skript nižšie. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NÚSCH — objednávanie">
+<meta property="og:locale" content="sk_SK">
+<meta property="og:url" content="https://objednanie.cievny.sk/zachrannohu/">
+<meta property="og:title" content="Zachráň nohu — objednajte sa na vyšetrenie">
+<meta property="og:description" content="Nehojaca sa rana, vred alebo zmena farby prsta či chodidla? Objednajte sa online do Angiologickej ambulancie č. 1 NÚSCH, bez poplatku a bez žiadanky.">
+<meta property="og:image" content="https://objednanie.cievny.sk/zachrannohu/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Zachráň nohu — objednajte sa na cievne vyšetrenie">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Zachráň nohu — objednajte sa na vyšetrenie">
+<meta name="twitter:description" content="Online objednanie do Angiologickej ambulancie č. 1 NÚSCH, bez poplatku a bez žiadanky.">
+<meta name="twitter:image" content="https://objednanie.cievny.sk/zachrannohu/og.png">
+<style>
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#F8F9FC;color:#0f172a}
+  .box{max-width:560px;margin:48px auto;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:32px 24px;text-align:center}
+  h1{color:#2B46A2;font-size:24px;margin:0 0 8px}
+  p{color:#475569;line-height:1.5;margin:0 0 20px}
+  a.btn{display:inline-block;background:#2B46A2;color:#fff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:12px;font-size:18px}
+  small{display:block;margin-top:16px;color:#94a3b8;font-size:12px}
+</style>
 <script>
-  // Krátka adresa /zachrannohu (aj /angio1) → aplikácia (#/angio1). Relatívne, aby fungovala
-  // aj v bete (/beta/angio1 → /beta/#/angio1). Voliteľne prenesie ID objednávky:
-  // /zachrannohu/?o=ANG-XXXX → #/angio1/objednavka/ANG-XXXX
+  // Krátka adresa /zachrannohu → aplikácia (#/angio1/zachrannohu — vstup
+  // s predvybraným vyšetrením „Zachráň nohu"). Relatívne, aby fungovala aj
+  // v bete (/beta/zachrannohu → /beta/#/angio1/zachrannohu). Voliteľne
+  // prenesie ID objednávky: /zachrannohu/?o=ANG-XXXX → #/angio1/objednavka/ANG-XXXX
   (function () {
     var q = new URLSearchParams(location.search);
     var o = (q.get('o') || '').trim();
-    // koreň aplikácie = cesta bez posledného segmentu /angio1 alebo /angio (s lomkou aj bez, aj /beta/…)
     var base = location.pathname.replace(/(zachrannohu|angio1|angio)\/?(index\.html)?$/, '');
-    location.replace(base + '#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : ''));
+    location.replace(base + (o ? '#/angio1/objednavka/' + encodeURIComponent(o) : '#/angio1/zachrannohu'));
   })();
 </script>
-<meta http-equiv="refresh" content="0; url=../#/angio1">
 </head>
-<body style="font-family:Arial,sans-serif;padding:24px;color:#0f172a">
-  <p>Presmerúvame na objednávanie… Ak sa nič nedeje, <a href="../#/angio1">kliknite sem</a>.</p>
+<body>
+  <div class="box">
+    <h1>Zachráň nohu — objednajte sa na vyšetrenie</h1>
+    <p>Rýchle zhodnotenie nehojacej sa rany, vredu alebo zmeny farby prsta či chodidla.<br>Angiologická ambulancia č. 1 · NÚSCH, a.s. Bratislava</p>
+    <a class="btn" href="../#/angio1/zachrannohu">Objednať sa online</a>
+    <small>Presmerúvame vás na objednávanie… Ak sa nič nedeje, kliknite na tlačidlo.</small>
+  </div>
 </body>
 </html>
