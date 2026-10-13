@@ -3,7 +3,7 @@ import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
-  insuranceOptions, normalizePhone, ArrivedBadge,
+  insuranceOptions, normalizePhone, ArrivedBadge, BirthDateInput,
 } from "./booking.jsx";
 import { useAngioData } from "./podappkyData.js";
 import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
@@ -283,7 +283,7 @@ function AngioBookingView({ data, landing = null }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia *</label>
-              <input className={ic("birthDate")} type="date" value={form.birthDate} onChange={set("birthDate")} />
+              <BirthDateInput className={ic("birthDate")} value={form.birthDate} onChange={(v) => { setForm((f) => ({ ...f, birthDate: v })); clearErr("birthDate"); }} />
               <Err k="birthDate" />
             </div>
             <div>
@@ -851,13 +851,13 @@ function AngioCallbackRow({ cb, data, canManage }) {
   const save = async () => { setMsg(""); try { await data.setCallbackStatus(cb.id, status, note); setMsg("✓ Uložené."); } catch (e) { setMsg(e?.message || String(e)); } };
   const when = cb.createdAt ? new Date(cb.createdAt) : null;
   const whenTxt = when ? `${fmtD(toISODate(when))} ${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}` : "";
-  const prefTxt = cb.pref === "dopoludnia" ? "dopoludnia" : cb.pref === "popoludni" ? "popoludní" : "kedykoľvek";
+  const prefTxt = cb.pref === "dopoludnia" ? "dopoludnia" : cb.pref === "popoludni" ? "popoludní" : "";
   return (
     <div data-testid="callback-row" className="border border-[#E0E4EF] rounded-[10px] bg-white p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-slate-800">{cb.patientName}</span>
         <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-[#2B46A2] hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
-        <span className="text-xs text-slate-500">volať {prefTxt}</span>
+        {prefTxt && <span className="text-xs text-slate-500">volať {prefTxt}</span>}
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
         <span className="ml-auto text-xs text-slate-400">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>
       </div>

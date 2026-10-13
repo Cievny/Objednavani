@@ -194,18 +194,16 @@ const ArteryIllustration = () => (
 export function CallbackCard({ onRequest, source = "angio1" }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [pref, setPref] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const [err, setErr] = useState("");
   const submit = async (e) => {
     e.preventDefault(); setErr(""); setBusy(true);
-    try { const r = await onRequest({ name, phone, pref, source }); setDone(r || { ok: true }); }
+    try { const r = await onRequest({ name, phone, pref: "", source }); setDone(r || { ok: true }); }
     catch (ex) { setErr(friendlyError(ex?.message || String(ex))); }
     finally { setBusy(false); }
   };
-  const prefLbl = pref === "dopoludnia" ? "dopoludnia" : pref === "popoludni" ? "popoludní" : "v pracovnom čase";
-  const field = "w-full p-4 bg-white border-2 border-slate-300 rounded-[12px] text-slate-800 text-lg focus:border-[#2B46A2] focus:ring-2 focus:ring-[#2B46A2] outline-none";
+  const field = "w-full px-4 py-3.5 bg-white border-2 border-slate-200 rounded-[12px] text-slate-800 text-lg placeholder:text-slate-400 focus:border-[#2B46A2] focus:ring-4 focus:ring-[#2B46A2]/15 outline-none transition-colors";
   return (
     <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-7 border-2 border-[#2B46A2]/20" data-testid="callback-card">
       <h2 className="text-2xl md:text-3xl font-extrabold text-[#1E3580] leading-tight">Nejde vám objednanie online? Zavoláme vám.</h2>
@@ -213,11 +211,11 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
       {done ? (
         <div className="mt-5 rounded-[12px] bg-[#F0F4FF] border border-[#c9d6f5] p-5 text-[#1E3580]" data-testid="callback-done" role="status" aria-live="polite">
           <p className="text-xl font-extrabold">Ďakujeme, {name.trim()}.</p>
-          <p className="mt-1 text-base">Žiadosť sme prijali. Zavoláme vám na číslo <b>{phone.trim()}</b> {prefLbl}, najneskôr nasledujúci pracovný deň. Telefón majte prosím pri sebe.</p>
+          <p className="mt-1 text-base">Žiadosť sme prijali. Zavoláme vám na číslo <b>{phone.trim()}</b> najneskôr nasledujúci pracovný deň. Telefón majte prosím pri sebe.</p>
           <p className="mt-3 text-sm text-slate-600">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
         </div>
       ) : (
-        <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
+        <form onSubmit={submit} className="mt-6 space-y-5" noValidate>
           <label className="block">
             <span className="block text-sm font-bold text-slate-700 mb-1">Meno a priezvisko</span>
             <input className={field} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="napr. Mária Nováková" data-testid="cb-name" required />
@@ -226,21 +224,12 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
             <span className="block text-sm font-bold text-slate-700 mb-1">Telefónne číslo</span>
             <input className={field} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="napr. 0949 123 456" data-testid="cb-phone" required />
           </label>
-          <fieldset className="border-0 p-0 m-0">
-            <legend className="block text-sm font-bold text-slate-700 mb-1">Kedy vám môžeme volať?</legend>
-            <div className="flex flex-wrap gap-2">
-              {[["", "Kedykoľvek"], ["dopoludnia", "Dopoludnia"], ["popoludni", "Popoludní"]].map(([v, l]) => (
-                <button key={v || "any"} type="button" onClick={() => setPref(v)} data-testid={`cb-pref-${v || "any"}`} aria-pressed={pref === v}
-                  className={`min-h-[44px] px-4 py-2.5 rounded-[10px] text-base font-bold border-2 ${pref === v ? "bg-[#2B46A2] border-[#2B46A2] text-white" : "bg-white border-slate-300 text-slate-700 hover:border-[#2B46A2]"}`}>{l}</button>
-              ))}
-            </div>
-          </fieldset>
           {err && <p className="text-red-600 font-semibold" data-testid="cb-error" role="alert">{err}</p>}
           <button type="submit" disabled={busy} data-testid="cb-submit"
-            className="w-full md:w-auto bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-lg font-bold px-8 py-4 rounded-[12px] shadow">
+            className="w-full md:w-auto md:min-w-[18rem] bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-lg font-bold px-8 py-4 rounded-[12px] shadow-md transition-colors">
             {busy ? "Odosielam…" : "Zavolajte mi späť ›"}
           </button>
-          <p className="text-xs text-slate-500">Číslo použijeme len na dohodnutie termínu. Objednať vás môže aj syn, dcéra či sused — stačí, keď sem napíše vaše meno a telefón, na ktorom vás zastihneme.</p>
+          <p className="text-sm text-slate-500 leading-relaxed">Číslo použijeme len na dohodnutie termínu. Objednať vás môže aj syn, dcéra či sused — stačí, keď sem napíše vaše meno a telefón, na ktorom vás zastihneme.</p>
         </form>
       )}
     </div>

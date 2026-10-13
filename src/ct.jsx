@@ -3,7 +3,7 @@ import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
-  insuranceOptions, validateBirthNumber, normalizePhone, ArrivedBadge,
+  insuranceOptions, validateBirthNumber, normalizePhone, ArrivedBadge, BirthDateInput,
 } from "./booking.jsx";
 import { useCtData } from "./podappkyData.js";
 
@@ -168,7 +168,7 @@ function CtBookingView({ data }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia *</label>
-              <input className={ic("birthDate")} type="date" value={form.birthDate} onChange={set("birthDate")} />
+              <BirthDateInput className={ic("birthDate")} value={form.birthDate} onChange={(v) => { setForm((f) => ({ ...f, birthDate: v })); clearErr("birthDate"); }} />
               <Err k="birthDate" />
             </div>
             <div>

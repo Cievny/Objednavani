@@ -183,6 +183,39 @@ export const BASE_SLOT_MIN = 5;
 
 // Telefón do jednotného tvaru +421… — pacienti zadávajú číslo aj bez
 // úvodnej nuly či predvoľby; SMS brána potrebuje medzinárodný formát.
+// Dátum narodenia: pacient píše číslice (DD.MM.RRRR), bodky sa dopĺňajú samy.
+// Natívny <input type="date"> otvára kalendár od dnešného dňa — pre rok narodenia
+// 1950 je to desiatky klikov. onChange dostane ISO (RRRR-MM-DD), pri neúplnom
+// alebo neplatnom dátume "" (existujúce kontroly „Zadajte dátum narodenia" platia).
+export function BirthDateInput({ value, onChange, className = "", ...rest }) {
+  const isoToText = (iso) => (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : "");
+  const [text, setText] = useState(() => isoToText(value));
+  const [hint, setHint] = useState("");
+  const emitted = useRef(value || "");
+  // zmena zvonku (reset formulára, predvyplnenie) → prevziať; vlastné zmeny ignorovať
+  useEffect(() => { if ((value || "") !== emitted.current) { emitted.current = value || ""; setText(isoToText(value)); setHint(""); } }, [value]);
+  const emit = (iso) => { emitted.current = iso; onChange(iso); };
+  const handle = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 8);
+    const t = d.slice(0, 2) + (d.length > 2 ? "." + d.slice(2, 4) : "") + (d.length > 4 ? "." + d.slice(4, 8) : "");
+    setText(t);
+    if (d.length < 8) { setHint(""); if (emitted.current) emit(""); return; }
+    const day = +d.slice(0, 2), mon = +d.slice(2, 4), yr = +d.slice(4, 8);
+    const dt = new Date(Date.UTC(yr, mon - 1, day));
+    const ok = yr >= 1900 && mon >= 1 && mon <= 12 && day >= 1 && dt.getUTCDate() === day && dt.getUTCMonth() === mon - 1 && dt.getTime() <= Date.now();
+    if (!ok) { setHint("Skontrolujte dátum — zadajte deň.mesiac.rok, napr. 15.05.1958."); if (emitted.current) emit(""); return; }
+    setHint("");
+    emit(`${yr}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+  };
+  return (
+    <>
+      <input type="text" inputMode="numeric" autoComplete="bday" placeholder="DD.MM.RRRR" maxLength={10} value={text} onChange={handle}
+        className={className} aria-describedby={hint ? "birth-hint" : undefined} data-testid="birth-date" {...rest} />
+      {hint && <p id="birth-hint" className="text-xs text-red-600 mt-1">{hint}</p>}
+    </>
+  );
+}
+
 export function normalizePhone(input) {
   const d = (input || "").replace(/\D/g, "");
   if (d.startsWith("00")) return "+" + d.slice(2);
@@ -862,7 +895,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </div>
             <div>
               <label className={labelCls}>Dátum narodenia *</label>
-              <input type="date" required value={form.birthDate} onChange={(e) => setField("birthDate", e.target.value)} max={toISODate(new Date())} className={inputCls} />
+              <BirthDateInput required value={form.birthDate} onChange={(v) => setField("birthDate", v)} className={inputCls} />
               <p className="text-xs text-slate-400 mt-1">Rodné číslo od vás nepýtame — doplní sa až pri vyšetrení alebo zo žiadanky.</p>
             </div>
             <div>
