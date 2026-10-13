@@ -53,6 +53,11 @@ treba dokončiť body nižšie.
 
 - [ ] Overiť schválenie odosielateľa „NUSCH" (gText) a kredit
 - [ ] Testovacia SMS na 0917911202 (objednávka + potvrdenie platby)
+- [ ] E-mail personálu pri novej objednávke (`supabase/angio-014.sql`): angio a CT
+      posielajú správu na `copy_email` + `notify_email` (nová objednávka, zrušenie
+      pacientom); USG posiela na `notify_email` (notify_order_emails). `copy_email`
+      je chránený kľúč — mení sa len v SQL editore:
+      `update settings set value = 'adresa@nusch.sk' where key = 'copy_email';`
 - [ ] Spätné volania (v99, `supabase/angio-013.sql`): spustiť skript v SQL editore,
       potom Správa → Angio → Nastavenia → „Spätné volania — mobil pre SMS" zadať
       mobil pracoviska. Pacient na stránke nechá meno + číslo („Zavolajte mi späť"),
