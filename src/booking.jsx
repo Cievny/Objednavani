@@ -93,15 +93,15 @@ const usgStatuses = {
 export function orderTone(order) {
   const unpaid = !order.paid && order.price > 0;
   if (order.status === "done" || order.status === "noshow") {
-    return { cls: "bg-[#F0F2F5] border-[#C9CFDD] text-[#767676]", accent: "border-l-[#C9CFDD]", label: "vybavená" };
+    return { cls: "bg-soft border-line text-muted", accent: "border-l-line", label: "vybavená" };
   }
   if (unpaid) {
-    return { cls: "bg-[#FFF6E0] border-[#E0C878] text-[#856404]", accent: "border-l-[#E0A800]", label: "nezaplatená" };
+    return { cls: "bg-warn-soft border-warn/30 text-warn", accent: "border-l-warn", label: "nezaplatená" };
   }
   if (order.status === "new") {
-    return { cls: "bg-[#EAF0FF] border-[#2B46A2] text-[#2B46A2]", accent: "border-l-[#7C9BE8]", label: "zaplatená — čaká na potvrdenie" };
+    return { cls: "bg-brand-soft border-brand text-brand", accent: "border-l-brand", label: "zaplatená — čaká na potvrdenie" };
   }
-  return { cls: "bg-[#2B46A2] border-[#1E3580] text-white", accent: "border-l-[#2B46A2]", label: "potvrdená a zaplatená" };
+  return { cls: "bg-brand border-brand-dark text-white", accent: "border-l-brand", label: "potvrdená a zaplatená" };
 }
 
 const defaultSettings = {
@@ -403,14 +403,14 @@ const PaymentQr = ({ order, settings, note }) => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-300 p-4 rounded-[10px] text-sm text-red-700">
+      <div className="bg-red-50 border border-red-300 p-4 rounded-lg text-sm text-red-700">
         QR kód sa nepodarilo vygenerovať — skontrolujte IBAN v nastaveniach správy. ({error})
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-[10px] p-3 inline-block shadow-sm">
+    <div className="bg-white border border-slate-200 rounded-lg p-3 inline-block shadow-sm">
       {dataUrl
         ? <img src={dataUrl} alt="QR platba" width={260} height={260} />
         : <div className="w-[260px] h-[260px] flex items-center justify-center text-slate-400">Generujem QR…</div>}
@@ -421,29 +421,29 @@ const PaymentQr = ({ order, settings, note }) => {
 // --- 4. PACIENTSKY SPRIEVODCA (štýl Bookio) ---
 
 const UsgHero = () => (
-  <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 mb-4 text-slate-800">
-    <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 mb-4 text-sm font-semibold">
+  <div className="bg-white rounded-xl border border-line p-5 md:p-8 mb-4 text-slate-800">
+    <div className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-3 mb-4 text-sm font-semibold">
       Skúšobná prevádzka: objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné
       a pracovisko vás môže kontaktovať s upresnením. Ďakujeme za pochopenie.
     </div>
     {/* Bannerový hero — fotografia USG vyšetrenia s modrým prekryvom pre text */}
-    <div className="relative overflow-hidden rounded-[12px] mb-5 min-h-[240px] md:min-h-[300px] flex flex-col justify-center">
+    <div className="relative overflow-hidden rounded-lg mb-5 min-h-[240px] md:min-h-[300px] flex flex-col justify-center">
       <img
         src="hero-usg.jpg" alt="" aria-hidden="true"
         className="absolute inset-0 h-full w-full object-cover object-right"
       />
       {/* modrý gradient zľava — text ostane čitateľný, fotka presvitá vpravo */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#1E3580] via-[#2B46A2]/85 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand/85 to-transparent" />
       <div className="relative p-6 md:p-8">
         <div className="flex items-center gap-4">
-          <div className="shrink-0 bg-white rounded-[12px] p-2 shadow-sm">
+          <div className="shrink-0 bg-white rounded-lg p-2 shadow-sm">
             <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-12 h-12 md:w-14 md:h-14 block" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">
+            <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 uppercase mb-1">
               Národný ústav srdcových a cievnych chorôb, a.s.
             </p>
-            <h2 className="text-xl md:text-3xl font-extrabold text-white leading-tight drop-shadow-sm">
+            <h2 className="text-xl md:text-3xl font-semibold text-white leading-tight drop-shadow-sm">
               Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie
             </h2>
           </div>
@@ -455,19 +455,19 @@ const UsgHero = () => (
       </div>
     </div>
     <div className="grid md:grid-cols-3 gap-3">
-      <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
+      <div className="bg-soft border border-slate-200 rounded-lg p-4">
         <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Skúsení odborníci</p>
         <p className="text-base md:text-lg text-slate-600 leading-relaxed">
           Vyšetrenie vykonávajú lekári s dlhoročnou praxou v cievnej diagnostike na moderných ultrazvukových prístrojoch.
         </p>
       </div>
-      <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
+      <div className="bg-soft border border-slate-200 rounded-lg p-4">
         <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Tradícia a špecializácia</p>
         <p className="text-base md:text-lg text-slate-600 leading-relaxed">
           NÚSCH je špičkové slovenské pracovisko pre srdce a cievy — diagnostike cievnych ochorení sa venujeme desaťročia.
         </p>
       </div>
-      <div className="bg-[#f5f8fb] border border-slate-200 rounded-[10px] p-4">
+      <div className="bg-soft border border-slate-200 rounded-lg p-4">
         <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Starostlivosť, ktorá nekončí nálezom</p>
         <p className="text-base md:text-lg text-slate-600 leading-relaxed">
           Pri pozitívnom náleze na vyšetrenie priamo nadväzuje ďalšia diagnostika a liečba u našich špecialistov — všetko pod jednou strechou.
@@ -489,11 +489,11 @@ const StepIndicator = ({ current }) => (
         <div key={label} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${
-              done ? "bg-emerald-500 text-white" : active ? "bg-[#2B46A2] text-white" : "bg-slate-200 text-slate-500"
+              done ? "bg-emerald-500 text-white" : active ? "bg-brand text-white" : "bg-slate-200 text-slate-500"
             }`}>
               {done ? "✓" : stepNum}
             </div>
-            <span className={`text-[11px] mt-1 font-semibold whitespace-nowrap ${active ? "text-[#2B46A2]" : done ? "text-emerald-600" : "text-slate-400"}`}>
+            <span className={`text-[11px] mt-1 font-semibold whitespace-nowrap ${active ? "text-brand" : done ? "text-emerald-600" : "text-slate-400"}`}>
               {label}
             </span>
           </div>
@@ -548,11 +548,11 @@ const MonthCalendar = ({ monthDate, onMonthChange, isAvailable, selected, onSele
               disabled={!selectable}
               onClick={() => onSelect(iso)}
               className={`aspect-square rounded-full text-sm font-semibold transition-colors ${
-                isSelected ? "bg-[#2B46A2] text-white"
-                : available ? "bg-[#F0F4FF] text-[#2B46A2] hover:bg-[#d8e8f6]"
-                : selectable ? "text-[#444444] hover:bg-slate-100"
+                isSelected ? "bg-brand text-white"
+                : available ? "bg-brand-soft text-brand hover:bg-brand-soft"
+                : selectable ? "text-ink hover:bg-slate-100"
                 : "text-slate-300 cursor-default"
-              } ${isToday && !isSelected ? "ring-1 ring-[#2B46A2]" : ""}`}
+              } ${isToday && !isSelected ? "ring-1 ring-brand" : ""}`}
             >
               {day}
             </button>
@@ -750,18 +750,18 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
 
   const resetWizard = () => { setCreatedOrder(null); setForm(emptyForm); setStep(1); setError(""); };
 
-  const inputCls = "w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 focus:ring-2 focus:ring-[#2B46A2] focus:border-[#2B46A2] outline-none";
+  const inputCls = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-2 focus:ring-brand focus:border-brand outline-none";
   const labelCls = "block text-sm font-semibold text-slate-600 mb-1";
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 text-slate-800">
+    <div className="bg-white rounded-xl border border-line p-5 md:p-8 text-slate-800">
       <StepIndicator current={step} />
 
       {/* KROK 1 — VYŠETRENIE */}
       {step === 1 && (
         <div className="space-y-5">
           <div>
-            <h3 className="text-lg font-bold text-[#2B46A2] mb-1">Máte žiadanku od lekára?</h3>
+            <h3 className="text-lg font-bold text-brand mb-1">Máte žiadanku od lekára?</h3>
             <p className="text-sm text-slate-500 mb-3">
               Ide o platené vyšetrenia v rámci doplnkových ordinačných hodín. So žiadankou (výmenným lístkom)
               platíte len doplatok, bez žiadanky plnú cenu podľa cenníka.
@@ -770,8 +770,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               <button
                 type="button"
                 onClick={() => chooseReferral("yes")}
-                className={`flex-1 p-4 rounded-[10px] border-2 text-left transition-colors ${
-                  form.hasReferral === "yes" ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"
+                className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors ${
+                  form.hasReferral === "yes" ? "border-brand bg-brand-soft" : "border-slate-200 hover:border-brand/50"
                 }`}
               >
                 <span className="font-bold text-slate-800">Áno, mám žiadanku</span>
@@ -783,8 +783,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               <button
                 type="button"
                 onClick={() => chooseReferral("no")}
-                className={`flex-1 p-4 rounded-[10px] border-2 text-left transition-colors ${
-                  form.hasReferral === "no" ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"
+                className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors ${
+                  form.hasReferral === "no" ? "border-brand bg-brand-soft" : "border-slate-200 hover:border-brand/50"
                 }`}
               >
                 <span className="font-bold text-slate-800">Nie, nemám žiadanku</span>
@@ -795,22 +795,22 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
 
           {form.hasReferral && (
             <div>
-              <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Vyberte vyšetrenie</h3>
+              <h3 className="text-lg font-bold text-brand mb-3">Vyberte vyšetrenie</h3>
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                 {examChoices.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => setField("examTypeId", t.id)}
-                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-[10px] border-2 text-left transition-colors ${
-                      form.examTypeId === t.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"
+                    className={`w-full flex items-center justify-between gap-3 p-4 rounded-lg border-2 text-left transition-colors ${
+                      form.examTypeId === t.id ? "border-brand bg-brand-soft" : "border-slate-200 hover:border-brand/50"
                     }`}
                   >
                     <span>
                       <span className="font-semibold text-slate-800 text-sm">{t.label}</span>
                       <span className="block text-xs text-slate-400 mt-0.5">{(t.durationSlots || 2) * BASE_SLOT_MIN} min</span>
                     </span>
-                    <span className="text-[#2B46A2] font-bold whitespace-nowrap">{formatPrice(priceFor(t))}</span>
+                    <span className="text-brand font-bold whitespace-nowrap">{formatPrice(priceFor(t))}</span>
                   </button>
                 ))}
               </div>
@@ -827,12 +827,12 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
       {/* KROK 2 — TERMÍN */}
       {step === 2 && (
         <div>
-          <h3 className="text-lg font-bold text-[#2B46A2] mb-1">Vyberte termín</h3>
+          <h3 className="text-lg font-bold text-brand mb-1">Vyberte termín</h3>
           <p className="text-sm text-slate-500 mb-4">
-            {examType?.label} · <span className="font-semibold text-[#2B46A2]">{examType && formatPrice(priceFor(examType))}</span>
+            {examType?.label} · <span className="font-semibold text-brand">{examType && formatPrice(priceFor(examType))}</span>
           </p>
           {firstAvailableIso === null ? (
-            <p className="text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-[10px]">
+            <p className="text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
               Momentálne nie sú otvorené žiadne termíny na objednávanie. Skúste to prosím neskôr.
             </p>
           ) : (
@@ -858,10 +858,10 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
                           key={slot.time}
                           type="button"
                           onClick={() => setField("time", slot.time)}
-                          className={`py-2 px-2 rounded-[10px] text-sm font-bold border-2 transition-colors ${
+                          className={`py-2 px-2 rounded-lg text-sm font-bold border-2 transition-colors ${
                             form.time === slot.time
-                              ? "border-[#2B46A2] bg-[#2B46A2] text-white"
-                              : "border-[#E0E4EF] text-[#2B46A2] hover:border-[#2B46A2]"
+                              ? "border-brand bg-brand text-white"
+                              : "border-line text-brand hover:border-brand"
                           }`}
                         >
                           {slot.time}
@@ -882,10 +882,10 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
       {/* KROK 3 — ÚDAJE */}
       {step === 3 && (
         <form id="patient-details-form" onSubmit={handleSubmit} className="space-y-4">
-          <h3 className="text-lg font-bold text-[#2B46A2]">Vaše údaje</h3>
-          <div className="bg-[#F0F4FF] border border-[#E0E4EF] rounded-[10px] p-3 text-sm text-slate-700">
+          <h3 className="text-lg font-bold text-brand">Vaše údaje</h3>
+          <div className="bg-brand-soft border border-line rounded-lg p-3 text-sm text-slate-700">
             <strong>{examType?.label}</strong> — {formatDateHuman(form.date)} o {form.time} ·{" "}
-            <span className="font-bold text-[#2B46A2]">{examType && formatPrice(priceFor(examType))}</span>
+            <span className="font-bold text-brand">{examType && formatPrice(priceFor(examType))}</span>
             {isReferral && " (doplatok so žiadankou)"}
           </div>
           <div className="grid md:grid-cols-2 gap-3">
@@ -910,7 +910,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               {smsVerify && (
                 <div data-testid="otp-box" className="mt-2 text-sm">
                   {phoneVerified ? (
-                    <p className="text-[#16A34A] font-semibold">✓ Číslo overené</p>
+                    <p className="text-success font-semibold">✓ Číslo overené</p>
                   ) : otp.stage === "sent" && phoneDigits(otp.phone) === phoneDigits(form.phone) ? (
                     <div className="space-y-2">
                       <p className="text-slate-600">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
@@ -918,13 +918,13 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
                         <input className={inputCls} inputMode="numeric" maxLength={6} placeholder="6-miestny kód" value={otp.code}
                           onChange={(ev) => setOtp((o) => ({ ...o, code: ev.target.value.replace(/\D/g, "").slice(0, 6), msg: "" }))} />
                         <button type="button" onClick={verifyOtp} disabled={otp.busy || otp.code.length !== 6}
-                          className="bg-[#2B46A2] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] shrink-0">Overiť kód</button>
+                          className="bg-brand disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shrink-0">Overiť kód</button>
                       </div>
-                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-[#2B46A2] hover:underline">Poslať kód znova</button>
+                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-brand hover:underline">Poslať kód znova</button>
                     </div>
                   ) : (
                     <button type="button" onClick={sendOtp} disabled={otp.busy}
-                      className="bg-[#F0F4FF] hover:bg-[#E0E4EF] disabled:opacity-50 text-[#2B46A2] text-sm font-semibold px-4 py-2 rounded-[10px]">
+                      className="bg-brand-soft hover:bg-line disabled:opacity-50 text-brand text-sm font-semibold px-4 py-2 rounded-lg">
                       {otp.busy ? "Posielam…" : "Poslať overovací SMS kód"}
                     </button>
                   )}
@@ -941,7 +941,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               <textarea required rows={3} value={form.reason} onChange={(e) => setField("reason", e.target.value)} className={inputCls} placeholder="Popíšte svoje ťažkosti alebo dôvod, pre ktorý žiadate vyšetrenie…" />
             </div>
           </div>
-          <div className={isReferral && files.length === 0 ? "border border-amber-300 bg-amber-50 rounded-[10px] p-3" : ""}>
+          <div className={isReferral && files.length === 0 ? "border border-amber-300 bg-amber-50 rounded-lg p-3" : ""}>
             <label className={labelCls}>
               {isReferral ? "Žiadanka (výmenný lístok) — odfoťte alebo nahrajte *" : "Prílohy — žiadanka, lekárske správy (voliteľné)"}
             </label>
@@ -950,7 +950,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               accept=".pdf,.jpg,.jpeg,.png"
               multiple
               onChange={handleFilePick}
-              className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#d8e8f6] file:cursor-pointer"
+              className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-soft file:text-brand file:font-semibold hover:file:bg-brand-soft file:cursor-pointer"
             />
             <p className="text-xs text-slate-400 mt-1">
               {isReferral
@@ -960,7 +960,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
-                  <li key={`${f.name}-${i}`} className="flex items-center justify-between text-sm bg-slate-50 border border-slate-200 rounded-[10px] px-3 py-1.5">
+                  <li key={`${f.name}-${i}`} className="flex items-center justify-between text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                     <span className="truncate">📎 {f.name} <span className="text-slate-400 text-xs">({Math.max(1, Math.round(f.size / 1024))} kB)</span></span>
                     <button type="button" aria-label="Odstrániť prílohu" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-700 font-bold ml-2">✕</button>
                   </li>
@@ -969,7 +969,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             )}
           </div>
           {isReferral && (
-            <div className="border border-emerald-300 bg-emerald-50 rounded-[10px] p-3 space-y-3">
+            <div className="border border-emerald-300 bg-emerald-50 rounded-lg p-3 space-y-3">
               <p className="text-emerald-700 font-semibold text-sm">Údaje zo žiadanky:</p>
               <div className="grid md:grid-cols-2 gap-3">
                 <div>
@@ -985,12 +985,12 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </div>
           )}
           <label className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer">
-            <input type="checkbox" required className="mt-0.5 w-4 h-4 accent-[#2B46A2]" />
+            <input type="checkbox" required className="mt-0.5 w-4 h-4 accent-brand" />
             <span>
               Oboznámil/a som sa s{" "}
-              <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-[#2B46A2] font-semibold hover:underline">Podmienkami online objednávania</a>
+              <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Podmienkami online objednávania</a>
               {" "}a s{" "}
-              <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-[#2B46A2] font-semibold hover:underline">Informáciami o spracúvaní osobných údajov</a>. *
+              <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Informáciami o spracúvaní osobných údajov</a>. *
             </span>
           </label>
         </form>
@@ -999,7 +999,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
       {/* KROK 4 — PLATBA */}
       {step === 4 && createdOrder && (
         <div className="space-y-4 text-center">
-          <div className="bg-emerald-50 border border-emerald-300 p-5 rounded-[10px] space-y-1">
+          <div className="bg-emerald-50 border border-emerald-300 p-5 rounded-lg space-y-1">
             <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center text-2xl font-bold">✓</div>
             <h3 className="text-xl font-bold text-emerald-700">Rezervácia odoslaná</h3>
             <p className="text-slate-700">
@@ -1007,22 +1007,22 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               {formatDateHuman(createdOrder.date)} o {createdOrder.time}
               {createdOrder.doctor && <><br /><span className="text-sm text-slate-500">Vyšetruje: {createdOrder.doctor}</span></>}
               {doctorLocation(settings.doctors, createdOrder.doctor) && (
-                <><br /><span className="text-sm font-semibold text-[#2B46A2]">Miesto: {doctorLocation(settings.doctors, createdOrder.doctor)}</span></>
+                <><br /><span className="text-sm font-semibold text-brand">Miesto: {doctorLocation(settings.doctors, createdOrder.doctor)}</span></>
               )}
             </p>
             <p className="text-xs text-slate-500">Číslo objednávky: <strong>{createdOrder.id}</strong></p>
           </div>
 
-          <div className="border border-slate-200 rounded-[10px] p-5 space-y-3">
-            <h3 className="text-lg font-bold text-[#2B46A2]">
+          <div className="border border-slate-200 rounded-lg p-5 space-y-3">
+            <h3 className="text-lg font-bold text-brand">
               {createdOrder.hasReferral ? "Platba doplatku (so žiadankou)" : "Platba za vyšetrenie (samoplatca)"}
             </h3>
-            <p className="text-3xl font-bold text-[#2B46A2]">{formatPrice(createdOrder.price)}</p>
+            <p className="text-3xl font-bold text-brand">{formatPrice(createdOrder.price)}</p>
             {paymentReady(settings) ? (
               <>
                 <p className="text-sm text-slate-500">Naskenujte QR kód v aplikácii vašej banky (PAY by square):</p>
                 <PaymentQr order={createdOrder} settings={settings} />
-                <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-details">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-details">
                   <p><strong>IBAN:</strong> {settings.iban}</p>
                   <p><strong>Príjemca:</strong> {settings.beneficiary}</p>
                   <p><strong>Variabilný symbol:</strong> {createdOrder.variableSymbol}</p>
@@ -1031,18 +1031,18 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
                 </div>
               </>
             ) : (
-              <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-pending">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-left text-sm space-y-1 max-w-md mx-auto text-slate-700" data-testid="payment-pending">
                 <p><strong>{PAYMENT_PENDING_TEXT}</strong></p>
                 <p><strong>Variabilný symbol:</strong> {createdOrder.variableSymbol}</p>
                 <p><strong>Suma:</strong> {formatPrice(createdOrder.price)}</p>
               </div>
             )}
             {createdOrder.hasReferral && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-[10px]">
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-lg">
                 <strong>Nezabudnite si na vyšetrenie priniesť žiadanku (výmenný lístok)</strong> — bez nej platí plná samoplatcovská cena.
               </p>
             )}
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-[10px]">
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-lg">
               Termín je rezervovaný a bude <strong>potvrdený po prijatí platby</strong>. Ak platba nepríde do 24 hodín, rezervácia môže byť zrušená.
             </p>
           </div>
@@ -1072,17 +1072,17 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               a.click();
               URL.revokeObjectURL(a.href);
             }}
-            className="w-full bg-white border-2 border-[#2B46A2] text-[#2B46A2] hover:bg-[#F0F4FF] font-bold py-3 px-6 rounded-[10px] text-lg transition duration-200"
+            className="w-full bg-white border-2 border-brand text-brand hover:bg-brand-soft font-bold py-3 px-6 rounded-lg text-lg transition duration-200"
           >
             Pridať do kalendára
           </button>
-          <button onClick={resetWizard} className="w-full bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold py-3 px-6 rounded-[10px] text-lg shadow transition duration-200">
+          <button onClick={resetWizard} className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-3 px-6 rounded-lg text-lg shadow transition duration-200">
             Nová objednávka
           </button>
         </div>
       )}
 
-      {error && <div className="bg-red-50 border border-red-300 text-red-700 p-3 rounded-[10px] font-semibold mt-4">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-300 text-red-700 p-3 rounded-lg font-semibold mt-4">{error}</div>}
 
       {/* NAVIGÁCIA */}
       {step < 4 && (
@@ -1093,12 +1093,12 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </button>
           ) : <span />}
           {step < 3 && (
-            <button type="button" onClick={goNext} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold py-3 px-8 rounded-[10px] shadow transition duration-200">
+            <button type="button" onClick={goNext} className="bg-brand hover:bg-brand-dark text-white font-bold py-3 px-8 rounded-lg shadow transition duration-200">
               Pokračovať ›
             </button>
           )}
           {step === 3 && (
-            <button type="submit" form="patient-details-form" disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 px-8 rounded-[10px] shadow transition duration-200">
+            <button type="submit" form="patient-details-form" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-8 rounded-lg shadow transition duration-200">
               {busy ? "Odosielam…" : "Odoslať a prejsť na platbu ›"}
             </button>
           )}
@@ -1121,7 +1121,7 @@ const FilterChip = ({ active, onClick, label }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold transition-colors ${active ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
+    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${active ? "bg-brand text-white" : "bg-soft text-ink hover:bg-line"}`}
   >
     {label}
   </button>
@@ -1174,7 +1174,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
   };
 
   return (
-    <div className={`bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${status.border} space-y-2`}>
+    <div className={`bg-page border border-line rounded-lg p-4 border-l-4 ${status.border} space-y-2`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <span className="font-bold text-lg">{order.patient.name}</span>
@@ -1187,21 +1187,21 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
           <PaidBadge order={order} />
           <ArrivedBadge order={order} />
           {order.status === "rejected" && order.paid && order.price > 0 && (
-            <span className="bg-[#D32821] text-white text-xs font-bold px-2 py-1 rounded">VRÁTIŤ PLATBU</span>
+            <span className="bg-danger text-white text-xs font-bold px-2 py-1 rounded">VRÁTIŤ PLATBU</span>
           )}
           <span className={`${status.badge} text-xs font-bold px-2 py-1 rounded`}>{status.label}</span>
         </div>
       </div>
       <p className="text-sm">
-        <strong className="text-[#2B46A2]">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
+        <strong className="text-brand">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
         {order.price != null && (
-          <span className="text-[#2B46A2] font-bold ml-2">
+          <span className="text-brand font-bold ml-2">
             {formatPrice(order.price)}{order.hasReferral ? " (doplatok)" : ""}
           </span>
         )}
       </p>
-      {order.doctor && <p className="text-sm text-[#2B46A2]">Lekár: {order.doctor}</p>}
-      <p className="text-sm text-[#444444] italic">{order.exam.reason}</p>
+      {order.doctor && <p className="text-sm text-brand">Lekár: {order.doctor}</p>}
+      <p className="text-sm text-ink italic">{order.exam.reason}</p>
       {order.hasReferral && order.exam.referrerName && (
         <p className="text-xs text-slate-400">
           Žiadanka od: {order.exam.referrerName}{order.exam.referrerFacility && `, ${order.exam.referrerFacility}`}
@@ -1211,14 +1211,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         Tel. {order.patient.phone}{order.patient.email && ` · ${order.patient.email}`}
         {order.variableSymbol && ` · VS ${order.variableSymbol}`} · objednávka {order.id}
       </p>
-      {order.statusNote && <p className="text-xs text-[#856404]">Poznámka: {order.statusNote}</p>}
+      {order.statusNote && <p className="text-xs text-warn">Poznámka: {order.statusNote}</p>}
       {Array.isArray(order.attachments) && order.attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {order.attachments.map((a, i) => (
             <button
               key={i}
               onClick={() => onOpenAttachment && onOpenAttachment(a)}
-              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
+              className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-2 py-1 rounded transition-colors"
             >
               📎 {a.name}
             </button>
@@ -1227,13 +1227,13 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       )}
 
       {paidOpen && (
-        <div className="bg-emerald-50 border border-emerald-300 rounded-[10px] p-3 space-y-2" data-testid="paid-reason-box">
+        <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-3 space-y-2" data-testid="paid-reason-box">
           <p className="text-sm font-semibold text-emerald-800">Ručné označenie platby — uveďte dôvod (zapíše sa do auditu a pošle kópia superadminovi)</p>
           <input
             value={paidReason}
             onChange={(e) => setPaidReason(e.target.value)}
             placeholder="napr. hotovosť pri okienku, doklad č. 123 (min. 10 znakov)"
-            className="w-full p-2 bg-white border border-[#767676] rounded-[8px] text-sm"
+            className="w-full p-2 bg-white border border-muted rounded-md text-sm"
             data-testid="paid-reason"
             autoFocus
           />
@@ -1246,7 +1246,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             >
               Potvrdiť platbu
             </button>
-            <button onClick={() => { setPaidOpen(false); setPaidReason(""); }} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] text-sm font-semibold px-3 py-2 rounded transition-colors">Zrušiť</button>
+            <button onClick={() => { setPaidOpen(false); setPaidReason(""); }} className="bg-soft hover:bg-line text-ink text-sm font-semibold px-3 py-2 rounded transition-colors">Zrušiť</button>
           </div>
         </div>
       )}
@@ -1263,17 +1263,17 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         )}
         {order.status === "confirmed" && (
           <>
-            <button onClick={() => onSetStatus(order.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Vykonané</button>
+            <button onClick={() => onSetStatus(order.id, "done")} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Vykonané</button>
             <button onClick={() => onSetStatus(order.id, "noshow")} className="bg-slate-500 hover:bg-slate-400 text-white text-sm font-semibold px-3 py-2 rounded transition-colors">Neprišiel</button>
           </>
         )}
         {canAct && onReschedule && (
-          <button onClick={() => { setResched(!resched); setReschedDate(order.date); }} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
+          <button onClick={() => { setResched(!resched); setReschedDate(order.date); }} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-3 py-2 rounded transition-colors">
             {resched ? "Zavrieť presun" : "Presunúť"}
           </button>
         )}
         {canAct && onChangeDoctor && docOptions.length > 0 && (
-          <button onClick={() => { setDocOpen(!docOpen); setDocChoice(""); }} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
+          <button onClick={() => { setDocOpen(!docOpen); setDocChoice(""); }} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded transition-colors">
             {docOpen ? "Zavrieť zmenu lekára" : "Zmeniť lekára"}
           </button>
         )}
@@ -1288,20 +1288,20 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         {order.status === "rejected" && (
           <button
             onClick={() => onSetStatus(order.id, "new", "Obnovené z koša")}
-            className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
+            className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-3 py-2 rounded transition-colors"
           >
             Obnoviť z koša
           </button>
         )}
       </div>
       {docOpen && canAct && (
-        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-[#2B46A2]/40">
-          <p className="text-sm font-semibold text-[#2B46A2]">Zmeniť lekára (napr. pri PN) — termín a čas sa nemenia:</p>
+        <div className="bg-soft rounded-lg p-3 space-y-2 border border-brand/40">
+          <p className="text-sm font-semibold text-brand">Zmeniť lekára (napr. pri PN) — termín a čas sa nemenia:</p>
           <div className="flex flex-wrap gap-2">
             <select
               value={docChoice}
               onChange={(e) => setDocChoice(e.target.value)}
-              className="flex-1 min-w-48 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+              className="flex-1 min-w-48 p-2 bg-white border border-muted rounded-lg text-ink text-sm"
             >
               <option value="">— vyberte nového lekára —</option>
               {docOptions.map((d) => (<option key={d.name} value={d.name}>{d.name}{d.location ? ` (${d.location})` : ""}</option>))}
@@ -1309,7 +1309,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
             <button
               disabled={!docChoice}
               onClick={() => { onChangeDoctor(order.id, docChoice); setDocOpen(false); }}
-              className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors shrink-0"
+              className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0"
             >
               Potvrdiť zmenu
             </button>
@@ -1318,14 +1318,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         </div>
       )}
       {cancelOpen && canAct && (
-        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-red-300">
-          <p className="text-sm font-semibold text-[#D32821]">Dôvod zrušenia (uvidí ho aj pacient pri overení objednávky):</p>
+        <div className="bg-soft rounded-lg p-3 space-y-2 border border-red-300">
+          <p className="text-sm font-semibold text-danger">Dôvod zrušenia (uvidí ho aj pacient pri overení objednávky):</p>
           <div className="flex flex-wrap gap-2">
             {cancelReasons.map((r) => (
               <button
                 key={r}
                 onClick={() => doCancel(r)}
-                className="bg-white hover:bg-red-50 border border-red-300 text-[#D32821] text-xs font-semibold px-3 py-2 rounded-[10px] transition-colors"
+                className="bg-white hover:bg-red-50 border border-red-300 text-danger text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
               >
                 {r}
               </button>
@@ -1336,11 +1336,11 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
               value={cancelText}
               onChange={(e) => setCancelText(e.target.value)}
               placeholder="Vlastný dôvod…"
-              className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+              className="flex-1 p-2 bg-white border border-muted rounded-lg text-ink text-sm"
             />
             <button
               onClick={() => doCancel(cancelText.trim())}
-              className="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-2 rounded-[10px] transition-colors shrink-0"
+              className="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors shrink-0"
             >
               Zrušiť objednávku
             </button>
@@ -1349,7 +1349,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
         </div>
       )}
       {order.status === "rejected" && (
-        <p className="text-xs text-[#856404]">
+        <p className="text-xs text-warn">
           V koši — definitívne sa vymaže {order.rejectedAt
             ? new Date(new Date(order.rejectedAt).getTime() + 7 * 86400000).toLocaleDateString("sk-SK")
             : "7 dní po zrušení"}. Ak je pôvodný termín medzičasom obsadený, obnovenie vypíše chybu.
@@ -1357,14 +1357,14 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       )}
 
       {resched && (
-        <div className="bg-[#F0F2F5] rounded-[10px] p-3 space-y-2 border border-[#2B46A2]/40">
-          <p className="text-sm font-semibold text-[#2B46A2]">Presunúť na iný termín:</p>
+        <div className="bg-soft rounded-lg p-3 space-y-2 border border-brand/40">
+          <p className="text-sm font-semibold text-brand">Presunúť na iný termín:</p>
           <input
             type="date"
             value={reschedDate}
             min={toISODate(new Date())}
             onChange={(e) => setReschedDate(e.target.value)}
-            className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+            className="p-2 bg-white border border-muted rounded-lg text-ink text-sm"
           />
           {reschedSlots.length === 0
             ? <p className="text-xs text-slate-400">V tento deň nie sú voľné otvorené termíny.</p>
@@ -1374,7 +1374,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
                   <button
                     key={slot.time}
                     onClick={() => { onReschedule(order.id, reschedDate, slot.time); setResched(false); }}
-                    className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-bold px-3 py-2 rounded transition-colors"
+                    className="bg-brand hover:bg-brand-dark text-white text-xs font-bold px-3 py-2 rounded transition-colors"
                   >
                     {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
                   </button>
@@ -1436,8 +1436,8 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   };
 
   return (
-    <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
-      <h3 className="text-lg font-bold text-[#2B46A2]">Cenník vyšetrení</h3>
+    <div className="bg-page border border-line p-4 rounded-lg space-y-3">
+      <h3 className="text-lg font-bold text-brand">Cenník vyšetrení</h3>
       <p className="text-sm text-slate-400">
         Prvá cena = samoplatca (bez žiadanky), druhá = doplatok so žiadankou. Ak doplatok necháte prázdny,
         vyšetrenie sa so žiadankou nebude ponúkať (len samoplatca). Do poľa <strong>Inštrukcie</strong> napíšte,
@@ -1451,22 +1451,22 @@ const PricelistEditor = ({ pricelist, onSave }) => {
       </div>
       <div className="space-y-2">
         {rows.map((row, i) => (
-          <div key={row.id} className="bg-white border border-[#E0E4EF] rounded-[10px] p-2 space-y-2">
+          <div key={row.id} className="bg-white border border-line rounded-lg p-2 space-y-2">
             <div className="flex flex-wrap gap-2 items-center">
               <div className="flex flex-col gap-0.5">
-                <button type="button" aria-label="Posunúť vyššie" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 py-1 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
-                <button type="button" aria-label="Posunúť nižšie" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 py-1 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
+                <button type="button" aria-label="Posunúť vyššie" onClick={() => { setSaved(false); setRows((prev) => { if (i === 0) return prev; const n = [...prev]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); }} disabled={i === 0} className="px-1.5 py-1 rounded bg-brand-soft hover:bg-line text-brand disabled:opacity-30 text-xs leading-4" title="Posunúť vyššie">↑</button>
+                <button type="button" aria-label="Posunúť nižšie" onClick={() => { setSaved(false); setRows((prev) => { if (i === prev.length - 1) return prev; const n = [...prev]; [n[i], n[i + 1]] = [n[i + 1], n[i]]; return n; }); }} disabled={i === rows.length - 1} className="px-1.5 py-1 rounded bg-brand-soft hover:bg-line text-brand disabled:opacity-30 text-xs leading-4" title="Posunúť nižšie">↓</button>
               </div>
               <input
                 value={row.label}
                 onChange={(e) => updateRow(i, "label", e.target.value)}
-                className="flex-1 min-w-[9rem] p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                className="flex-1 min-w-[9rem] p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                 placeholder="Názov vyšetrenia"
               />
               <select
                 value={row.durationSlots}
                 onChange={(e) => updateRow(i, "durationSlots", Number(e.target.value))}
-                className="w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                className="w-24 p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                 title="Trvanie vyšetrenia (násobok 5-min slotu)"
               >
                 {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => <option key={n} value={n}>{n * BASE_SLOT_MIN} min</option>)}
@@ -1474,31 +1474,31 @@ const PricelistEditor = ({ pricelist, onSave }) => {
               <input
                 value={row.priceSelf}
                 onChange={(e) => updateRow(i, "priceSelf", e.target.value)}
-                className="w-20 sm:w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm text-right"
+                className="w-20 sm:w-24 p-2 bg-white border border-muted rounded-lg text-ink text-sm text-right"
                 placeholder="Cena €"
                 inputMode="decimal"
               />
               <input
                 value={row.priceReferral}
                 onChange={(e) => updateRow(i, "priceReferral", e.target.value)}
-                className="w-20 sm:w-24 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm text-right"
+                className="w-20 sm:w-24 p-2 bg-white border border-muted rounded-lg text-ink text-sm text-right"
                 placeholder="—"
                 inputMode="decimal"
               />
-              <button type="button" onClick={() => removeRow(i)} className="bg-[#D32821] hover:bg-[#B01F19] text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
+              <button type="button" onClick={() => removeRow(i)} className="bg-danger hover:bg-danger/90 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť položku">✕</button>
             </div>
             <textarea
               value={row.instructions}
               onChange={(e) => updateRow(i, "instructions", e.target.value)}
               rows={2}
-              className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+              className="w-full p-2 bg-white border border-muted rounded-lg text-ink text-sm"
               placeholder="Inštrukcie do e-mailu — napr. „Príďte na 2. poschodie, blok B, amb. č. 214. Buďte nalačno aspoň 6 hodín.“"
             />
           </div>
         ))}
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={addRow} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
+        <button type="button" onClick={addRow} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded transition-colors">
           + Pridať položku
         </button>
         <button
@@ -1508,12 +1508,12 @@ const PricelistEditor = ({ pricelist, onSave }) => {
               ? { ...r, instructions: standardInstructions[r.id] }
               : r
           )))}
-          className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
+          className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded transition-colors"
           title="Doplní štandardnú prípravu len do prázdnych polí — vlastné texty neprepíše"
         >
           Predvyplniť štandardnú prípravu
         </button>
-        <button type="button" onClick={handleSave} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
+        <button type="button" onClick={handleSave} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded transition-colors">
           Uložiť cenník
         </button>
         {saved && <span className="text-green-400 text-sm self-center">✓ Uložené</span>}
@@ -1523,7 +1523,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
 };
 
 const StatTile = ({ label, value, accent }) => (
-  <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-3 text-center">
+  <div className="bg-page border border-line rounded-lg p-3 text-center">
     <p className={`text-2xl font-bold ${accent || "text-white"}`}>{value}</p>
     <p className="text-xs text-slate-400">{label}</p>
   </div>
@@ -1586,11 +1586,11 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
       {rows.length === 0 && !msg && <p className="text-slate-400">Žiadne kontá.</p>}
       <div className="space-y-2">
         {rows.map((u) => (
-          <div key={u.email} className="bg-white border border-[#E0E4EF] rounded-[10px] p-3 flex flex-wrap items-center gap-2">
+          <div key={u.email} className="bg-white border border-line rounded-lg p-3 flex flex-wrap items-center gap-2">
             <span className="flex-1 min-w-[180px] text-sm font-semibold truncate">{u.email}</span>
             {u.mfa
               ? <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded px-2 py-1" title="Dvojfaktorové overenie je aktívne">MFA ✓</span>
-              : <span className="text-xs font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-1" title="Používateľ si ešte nenastavil autentifikátor — urobí to pri najbližšom prihlásení">bez MFA</span>}
+              : <span className="text-xs font-bold text-warn bg-warn-soft border border-warn/30 rounded px-2 py-1" title="Používateľ si ešte nenastavil autentifikátor — urobí to pri najbližšom prihlásení">bez MFA</span>}
             {u.role === "superadmin" && <span className="text-xs text-slate-500" title="Rola superadmin sa spravuje len v SQL editore Supabase">(len cez SQL editor)</span>}
             <select
               value={u.role}
@@ -1604,7 +1604,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
                 }
                 apply(() => onSetStaffRole(u.email, role), `Rola uložená: ${u.email} → ${roleLabels[role]}`);
               }}
-              className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+              className="p-2 bg-white border border-muted rounded-lg text-ink text-sm"
             >
               {(u.role === "superadmin" ? ["superadmin"] : ["", "sestra", "lekar"]).map((r) => <option key={r} value={r}>{roleLabels[r]}</option>)}
             </select>
@@ -1616,7 +1616,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
                   const name = e.target.value;
                   if (name) apply(() => onSetStaffRole(u.email, "lekar", name), `${u.email} → Lekár (${name})`);
                 }}
-                className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                className="p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                 title="Ktorý lekár z Nastavení je toto konto"
               >
                 <option value="">— vyberte lekára —</option>
@@ -1626,7 +1626,7 @@ const UsersTab = ({ onListStaff, onSetStaffRole, onRemoveStaffRole, doctors }) =
           </div>
         ))}
       </div>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>}
     </div>
   );
 };
@@ -1652,27 +1652,27 @@ const PaymentsCheck = ({ onCheckPayments }) => {
   };
 
   return (
-    <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 space-y-3">
+    <div className="bg-page border border-line rounded-lg p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-sm font-bold text-[#2B46A2]">Platby</h3>
+        <h3 className="text-sm font-bold text-brand">Platby</h3>
         <button
           onClick={run}
           disabled={busy}
-          className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors"
+          className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
           {busy ? "Overujem…" : "Overiť platby"}
         </button>
-        <span className="text-xs text-[#767676]">Párovanie s bankou beží automaticky každú minútu — tlačidlo je okamžitá kontrola (trvá ~10 sekúnd, kým banka odpovie).</span>
+        <span className="text-xs text-muted">Párovanie s bankou beží automaticky každú minútu — tlačidlo je okamžitá kontrola (trvá ~10 sekúnd, kým banka odpovie).</span>
       </div>
-      {error && <p className="text-sm text-[#D32821] font-semibold">{error}</p>}
+      {error && <p className="text-sm text-danger font-semibold">{error}</p>}
       {rows !== null && (
         rows.length === 0 ? (
-          <p className="text-sm text-[#767676]">Žiadne aktívne objednávky.</p>
+          <p className="text-sm text-muted">Žiadne aktívne objednávky.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]">
+                <tr className="text-left text-xs text-muted border-b border-line">
                   <th className="py-1.5 pr-3">Termín</th>
                   <th className="py-1.5 pr-3">Pacient</th>
                   <th className="py-1.5 pr-3">Cena</th>
@@ -1682,16 +1682,16 @@ const PaymentsCheck = ({ onCheckPayments }) => {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-[#F0F2F5]">
+                  <tr key={r.id} className="border-b border-soft">
                     <td className="py-1.5 pr-3 whitespace-nowrap">{r.when}</td>
                     <td className="py-1.5 pr-3">{r.patient}</td>
                     <td className="py-1.5 pr-3 whitespace-nowrap">{r.price.toFixed(2).replace(".", ",")} €</td>
                     <td className="py-1.5 pr-3">
                       {r.paid
-                        ? <span className="font-bold text-[#16A34A]">Zaplatené</span>
-                        : <span className="font-bold text-[#856404]">Čaká</span>}
+                        ? <span className="font-bold text-success">Zaplatené</span>
+                        : <span className="font-bold text-warn">Čaká</span>}
                     </td>
-                    <td className="py-1.5 text-xs text-[#444444]">{r.payment}</td>
+                    <td className="py-1.5 text-xs text-ink">{r.payment}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1743,11 +1743,11 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+          className="p-2 bg-white border border-muted rounded-lg text-ink text-sm"
         />
       </div>
       <p className="text-xs text-slate-400">Počítajú sa vyšetrenia so stavom Vykonané, ktoré boli zaplatené. Súčty ostávajú dostupné aj po výmaze objednávok (anonymná štatistika bez údajov pacientov).</p>
-      {error && <p className="text-sm text-[#D32821] font-semibold">{error}</p>}
+      {error && <p className="text-sm text-danger font-semibold">{error}</p>}
       {rows === null && !error ? (
         <p className="text-slate-400">Načítavam…</p>
       ) : byDoctor.size === 0 ? (
@@ -1755,14 +1755,14 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
       ) : (
         <div className="space-y-3">
           {[...byDoctor.entries()].sort((a, b) => b[1].eur - a[1].eur).map(([doc, d]) => (
-            <div key={doc} className="bg-white border border-[#E0E4EF] rounded-[10px] p-4">
+            <div key={doc} className="bg-white border border-line rounded-lg p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-bold">{doc}</span>
                 <span className="text-sm">
-                  <b>{d.count}</b> vyšetrení · <b className="text-[#16A34A]">{d.eur.toFixed(2).replace(".", ",")} €</b>
+                  <b>{d.count}</b> vyšetrení · <b className="text-success">{d.eur.toFixed(2).replace(".", ",")} €</b>
                 </span>
               </div>
-              <details className="mt-1 text-xs text-[#444444]">
+              <details className="mt-1 text-xs text-ink">
                 <summary className="cursor-pointer select-none">Rozpis podľa vyšetrení</summary>
                 <ul className="mt-1 space-y-0.5">
                   {d.exams.map((r) => (
@@ -1773,8 +1773,8 @@ const StatsTab = ({ onGetMonthlyStats, pricelist }) => {
             </div>
           ))}
           {byDoctor.size > 1 && (
-            <p className="text-right text-sm font-bold border-t border-[#E0E4EF] pt-2">
-              Spolu: {total.count} vyšetrení · <span className="text-[#16A34A]">{total.eur.toFixed(2).replace(".", ",")} €</span>
+            <p className="text-right text-sm font-bold border-t border-line pt-2">
+              Spolu: {total.count} vyšetrení · <span className="text-success">{total.eur.toFixed(2).replace(".", ",")} €</span>
             </p>
           )}
         </div>
@@ -1814,18 +1814,18 @@ const PricelistOrderEditor = ({ pricelist, onSaveOrder }) => {
       <p className="text-xs text-slate-400">Šípkami zmeňte poradie, v akom pacient vidí vyšetrenia. Ceny a texty môže meniť len správca.</p>
       <div className="space-y-1">
         {rows.map((r, i) => (
-          <div key={r.id} className="flex items-center gap-2 bg-white border border-[#E0E4EF] rounded-[10px] px-3 py-1.5 text-sm">
+          <div key={r.id} className="flex items-center gap-2 bg-white border border-line rounded-lg px-3 py-1.5 text-sm">
             <span className="w-6 text-right text-slate-400">{i + 1}.</span>
             <span className="flex-1 truncate">{r.label}</span>
-            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-0.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30" title="Posunúť vyššie">↑</button>
-            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="px-2 py-0.5 rounded bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] disabled:opacity-30" title="Posunúť nižšie">↓</button>
+            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="px-2 py-0.5 rounded bg-brand-soft hover:bg-line text-brand disabled:opacity-30" title="Posunúť vyššie">↑</button>
+            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="px-2 py-0.5 rounded bg-brand-soft hover:bg-line text-brand disabled:opacity-30" title="Posunúť nižšie">↓</button>
           </div>
         ))}
       </div>
-      <button type="button" onClick={save} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold px-4 py-2 rounded-[10px] text-sm transition-colors">
+      <button type="button" onClick={save} className="bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors">
         Uložiť poradie
       </button>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>}
     </div>
   );
 };
@@ -1952,29 +1952,29 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-bold text-[#2B46A2] mr-auto">Kniha faktúr</h3>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="p-2 bg-white border border-[#767676] rounded-[10px] text-sm">
+        <h3 className="text-lg font-bold text-brand mr-auto">Kniha faktúr</h3>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="p-2 bg-white border border-muted rounded-lg text-sm">
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-        <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded-[10px] transition-colors">
+        <button onClick={exportCsv} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded-lg transition-colors">
           ⬇ Export CSV
         </button>
-        <button onClick={issueMissing} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-semibold px-3 py-2 rounded-[10px] transition-colors">
+        <button onClick={issueMissing} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors">
           {busy ? "Pracujem…" : "Dovystaviť chýbajúce faktúry"}
         </button>
       </div>
       {msg && (
-        <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-[#D32821]"}`}>{msg}</p>
+        <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>
       )}
       <div className="flex flex-wrap gap-3 text-sm">
-        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2">Dokladov: <b>{shown.length}</b></span>
-        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2">Spolu {year}: <b>{fmtEur(totalSum)}</b></span>
-        <span className="bg-[#F0F2F5] rounded-[10px] px-3 py-2" title="Diagnostické USG je oslobodené a do obratu pre DPH sa nepočíta.">
+        <span className="bg-soft rounded-lg px-3 py-2">Dokladov: <b>{shown.length}</b></span>
+        <span className="bg-soft rounded-lg px-3 py-2">Spolu {year}: <b>{fmtEur(totalSum)}</b></span>
+        <span className="bg-soft rounded-lg px-3 py-2" title="Diagnostické USG je oslobodené a do obratu pre DPH sa nepočíta.">
           Zdaniteľné plnenia {year}: <b>{fmtEur(taxableSum)}</b> / 50 000 €
         </span>
       </div>
       {taxableSum >= 45000 && (
-        <p className="text-sm font-semibold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-3 rounded-[10px]">
+        <p className="text-sm font-semibold text-warn bg-warn-soft border border-warn/30 p-3 rounded-lg">
           ⚠ Zdaniteľné plnenia sa blížia k 50 000 € — hrozí povinná registrácia pre DPH. Poraďte sa s účtovníkom.
         </p>
       )}
@@ -1987,7 +1987,7 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[560px]">
             <thead>
-              <tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]">
+              <tr className="text-left text-xs text-muted border-b border-line">
                 <th className="py-2 pr-3">Číslo</th>
                 <th className="py-2 pr-3">Vystavená</th>
                 <th className="py-2 pr-3">Pacient</th>
@@ -1998,19 +1998,19 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
             </thead>
             <tbody>
               {shown.map((i) => (
-                <tr key={i.number} className="border-b border-[#F0F2F5]">
+                <tr key={i.number} className="border-b border-soft">
                   <td className="py-2 pr-3 font-mono font-semibold whitespace-nowrap">
                     {i.number}
                     {i.kind === "dobropis" && (
-                      <span className="ml-1 text-[10px] font-sans font-bold text-white bg-[#D32821] rounded px-1.5 py-0.5 align-middle">DOBROPIS</span>
+                      <span className="ml-1 text-[10px] font-sans font-bold text-white bg-danger rounded px-1.5 py-0.5 align-middle">DOBROPIS</span>
                     )}
                   </td>
                   <td className="py-2 pr-3 whitespace-nowrap">{i.issueDate?.split("-").reverse().join(".")}</td>
                   <td className="py-2 pr-3">{i.patientName}</td>
-                  <td className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${i.amount < 0 ? "text-[#D32821]" : ""}`}>{fmtEur(i.amount)}</td>
+                  <td className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${i.amount < 0 ? "text-danger" : ""}`}>{fmtEur(i.amount)}</td>
                   <td className="py-2 pr-3 font-mono">{i.paymentVs || "—"}</td>
                   <td className="py-2 text-right">
-                    <button onClick={() => printInvoice(i)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2.5 py-1.5 rounded transition-colors whitespace-nowrap">
+                    <button onClick={() => printInvoice(i)} className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-2.5 py-1.5 rounded transition-colors whitespace-nowrap">
                       Zobraziť / PDF
                     </button>
                   </td>
@@ -2286,11 +2286,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   ];
   const tabs = allTabs.filter((t) => t.roles.includes(role));
 
-  const inputDark = "p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm";
+  const inputDark = "p-2 bg-white border border-muted rounded-lg text-ink text-sm";
 
   if (role === "none") {
     return (
-      <p className="text-center text-[#444444] py-10">
+      <p className="text-center text-ink py-10">
         Vášmu kontu zatiaľ nebola priradená rola. Kontaktujte správcu systému.
       </p>
     );
@@ -2305,7 +2305,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-[10px] text-sm font-bold transition-colors ${view === t.id ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444444] hover:bg-[#E0E4EF]"}`}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold transition-colors ${view === t.id ? "bg-brand text-white" : "bg-soft text-ink hover:bg-line"}`}
           >
             {t.label}
           </button>
@@ -2313,12 +2313,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         {actionBusy && <span className="self-center text-xs text-slate-400">ukladám…</span>}
       </div>
       {actionError && (
-        <div className="bg-red-900/70 border border-red-500 text-red-100 text-sm font-semibold p-3 rounded-[10px]">
+        <div className="bg-red-900/70 border border-red-500 text-red-100 text-sm font-semibold p-3 rounded-lg">
           ⚠ Akcia zlyhala: {actionError}
         </div>
       )}
       {actionInfo && (
-        <div className="bg-emerald-900/60 border border-emerald-500 text-emerald-100 text-sm font-semibold p-3 rounded-[10px]">
+        <div className="bg-emerald-900/60 border border-emerald-500 text-emerald-100 text-sm font-semibold p-3 rounded-lg">
           ✓ {actionInfo}
         </div>
       )}
@@ -2326,11 +2326,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       {view === "overview" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-            <StatTile label="dnešný program" value={todayProgram.length} accent="text-[#2B46A2]" />
-            <StatTile label="na potvrdenie" value={pendingPaid.length} accent="text-[#16A34A]" />
-            <StatTile label="čakajú na platbu" value={pendingUnpaid.length} accent="text-[#856404]" />
-            <StatTile label="nezaplatené" value={unpaidCount} accent="text-[#856404]" />
-            <StatTile label="objednaní — 7 dní" value={next7} accent="text-[#2B46A2]" />
+            <StatTile label="dnešný program" value={todayProgram.length} accent="text-brand" />
+            <StatTile label="na potvrdenie" value={pendingPaid.length} accent="text-success" />
+            <StatTile label="čakajú na platbu" value={pendingUnpaid.length} accent="text-warn" />
+            <StatTile label="nezaplatené" value={unpaidCount} accent="text-warn" />
+            <StatTile label="objednaní — 7 dní" value={next7} accent="text-brand" />
           </div>
 
           {isSupabase && ["superadmin", "sestra"].includes(role) && (
@@ -2338,14 +2338,14 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           )}
 
           <div>
-            <h3 className="text-lg font-bold text-[#2B46A2] mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
+            <h3 className="text-lg font-bold text-brand mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
             {todayProgram.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Dnes nie sú objednaní žiadni pacienti.</p>
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">Dnes nie sú objednaní žiadni pacienti.</p>
               : (
                 <div className="space-y-2">
                   {todayProgram.map((o) => (
-                    <div key={o.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 bg-[#F8F9FC] border border-[#E0E4EF] border-l-4 ${orderTone(o).accent} rounded-[10px] px-4 py-2`}>
-                      <span className="font-mono font-bold text-lg text-[#2B46A2] w-16">{o.time}</span>
+                    <div key={o.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 bg-page border border-line border-l-4 ${orderTone(o).accent} rounded-lg px-4 py-2`}>
+                      <span className="font-mono font-bold text-lg text-brand w-16">{o.time}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
                         <p className="text-xs text-slate-400 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
@@ -2354,7 +2354,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <ArrivedBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "confirmed" && (
-                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
+                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-2 py-1 rounded shrink-0">Vykonané</button>
                       )}
                     </div>
                   ))}
@@ -2363,17 +2363,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-[#16A34A] mb-2">Zaplatené — pripravené na potvrdenie ({pendingPaid.length})</h3>
+            <h3 className="text-lg font-bold text-success mb-2">Zaplatené — pripravené na potvrdenie ({pendingPaid.length})</h3>
             {pendingPaid.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna zaplatená žiadosť nečaká na potvrdenie.</p>
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">Žiadna zaplatená žiadosť nečaká na potvrdenie.</p>
               : <div className="space-y-3">{pendingPaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-[#856404] mb-2">Zadané — čakajú na platbu ({pendingUnpaid.length})</h3>
+            <h3 className="text-lg font-bold text-warn mb-2">Zadané — čakajú na platbu ({pendingUnpaid.length})</h3>
             <p className="text-xs text-slate-400 mb-2">Platby z účtu sa párujú automaticky každú minútu; tlačidlom „Overiť platby" vyššie stiahnete stav hneď.</p>
             {pendingUnpaid.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadna žiadosť nečaká na platbu.</p>
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">Žiadna žiadosť nečaká na platbu.</p>
               : <div className="space-y-3">{pendingUnpaid.map((o) => (<UsgOrderCard key={o.id} order={o} onSetStatus={doSetStatus} onSetPaid={doSetPaid} onReschedule={doReschedule} freeSlotsFor={reschedStartsFor} onOpenAttachment={doOpenAttachment} doctors={settings.doctors} onChangeDoctor={doChangeDoctor} />))}</div>}
           </div>
         </div>
@@ -2382,16 +2382,16 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       {view === "cakaren" && (
         <div className="space-y-5">
           <div>
-            <h3 className="font-bold text-[#2B46A2] mb-2">V čakárni ({waitingRoom.length})</h3>
+            <h3 className="font-bold text-brand mb-2">V čakárni ({waitingRoom.length})</h3>
             {waitingRoom.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">
                   {todayProgram.length === 0 ? "Na dnes nie sú žiadne objednávky." : "Zatiaľ nikto nepotvrdil príchod."}
                 </p>
               : (
                 <div className="space-y-2">
                   {waitingRoom.map((o) => (
-                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-[#F0FDF4] border border-[#E0E4EF] border-l-4 border-l-emerald-500 rounded-[10px] px-4 py-2.5">
-                      <span className="font-mono font-bold text-lg text-[#2B46A2] w-16">{o.time}</span>
+                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-success-soft border border-line border-l-4 border-l-emerald-500 rounded-lg px-4 py-2.5">
+                      <span className="font-mono font-bold text-lg text-brand w-16">{o.time}</span>
                       <div className="flex-1 min-w-0 basis-44">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
                         <p className="text-xs text-slate-500 truncate">{o.exam.label}{o.doctor && ` · ${o.doctor}`}</p>
@@ -2403,7 +2403,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                               key={i}
                               onClick={() => doOpenAttachment(a)}
                               title={a.name}
-                              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
+                              className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-2 py-1 rounded transition-colors"
                             >
                               📎 žiadanka
                             </button>
@@ -2414,10 +2414,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <PaidBadge order={o} />
                       <span className={`${usgStatuses[o.status].badge} text-xs font-bold px-2 py-1 rounded shrink-0`}>{usgStatuses[o.status].label}</span>
                       {o.status === "new" && (
-                        <button onClick={() => doSetStatus(o.id, "confirmed")} className="bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Potvrdiť</button>
+                        <button onClick={() => doSetStatus(o.id, "confirmed")} className="bg-success hover:bg-success/90 text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Potvrdiť</button>
                       )}
                       {o.status === "confirmed" && (
-                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Vykonané</button>
+                        <button onClick={() => doSetStatus(o.id, "done")} className="bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Vykonané</button>
                       )}
                     </div>
                   ))}
@@ -2425,15 +2425,15 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               )}
           </div>
           <div>
-            <h3 className="font-bold text-[#2B46A2] mb-2">Objednaní na dnes — ešte neprišli ({expectedToday.length})</h3>
+            <h3 className="font-bold text-brand mb-2">Objednaní na dnes — ešte neprišli ({expectedToday.length})</h3>
             {expectedToday.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">
                   {todayProgram.length === 0 ? "Na dnes nie sú žiadne objednávky." : "Všetci dnešní pacienti už potvrdili príchod."}
                 </p>
               : (
                 <div className="space-y-2">
                   {expectedToday.map((o) => (
-                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-white border border-[#E0E4EF] rounded-[10px] px-4 py-2 opacity-80">
+                    <div key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-white border border-line rounded-lg px-4 py-2 opacity-80">
                       <span className="font-mono font-bold text-lg text-slate-500 w-16">{o.time}</span>
                       <div className="flex-1 min-w-0 basis-44">
                         <p className="font-semibold truncate">{o.patient.name} <span className="text-slate-400 text-xs">{formatBirth(o.patient)}</span></p>
@@ -2446,7 +2446,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                               key={i}
                               onClick={() => doOpenAttachment(a)}
                               title={a.name}
-                              className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-2 py-1 rounded transition-colors"
+                              className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-2 py-1 rounded transition-colors"
                             >
                               📎 žiadanka
                             </button>
@@ -2468,11 +2468,11 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         <div className="space-y-5">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 className="text-lg font-bold text-[#2B46A2]">Týždenný prehľad</h3>
+              <h3 className="text-lg font-bold text-brand">Týždenný prehľad</h3>
               <div className="flex gap-2">
-                <button onClick={() => setWeekStart((w) => shiftIso(w, -7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">‹ Predchádzajúci</button>
-                <button onClick={() => setWeekStart(todayIso)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">Dnes</button>
-                <button onClick={() => setWeekStart((w) => shiftIso(w, 7))} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-1.5 rounded-[10px] transition-colors">Nasledujúci ›</button>
+                <button onClick={() => setWeekStart((w) => shiftIso(w, -7))} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">‹ Predchádzajúci</button>
+                <button onClick={() => setWeekStart(todayIso)} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">Dnes</button>
+                <button onClick={() => setWeekStart((w) => shiftIso(w, 7))} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors">Nasledujúci ›</button>
               </div>
             </div>
             <div className="overflow-x-auto pb-1 -mx-1 px-1">
@@ -2482,9 +2482,9 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   <button
                     onClick={() => setSelectedDate(d.iso)}
                     title={d.iso}
-                    className={`w-full px-1 py-2 rounded-[10px] text-xs font-semibold text-center transition-colors border ${
-                      selectedDate === d.iso ? "border-[#2B46A2] bg-[#F0F4FF] text-[#2B46A2]" : d.open === 0 ? "border-[#E0E4EF] bg-[#F0F2F5] text-[#767676]" : "border-[#E0E4EF] bg-white text-[#1A1A2E]"
-                    }${d.iso === todayIso ? " ring-2 ring-[#2B46A2]/40" : ""}`}
+                    className={`w-full px-1 py-2 rounded-lg text-xs font-semibold text-center transition-colors border ${
+                      selectedDate === d.iso ? "border-brand bg-brand-soft text-brand" : d.open === 0 ? "border-line bg-soft text-muted" : "border-line bg-white text-ink"
+                    }${d.iso === todayIso ? " ring-2 ring-brand/40" : ""}`}
                   >
                     {formatDateShort(d.iso)}
                     <span className="block font-normal">{d.open === 0 ? "zatvorené" : `${d.booked}/${d.open} obsadené`}</span>
@@ -2495,7 +2495,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                         key={seg.start}
                         onClick={() => { setSelectedDate(d.iso); setDayDetailId(seg.order.id); }}
                         title={`${seg.start}–${seg.end} ${seg.order.patient.name} (${orderTone(seg.order).label})`}
-                        className={`w-full text-left border rounded-[8px] px-1.5 py-1 text-[11px] leading-tight transition-colors hover:ring-2 hover:ring-[#2B46A2]/40 ${orderTone(seg.order).cls}`}
+                        className={`w-full text-left border rounded-md px-1.5 py-1 text-[11px] leading-tight transition-colors hover:ring-2 hover:ring-brand/40 ${orderTone(seg.order).cls}`}
                       >
                         <span className="font-bold">{seg.start}–{seg.end}</span>
                         {!seg.order.paid && seg.order.price > 0 && <span className="font-bold"> !</span>}
@@ -2505,10 +2505,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <div
                         key={seg.start}
                         title={seg.doctor || undefined}
-                        className="w-full border border-dashed border-[#2B46A2]/40 text-[#2B46A2] rounded-[8px] px-1.5 py-1 text-[11px] leading-tight bg-white"
+                        className="w-full border border-dashed border-brand/40 text-brand rounded-md px-1.5 py-1 text-[11px] leading-tight bg-white"
                       >
                         {seg.start}–{seg.end}
-                        {seg.doctor && <span className="block truncate text-[#767676]">{seg.doctor}</span>}
+                        {seg.doctor && <span className="block truncate text-muted">{seg.doctor}</span>}
                       </div>
                     ))}
                   </div>
@@ -2516,17 +2516,17 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               ))}
             </div>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-[#444444]">
-              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded border border-dashed border-[#16A34A]" /> voľné</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#FFF6E0] border border-[#E0C878]" /> nezaplatená (!)</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#EAF0FF] border border-[#2B46A2]" /> zaplatená — čaká na potvrdenie</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#2B46A2]" /> potvrdená a zaplatená</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F0F2F5] border border-[#C9CFDD]" /> vybavená</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-ink">
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded border border-dashed border-success" /> voľné</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-warn-soft border border-warn/30" /> nezaplatená (!)</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-brand-soft border border-brand" /> zaplatená — čaká na potvrdenie</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-brand" /> potvrdená a zaplatená</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-soft border border-line" /> vybavená</span>
             </div>
           </div>
 
-          <details className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-4 group">
-            <summary className="text-sm font-bold text-[#2B46A2] cursor-pointer select-none list-none flex items-center gap-2">
+          <details className="bg-page border border-line rounded-lg p-4 group">
+            <summary className="text-sm font-bold text-brand cursor-pointer select-none list-none flex items-center gap-2">
               <span className="inline-block transition-transform group-open:rotate-90">▸</span> Otvoriť termíny
             </summary>
             <div className="space-y-3 mt-3">
@@ -2550,7 +2550,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               </div>
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Mriežka</label>
-                <p className="text-sm text-[#444444] py-2">5 min — dĺžku určuje cenník</p>
+                <p className="text-sm text-ink py-2">5 min — dĺžku určuje cenník</p>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-slate-400 mb-1">Lekár</label>
@@ -2559,15 +2559,15 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                   {doctors.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
                 </select>
               </div>
-              <label className="flex items-end gap-2 text-xs text-[#444444] pb-2 cursor-pointer">
+              <label className="flex items-end gap-2 text-xs text-ink pb-2 cursor-pointer">
                 <input type="checkbox" checked={winSkipWeekends} onChange={(e) => setWinSkipWeekends(e.target.checked)} className="w-4 h-4 accent-green-500" />
                 preskočiť víkendy
               </label>
             </div>
             {doctors.length === 0 && (
-              <p className="text-xs text-[#856404]">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
+              <p className="text-xs text-warn">Tip: lekárov na priraďovanie pridáte v záložke Nastavenia.</p>
             )}
-            <button onClick={handleOpenWindow} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px] transition-colors">
+            <button onClick={handleOpenWindow} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
               Otvoriť termíny
             </button>
             </div>
@@ -2575,16 +2575,16 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 className="text-lg font-bold text-[#2B46A2]">Deň: {formatDateHuman(selectedDate)}</h3>
+              <h3 className="text-lg font-bold text-brand">Deň: {formatDateHuman(selectedDate)}</h3>
               <div className="flex items-center gap-2">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={inputDark} />
-                <button onClick={() => doCloseDay(selectedDate)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors">
+                <button onClick={() => doCloseDay(selectedDate)} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded transition-colors">
                   Zavrieť voľné
                 </button>
               </div>
             </div>
             {daySeg.segments.length === 0
-              ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">V tento deň nie sú otvorené žiadne termíny.</p>
+              ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">V tento deň nie sú otvorené žiadne termíny.</p>
               : (
                 <div className="space-y-1.5">
                   <p className="text-xs text-slate-400">{daySeg.booked}/{daySeg.open} obsadené · obsadené bloky otvoríte kliknutím, voľné bloky zavriete krížikom</p>
@@ -2597,10 +2597,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                           key={seg.start}
                           type="button"
                           onClick={() => setDayDetailId(active ? null : seg.order.id)}
-                          className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-left px-3 py-2.5 rounded-[10px] border transition-colors ${tone.cls} ${active ? "ring-2 ring-[#2B46A2]/60" : "hover:ring-2 hover:ring-[#2B46A2]/30"}`}
+                          className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1 text-left px-3 py-2.5 rounded-lg border transition-colors ${tone.cls} ${active ? "ring-2 ring-brand/60" : "hover:ring-2 hover:ring-brand/30"}`}
                         >
                           <span className="font-mono font-bold text-sm shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
-                          {seg.outOfHours && <span className="shrink-0 text-[10px] font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-1.5 py-0.5">mimo otvorených hodín</span>}
+                          {seg.outOfHours && <span className="shrink-0 text-[10px] font-bold text-warn bg-warn-soft border border-warn/30 rounded px-1.5 py-0.5">mimo otvorených hodín</span>}
                           <span className="flex-1 min-w-0 basis-40">
                             <span className="block font-semibold truncate">{seg.order.patient.name}</span>
                             <span className="block text-xs opacity-80 truncate">{seg.order.exam.label}{seg.order.doctor ? ` · ${seg.order.doctor}` : ""}</span>
@@ -2614,13 +2614,13 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       );
                     }
                     return (
-                      <div key={seg.start} className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 rounded-[10px] border border-dashed border-[#16A34A]/60 bg-[#F0FDF4]">
-                        <span className="font-mono font-bold text-sm text-[#16A34A] shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
-                        <span className="flex-1 min-w-0 basis-32 text-sm text-[#16A34A] truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
+                      <div key={seg.start} className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 rounded-lg border border-dashed border-success/60 bg-success-soft">
+                        <span className="font-mono font-bold text-sm text-success shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
+                        <span className="flex-1 min-w-0 basis-32 text-sm text-success truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
                         <button
                           onClick={() => doCloseSegment(selectedDate, seg.cells)}
                           title="Zavrieť termín"
-                          className="text-[#D32821] hover:text-[#B01F19] text-xs font-semibold shrink-0 py-1"
+                          className="text-danger hover:text-danger text-xs font-semibold shrink-0 py-1"
                         >
                           ✕ Zavrieť
                         </button>
@@ -2653,7 +2653,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               className={`w-full sm:w-auto sm:flex-1 min-w-0 ${inputDark}`}
             />
             <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputDark} />
-            {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-[#1A1A2E]">✕ dátum</button>}
+            {fDate && <button onClick={() => setFDate("")} className="text-xs text-slate-400 hover:text-ink">✕ dátum</button>}
           </div>
           <div className="flex flex-wrap gap-1.5 items-center">
             <FilterChip active={fStatus === "all"} onClick={() => setFStatus("all")} label={`Všetky (${textDateFiltered.length})`} />
@@ -2671,23 +2671,23 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             <p className="text-xs text-slate-400">{filteredOrders.length} objednávok</p>
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500">Zoradiť:</label>
-              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="p-2 bg-white border border-[#767676] rounded-[10px] text-sm">
+              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className="p-2 bg-white border border-muted rounded-lg text-sm">
                 <option value="termin_asc">Najbližší termín</option>
                 <option value="objednane_desc">Najnovšie objednané</option>
                 <option value="termin_desc">Najvzdialenejší termín</option>
               </select>
-              <button onClick={exportCsv} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-2 rounded transition-colors">
+              <button onClick={exportCsv} className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-3 py-2 rounded transition-colors">
                 ⬇ Export CSV
               </button>
             </div>
           </div>
           {filteredOrders.length === 0
-            ? <p className="text-slate-400 bg-white border border-[#E0E4EF] p-4 rounded-[10px]">Žiadne objednávky nezodpovedajú filtrom.</p>
+            ? <p className="text-slate-400 bg-white border border-line p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
             : (
               <div className="space-y-4">
                 {ordersByDay.map((day) => (
                   <div key={day.date}>
-                    <h4 className="text-sm font-bold text-[#2B46A2] border-b border-[#E0E4EF] pb-1 mb-2">
+                    <h4 className="text-sm font-bold text-brand border-b border-line pb-1 mb-2">
                       {byCreated ? "Objednané " : ""}{formatDateHuman(day.date)} — {day.items.length} {day.items.length === 1 ? "objednávka" : day.items.length < 5 ? "objednávky" : "objednávok"}
                     </h4>
                     <div className="space-y-3">
@@ -2718,8 +2718,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
       {view === "settings" && (
         <div className="space-y-5">
-          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
-            <h3 className="text-lg font-bold text-[#2B46A2]">Lekári</h3>
+          <div className="bg-page border border-line p-4 rounded-lg space-y-3">
+            <h3 className="text-lg font-bold text-brand">Lekári</h3>
             <p className="text-sm text-slate-400">
               Ku každému lekárovi vyberte vyšetrenia, ktoré robí — pacient po zvolení vyšetrenia uvidí len
               termíny lekárov, ktorí ho vykonávajú. Ak nevyberiete žiadne, lekár robí všetky. Pracovné dni
@@ -2727,38 +2727,38 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             </p>
             <div className="space-y-2">
               {doctorsDraft.map((doc, di) => (
-                <div key={di} className="bg-white border border-[#E0E4EF] rounded-[10px] p-2 space-y-2">
+                <div key={di} className="bg-white border border-line rounded-lg p-2 space-y-2">
                   <div className="flex gap-2 items-center">
                     <input
                       value={doc.name}
                       onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, name: e.target.value } : d))}
-                      className="flex-1 p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                      className="flex-1 p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                       placeholder="MUDr. Meno Priezvisko"
                     />
-                    <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-[#D32821] hover:bg-[#B01F19] text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
+                    <button type="button" onClick={() => setDoctorsDraft((prev) => prev.filter((_, i) => i !== di))} className="bg-danger hover:bg-danger/90 text-white px-3 py-2 rounded text-sm transition-colors" title="Odstrániť lekára">✕</button>
                   </div>
                   <input
                     type="email"
                     value={doc.email || ""}
                     onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, email: e.target.value } : d))}
-                    className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                    className="w-full p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                     placeholder="E-mail lekára (voliteľné — interný kontakt)"
                   />
                   <input
                     value={doc.location || ""}
                     onChange={(e) => setDoctorsDraft((prev) => prev.map((d, i) => i === di ? { ...d, location: e.target.value } : d))}
-                    className="w-full p-2 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                    className="w-full p-2 bg-white border border-muted rounded-lg text-ink text-sm"
                     placeholder="Ambulancia / miesto vyšetrenia (napr. Ambulancia č. 12, 2. posch., pavilón A)"
                   />
                   <details className="text-sm">
-                    <summary className="cursor-pointer text-[#444444] select-none">
+                    <summary className="cursor-pointer text-ink select-none">
                       Vyšetrenia: {doc.examTypeIds.length === 0 ? "všetky" : `${doc.examTypeIds.length} vybraných`}
                     </summary>
                     <div className="grid sm:grid-cols-2 gap-1 mt-2 max-h-52 overflow-y-auto pr-1">
                       {pricelist.map((t) => {
                         const checked = doc.examTypeIds.includes(t.id);
                         return (
-                          <label key={t.id} className="flex items-start gap-2 text-xs text-[#1A1A2E] cursor-pointer bg-[#F0F2F5] rounded p-1.5">
+                          <label key={t.id} className="flex items-start gap-2 text-xs text-ink cursor-pointer bg-soft rounded p-1.5">
                             <input
                               type="checkbox"
                               checked={checked}
@@ -2767,7 +2767,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                                 const next = checked ? d.examTypeIds.filter((x) => x !== t.id) : [...d.examTypeIds, t.id];
                                 return { ...d, examTypeIds: next };
                               }))}
-                              className="mt-0.5 w-4 h-4 accent-[#2B46A2]"
+                              className="mt-0.5 w-4 h-4 accent-brand"
                             />
                             <span>{t.label}</span>
                           </label>
@@ -2782,7 +2782,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               <button
                 type="button"
                 onClick={() => setDoctorsDraft((prev) => [...prev, { name: "", examTypeIds: [] }])}
-                className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-sm font-semibold px-3 py-2 rounded transition-colors"
+                className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded transition-colors"
               >
                 + Pridať lekára
               </button>
@@ -2791,34 +2791,34 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 onClick={() => run(() => onSaveSettings({
                   doctors: normalizeDoctors(doctorsDraft),
                 }), "Lekári uložení.")}
-                className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+                className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
               >
                 Uložiť lekárov
               </button>
             </div>
           </div>
           <PricelistEditor pricelist={pricelist} onSave={onSavePricelist} />
-          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
-            <h3 className="text-lg font-bold text-[#2B46A2]">Nastavenia platby</h3>
+          <div className="bg-page border border-line p-4 rounded-lg space-y-3">
+            <h3 className="text-lg font-bold text-brand">Nastavenia platby</h3>
             <div className="grid md:grid-cols-2 gap-3">
-              <div className="md:col-span-2 bg-white border border-[#E0E4EF] rounded-[10px] p-3 text-sm space-y-1" data-testid="payment-identity">
+              <div className="md:col-span-2 bg-white border border-line rounded-lg p-3 text-sm space-y-1" data-testid="payment-identity">
                 <p><span className="text-slate-500">IBAN pracoviska:</span> <b className="font-mono">{settings.iban || "— nenastavený —"}</b></p>
                 <p><span className="text-slate-500">Príjemca:</span> <b>{settings.beneficiary || "—"}</b></p>
                 {payState.ok
                   ? <p className="text-xs text-emerald-700 font-semibold">✓ Platobné údaje sú platné a zhodné s pripnutým IBAN-om — pacient vidí QR kód.</p>
-                  : <p className="text-xs text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">⚠ {payState.reason} Pacientom sa QR kód nezobrazuje — platobné údaje dostanú e-mailom z databázy.</p>}
+                  : <p className="text-xs text-warn bg-warn-soft border border-warn/30 p-2 rounded">⚠ {payState.reason} Pacientom sa QR kód nezobrazuje — platobné údaje dostanú e-mailom z databázy.</p>}
                 <p className="text-xs text-slate-400">
                   Účet sa z bezpečnostných dôvodov nedá zmeniť z aplikácie (ani superadminom). Zmena = SQL editor Supabase
                   (tabuľka payment_identity) + nový deploy s pripnutým IBAN-om — postup v GO-LIVE.md, „Runbook: zmena IBAN".
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-[#1A1A2E]">Termíny so žiadankou (doplatok) najskôr od</label>
+                <label className="block text-sm font-semibold text-ink">Termíny so žiadankou (doplatok) najskôr od</label>
                 <input
                   type="time"
                   value={referralFromDraft}
                   onChange={(e) => setReferralFromDraft(e.target.value)}
-                  className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                  className="w-full p-3 bg-white border border-muted rounded-lg text-ink text-sm"
                 />
                 <p className="text-xs text-slate-400 mt-1">
                   Pacientom so žiadankou (doplnkové ordinačné hodiny) sa ponúknu len časy od tejto hodiny.
@@ -2826,8 +2826,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-[#1A1A2E]">Overovanie telefónu SMS kódom</label>
-                <label className="flex items-center gap-2 text-sm text-[#1A1A2E] mt-2 cursor-pointer">
+                <label className="block text-sm font-semibold text-ink">Overovanie telefónu SMS kódom</label>
+                <label className="flex items-center gap-2 text-sm text-ink mt-2 cursor-pointer">
                   <input type="checkbox" data-testid="usg-sms-verify-toggle" checked={smsVerifyDraft} onChange={(e) => setSmsVerifyDraft(e.target.checked)} />
                   Vyžadovať overenie čísla SMS kódom pri objednaní
                 </label>
@@ -2843,13 +2843,13 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 referralFrom: referralFromDraft,
                 smsVerify: smsVerifyDraft,
               }), "Nastavenia platby uložené.")}
-              className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+              className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
               Uložiť nastavenia platby
             </button>
           </div>
-          <div className="bg-[#F8F9FC] border border-[#E0E4EF] p-4 rounded-[10px] space-y-3">
-            <h3 className="text-lg font-bold text-[#2B46A2]">Fakturačné údaje</h3>
+          <div className="bg-page border border-line p-4 rounded-lg space-y-3">
+            <h3 className="text-lg font-bold text-brand">Fakturačné údaje</h3>
             <p className="text-sm text-slate-400">
               Údaje dodávateľa na faktúrach. Faktúra sa pacientovi vystaví a pošle automaticky po prijatí
               platby — ale až keď sú vyplnené všetky polia. IBAN sa preberá z Nastavení platby.
@@ -2864,12 +2864,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 ["pzs", "Kód poskytovateľa ZS (ÚDZS)", "P99999…"],
               ].map(([key, label, placeholder]) => (
                 <div key={key}>
-                  <label className="block text-sm font-semibold text-[#1A1A2E]">{label}</label>
+                  <label className="block text-sm font-semibold text-ink">{label}</label>
                   <input
                     value={invDraft[key]}
                     onChange={(e) => setInvDraft((prev) => ({ ...prev, [key]: e.target.value }))}
                     placeholder={placeholder}
-                    className="w-full p-3 bg-white border border-[#767676] rounded-[10px] text-[#1A1A2E] text-sm"
+                    className="w-full p-3 bg-white border border-muted rounded-lg text-ink text-sm"
                   />
                 </div>
               ))}
@@ -2884,12 +2884,12 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                 invoiceOr: invDraft.or.trim(),
                 invoicePzs: invDraft.pzs.trim(),
               }), "Fakturačné údaje uložené.")}
-              className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+              className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
             >
               Uložiť fakturačné údaje
             </button>
             {[invDraft.name, invDraft.address, invDraft.ico, invDraft.dic, invDraft.or, invDraft.pzs].some((v) => !v.trim()) && (
-              <p className="text-[#856404] text-sm bg-[#FFF6E0] border border-[#E0C878] p-2 rounded">
+              <p className="text-warn text-sm bg-warn-soft border border-warn/30 p-2 rounded">
                 Faktúry sa zatiaľ nevystavujú — vyplňte všetky fakturačné údaje. Skôr zaplatené objednávky
                 potom dovystavíte tlačidlom v záložke Faktúry.
               </p>
@@ -2975,36 +2975,36 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
   const cancelAllowed = canCancel && hoursUntil >= 48;
 
   return (
-    <details open={defaultOpen || undefined} className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] mt-4 text-slate-800">
-      <summary className="p-5 font-bold text-[#2B46A2] cursor-pointer select-none">Už máte objednávku? Overiť stav alebo zrušiť</summary>
+    <details open={defaultOpen || undefined} className="bg-white rounded-xl border border-line mt-4 text-slate-800">
+      <summary className="p-5 font-bold text-brand cursor-pointer select-none">Už máte objednávku? Overiť stav alebo zrušiť</summary>
       <div className="px-5 pb-5 space-y-3">
         <div className="grid md:grid-cols-2 gap-3">
           <input
             value={orderId}
             onChange={(e) => { setOrderId(e.target.value); setFound(null); setMessage(""); }}
             placeholder="Číslo objednávky (USG-…)"
-            className="p-3 bg-white border border-slate-300 rounded-[10px] focus:ring-2 focus:ring-[#2B46A2] outline-none"
+            className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
           />
           <input
             value={phone}
             onChange={(e) => { setPhone(e.target.value); setFound(null); setMessage(""); }}
             placeholder="Telefón zadaný pri objednávke"
-            className="p-3 bg-white border border-slate-300 rounded-[10px] focus:ring-2 focus:ring-[#2B46A2] outline-none"
+            className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
           />
         </div>
-        <button onClick={search} disabled={busy} className="bg-[#2B46A2] hover:bg-[#004a87] disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-[10px] transition-colors">
+        <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-lg transition-colors">
           {busy ? "Pracujem…" : "Vyhľadať"}
         </button>
         {message && <p className="text-sm text-red-600 font-semibold">{message}</p>}
         {found && (
-          <div className="border border-slate-200 rounded-[10px] p-4 space-y-2">
+          <div className="border border-slate-200 rounded-lg p-4 space-y-2">
             <p className="font-bold">{found.exam.label}</p>
             <p className="text-sm">{formatDateHuman(found.date)} o {found.time} · {formatPrice(found.price)}{found.hasReferral ? " (doplatok so žiadankou)" : ""}</p>
             {found.doctor && (
               <p className="text-sm">
                 Lekár: {found.doctor}
                 {doctorLocation(settings.doctors, found.doctor) && (
-                  <span className="font-semibold text-[#2B46A2]"> · Miesto: {doctorLocation(settings.doctors, found.doctor)}</span>
+                  <span className="font-semibold text-brand"> · Miesto: {doctorLocation(settings.doctors, found.doctor)}</span>
                 )}
               </p>
             )}
@@ -3018,7 +3018,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
               </p>
             )}
             {found.status === "rejected" && found.paid && found.price > 0 && (
-              <p className="text-sm bg-[#EAF0FF] border border-[#2B46A2]/30 rounded-[10px] p-2 text-[#2B46A2] font-semibold">
+              <p className="text-sm bg-brand-soft border border-brand/30 rounded-lg p-2 text-brand font-semibold">
                 Platbu vám vrátime prevodom na účet, z ktorého prišla.
               </p>
             )}
@@ -3028,19 +3028,19 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
                 <button
                   onClick={() => { setResched(!resched); setReschedDate(found.date); setInfo(""); }}
                   disabled={busy}
-                  className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-[10px] transition-colors"
+                  className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
                 >
                   {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
                 </button>
                 {resched && (
-                  <div className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] p-3 space-y-2">
-                    <p className="text-sm font-semibold text-[#2B46A2]">Vyberte nový deň a čas (platba zostáva v platnosti):</p>
+                  <div className="bg-page border border-line rounded-lg p-3 space-y-2">
+                    <p className="text-sm font-semibold text-brand">Vyberte nový deň a čas (platba zostáva v platnosti):</p>
                     <input
                       type="date"
                       value={reschedDate}
                       min={toISODate(new Date())}
                       onChange={(e) => setReschedDate(e.target.value)}
-                      className="p-2 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-sm"
+                      className="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm"
                     />
                     {reschedDate && (
                       offeredFor(reschedDate).length === 0
@@ -3052,7 +3052,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
                                 key={slot.time}
                                 disabled={busy}
                                 onClick={() => doReschedule(reschedDate, slot.time, slot.doctor)}
-                                className="bg-white hover:bg-[#F0F4FF] border-2 border-[#2B46A2] text-[#2B46A2] text-sm font-bold px-3 py-2 rounded-[10px] transition-colors"
+                                className="bg-white hover:bg-brand-soft border-2 border-brand text-brand text-sm font-bold px-3 py-2 rounded-lg transition-colors"
                               >
                                 {slot.time}{slot.doctor ? ` · ${slot.doctor}` : ""}
                               </button>
@@ -3067,17 +3067,17 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
             )}
             {cancelAllowed && (
               <>
-                <button onClick={cancel} disabled={busy} className="bg-[#D32821] hover:bg-[#B01F19] disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-[10px] transition-colors">
+                <button onClick={cancel} disabled={busy} className="bg-danger hover:bg-danger/90 disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
                   Zrušiť objednávku
                 </button>
                 <p className="text-xs text-slate-500">
                   Pri zrušení najneskôr 48 hodín pred termínom vraciame platbu v plnej výške; podrobnosti
-                  upravujú <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-[#2B46A2] font-semibold hover:underline">podmienky objednávania</a>.
+                  upravujú <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">podmienky objednávania</a>.
                 </p>
               </>
             )}
             {canCancel && !cancelAllowed && (
-              <p className="text-xs bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] p-2 text-[#856404] font-semibold">
+              <p className="text-xs bg-warn-soft border border-warn/30 rounded-lg p-2 text-warn font-semibold">
                 Do termínu zostáva menej ako 48 hodín — online zrušenie už nie je možné.
                 Ak sa nemôžete dostaviť, pošlite nám SMS s číslom objednávky na 0949 000 677.
               </p>

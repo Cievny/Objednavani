@@ -128,24 +128,24 @@ const CheckinView = () => {
   const anyPending = Array.isArray(list) && list.some((o) => !o.arrivedAt);
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-8 space-y-5">
+    <div className="bg-white rounded-xl border border-line p-5 md:p-8 space-y-5">
       {/* Banner v štýle hero z objednávacej stránky — modré vlny, text zľava */}
-      <div className="relative overflow-hidden rounded-[12px] min-h-[170px] md:min-h-[210px] flex flex-col justify-center">
+      <div className="relative overflow-hidden rounded-lg min-h-[170px] md:min-h-[210px] flex flex-col justify-center">
         <img
           src="hero-cakaren.jpg" alt="" aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover object-right"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#1E3580] via-[#2B46A2]/85 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand/85 to-transparent" />
         <div className="relative p-5 md:p-7">
           <div className="flex items-center gap-4">
-            <div className="shrink-0 bg-white rounded-[12px] p-2 shadow-sm">
+            <div className="shrink-0 bg-white rounded-lg p-2 shadow-sm">
               <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 md:w-12 md:h-12 block" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] md:text-xs font-bold tracking-widest text-white/70 uppercase mb-1">
+              <p className="text-[10px] md:text-xs font-bold tracking-wide text-white/70 uppercase mb-1">
                 Národný ústav srdcových a cievnych chorôb, a.s.
               </p>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight drop-shadow-sm">Som v čakárni</h1>
+              <h1 className="text-2xl md:text-3xl font-semibold text-white leading-tight drop-shadow-sm">Som v čakárni</h1>
             </div>
           </div>
           <p className="text-sm text-white/90 mt-3 max-w-md">
@@ -155,7 +155,7 @@ const CheckinView = () => {
       </div>
 
       {confirmedAt && (
-        <div className="bg-emerald-50 border border-emerald-300 rounded-[10px] p-4 text-center space-y-1">
+        <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-4 text-center space-y-1">
           <p className="text-3xl" aria-hidden="true">✅</p>
           <p className="font-bold text-emerald-800">Ďakujeme, personál vie, že ste tu.</p>
           <p className="text-sm text-emerald-700">Posaďte sa, prosím — budeme vás volať podľa poradia.</p>
@@ -164,39 +164,39 @@ const CheckinView = () => {
             href="https://cievny.tasklogy.sk/pacienti"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex flex-col items-center gap-1.5 bg-white border border-emerald-300 rounded-[10px] px-6 py-3 hover:bg-emerald-50 transition-colors shadow-sm"
+            className="inline-flex flex-col items-center gap-1.5 bg-white border border-emerald-300 rounded-lg px-6 py-3 hover:bg-emerald-50 transition-colors shadow-sm"
           >
             <img src="logo-cievny.png" alt="cievny.sk" className="h-9" />
-            <span className="text-xs font-semibold text-[#2B46A2]">informácie pre pacientov →</span>
+            <span className="text-xs font-semibold text-brand">informácie pre pacientov →</span>
           </a>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-300 rounded-[10px] p-3 text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-700">{error}</div>
       )}
 
       <div className="space-y-2">
-        <label className="block text-sm font-semibold text-[#444444]">Telefónne číslo</label>
+        <label className="block text-sm font-semibold text-ink">Telefónne číslo</label>
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") search(); }}
           placeholder="+421 900 000 000"
-          className="w-full border border-[#E0E4EF] rounded-[10px] px-4 py-3 text-lg focus:outline-none focus:border-[#2B46A2]"
+          className="w-full border border-line rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-brand"
         />
         <button
           onClick={search}
           disabled={busy}
-          className="w-full bg-[#2B46A2] hover:bg-[#223A8C] disabled:opacity-50 text-white font-bold py-3 rounded-[10px] transition-colors"
+          className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
         >
           {busy && list === null ? "Hľadám…" : "Vyhľadať moju objednávku"}
         </button>
       </div>
 
       {list !== null && list.length === 0 && (
-        <div className="bg-amber-50 border border-amber-300 rounded-[10px] p-4 text-sm text-amber-800">
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-800">
           Na dnes sme pre toto číslo nenašli žiadnu objednávku. Skontrolujte, či ste zadali telefón
           z objednávky. Ak si myslíte, že ide o chybu, obráťte sa, prosím, na personál ambulancie.
         </div>
@@ -204,13 +204,13 @@ const CheckinView = () => {
 
       {list !== null && list.length > 0 && !confirmedAt && (
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-[#444444]">
+          <p className="text-sm font-semibold text-ink">
             {list.length === 1 ? "Našli sme vašu dnešnú objednávku:" : "Našli sme vaše dnešné objednávky:"}
           </p>
           <div className="space-y-2">
             {list.map((o, i) => (
-              <div key={i} className="bg-[#F8F9FC] border border-[#E0E4EF] rounded-[10px] px-4 py-3 flex items-center justify-between gap-2">
-                <span className="text-sm text-slate-600">Dnes o <strong className="text-[#2B46A2]">{o.time}</strong></span>
+              <div key={i} className="bg-page border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+                <span className="text-sm text-slate-600">Dnes o <strong className="text-brand">{o.time}</strong></span>
                 {o.arrivedAt && <span className="text-sm font-bold text-emerald-700">✓ prihlásený o {fmtTime(o.arrivedAt)}</span>}
               </div>
             ))}
@@ -219,7 +219,7 @@ const CheckinView = () => {
             <button
               onClick={confirm}
               disabled={busy}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-[10px] transition-colors"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
             >
               ✓ Som tu — potvrdiť príchod
             </button>

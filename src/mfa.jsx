@@ -6,9 +6,9 @@ import QRCode from "qrcode";
 //  • MfaChallenge: prihlásenie s faktorom → 6-miestny kód (AAL2)
 // Databáza (mfa_ok) pri settings.mfa_enforce = 'on' bez AAL2 nič nevydá.
 
-const box = "bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 max-w-md mx-auto text-center space-y-3";
-const input = "w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-center tracking-[0.4em] text-xl font-mono focus:ring-2 focus:ring-[#2B46A2] outline-none";
-const btn = "w-full bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 rounded-[10px] transition-colors";
+const box = "bg-white rounded-xl border border-line p-8 max-w-md mx-auto text-center space-y-3";
+const input = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-center tracking-[0.4em] text-xl font-mono focus:ring-2 focus:ring-brand outline-none";
+const btn = "w-full bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 rounded-lg transition-colors";
 
 const onlyDigits = (s) => String(s || "").replace(/\D/g, "").slice(0, 6);
 
@@ -47,7 +47,7 @@ export const MfaEnroll = ({ auth }) => {
 
   return (
     <div className={box} data-testid="mfa-enroll">
-      <h2 className="text-xl font-bold text-[#2B46A2]">Nastavenie dvojfaktorového overenia</h2>
+      <h2 className="text-xl font-bold text-brand">Nastavenie dvojfaktorového overenia</h2>
       <p className="text-sm text-slate-600">
         Prístup k údajom pacientov vyžaduje druhý faktor. Naskenujte QR kód v aplikácii
         <b> Google Authenticator</b>, <b>Microsoft Authenticator</b> alebo <b>Authy</b> a zadajte 6-miestny kód.
@@ -94,7 +94,7 @@ export const MfaChallenge = ({ auth }) => {
 
   return (
     <div className={box} data-testid="mfa-challenge">
-      <h2 className="text-xl font-bold text-[#2B46A2]">Overovací kód</h2>
+      <h2 className="text-xl font-bold text-brand">Overovací kód</h2>
       <p className="text-sm text-slate-600">Zadajte 6-miestny kód z aplikácie autentifikátora.</p>
       <form onSubmit={submit} className="space-y-3">
         <input

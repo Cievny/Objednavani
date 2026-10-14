@@ -35,7 +35,7 @@ export function Toaster() {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none px-4 w-full max-w-md" aria-live="polite" role="status">
       {items.map((t) => (
-        <div key={t.id} data-testid="toast" className={`toast-in pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg ${t.kind === "ok" ? "bg-[#16A34A] text-white" : "bg-[#D32821] text-white"}`}>
+        <div key={t.id} data-testid="toast" className={`toast-in pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg ${t.kind === "ok" ? "bg-success text-white" : "bg-danger text-white"}`}>
           <span aria-hidden="true">{t.kind === "ok" ? "✓" : "!"}</span>
           <span>{t.text}</span>
         </div>

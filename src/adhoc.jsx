@@ -51,18 +51,18 @@ export default function AdhocPaymentApp() {
     catch (err) { setMsg(err?.message || String(err)); }
   };
 
-  const input = "w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-sm focus:ring-2 focus:ring-[#2B46A2] outline-none";
+  const input = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm focus:ring-2 focus:ring-brand outline-none";
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
         <span>Testovacia sekcia — ad-hoc platba za iný výkon. Nie je verejná.</span>
-        <a href="#/sprava" className="text-[#2B46A2] hover:underline">← Späť do správy</a>
+        <a href="#/sprava" className="text-brand hover:underline">← Späť do správy</a>
       </div>
 
       {!created ? (
-        <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6">
-          <h2 className="text-xl font-bold text-[#2B46A2] mb-4">Nová platba za výkon</h2>
+        <div className="bg-white rounded-xl border border-line p-5 md:p-6">
+          <h2 className="text-xl font-bold text-brand mb-4">Nová platba za výkon</h2>
           <form onSubmit={submit} className="space-y-3 max-w-md">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Názov výkonu</label>
@@ -81,14 +81,14 @@ export default function AdhocPaymentApp() {
               <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jan.novak@…" />
             </div>
             {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
-            <button type="submit" disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 px-5 rounded-[10px] transition-colors">
+            <button type="submit" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg transition-colors">
               {busy ? "Vytváram…" : "Vytvoriť QR platbu"}
             </button>
           </form>
         </div>
       ) : (
-        <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6">
-          <h2 className="text-xl font-bold text-[#2B46A2] mb-1">Platba za: {created.itemName}</h2>
+        <div className="bg-white rounded-xl border border-line p-5 md:p-6">
+          <h2 className="text-xl font-bold text-brand mb-1">Platba za: {created.itemName}</h2>
           <p className="text-slate-600 mb-4">Suma <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
           <div className="flex flex-col md:flex-row gap-5 items-start">
             {paymentReady(settings) ? (
@@ -98,7 +98,7 @@ export default function AdhocPaymentApp() {
                 note={`${created.itemName}${created.patientName ? " " + created.patientName : ""}`}
               />
             ) : (
-              <div className="bg-[#FFF6E0] border border-[#E0C878] text-[#856404] rounded-[10px] p-4 text-sm max-w-xs">
+              <div className="bg-warn-soft border border-warn/30 text-warn rounded-lg p-4 text-sm max-w-xs">
                 QR kód sa nezobrazuje — platobné údaje nie sú overené (IBAN v databáze chýba alebo sa nezhoduje s pripnutým). {PAYMENT_PENDING_TEXT}
               </div>
             )}
@@ -112,14 +112,14 @@ export default function AdhocPaymentApp() {
                   ? "Výzva na úhradu odišla pacientovi e-mailom. Po pripísaní platby sa faktúra vystaví a pošle automaticky."
                   : "Po pripísaní platby sa faktúra vystaví automaticky (e-mail sa pošle, ak ho zadáte)."}
               </p>
-              {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</p>}
+              {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
               <div className="flex flex-wrap gap-2 mt-3">
                 {isSupabase && email.trim() && (
-                  <button onClick={() => doResend(created.id)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] font-semibold px-4 py-2 rounded-[10px] transition-colors">
+                  <button onClick={() => doResend(created.id)} className="bg-brand-soft hover:bg-line text-brand font-semibold px-4 py-2 rounded-lg transition-colors">
                     Poslať údaje e-mailom
                   </button>
                 )}
-                <button onClick={reset} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] font-semibold px-4 py-2 rounded-[10px] transition-colors">
+                <button onClick={reset} className="bg-soft hover:bg-line text-ink font-semibold px-4 py-2 rounded-lg transition-colors">
                   + Nová platba
                 </button>
               </div>
@@ -129,8 +129,8 @@ export default function AdhocPaymentApp() {
       )}
 
       {/* kniha ad-hoc platieb */}
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6">
-        <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Ad-hoc platby</h3>
+      <div className="bg-white rounded-xl border border-line p-5 md:p-6">
+        <h3 className="text-lg font-bold text-brand mb-3">Ad-hoc platby</h3>
         {msg && !created && <p className="text-sm text-red-600 font-semibold mb-2">{msg}</p>}
         {payments.length === 0 ? (
           <p className="text-sm text-slate-400">Zatiaľ žiadne platby.</p>
@@ -138,7 +138,7 @@ export default function AdhocPaymentApp() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[520px]">
               <thead>
-                <tr className="text-left text-xs text-[#767676] border-b border-[#E0E4EF]">
+                <tr className="text-left text-xs text-muted border-b border-line">
                   <th className="py-2 pr-3">Výkon</th><th className="py-2 pr-3 text-right">Suma</th>
                   <th className="py-2 pr-3">VS</th><th className="py-2 pr-3">Pacient</th>
                   <th className="py-2 pr-3">Stav</th><th className="py-2"></th>
@@ -146,24 +146,24 @@ export default function AdhocPaymentApp() {
               </thead>
               <tbody>
                 {payments.map((p) => (
-                  <tr key={p.id} className="border-b border-[#F0F2F5]">
+                  <tr key={p.id} className="border-b border-soft">
                     <td className="py-2 pr-3">{p.itemName}</td>
                     <td className="py-2 pr-3 text-right whitespace-nowrap">{p.amount.toFixed(2).replace(".", ",")} €</td>
                     <td className="py-2 pr-3 font-mono">{p.variableSymbol}</td>
                     <td className="py-2 pr-3">{p.patientName || "—"}</td>
                     <td className="py-2 pr-3">
                       {p.paid
-                        ? <span className="text-xs font-bold text-white bg-[#2B46A2] rounded px-2 py-1">ZAPLATENÉ</span>
-                        : <span className="text-xs font-bold text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-1">ČAKÁ</span>}
+                        ? <span className="text-xs font-bold text-white bg-brand rounded px-2 py-1">ZAPLATENÉ</span>
+                        : <span className="text-xs font-bold text-warn bg-warn-soft border border-warn/30 rounded px-2 py-1">ČAKÁ</span>}
                     </td>
                     <td className="py-2 text-right space-x-2 whitespace-nowrap">
                       {!p.paid && isSupabase && p.email && (
-                        <button onClick={() => doResend(p.id)} className="bg-[#F0F4FF] hover:bg-[#E0E4EF] text-[#2B46A2] text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                        <button onClick={() => doResend(p.id)} className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-3 py-1.5 rounded transition-colors">
                           Poslať e-mail
                         </button>
                       )}
                       {!p.paid && (
-                        <button onClick={() => doMarkPaid(p.id)} className="bg-[#16A34A] hover:bg-[#128A3E] text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                        <button onClick={() => doMarkPaid(p.id)} className="bg-success hover:bg-success/90 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors">
                           Platba prijatá
                         </button>
                       )}

@@ -1,19 +1,36 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Dizajn podľa design manuálu objednávkového systému:
-   - Roboto (self-hosted, latin + latin-ext — slovenská diakritika)
-   - modrá #2B46A2 = štruktúra a akcia; červená #D32821 = len urgencia
-   - telový text 17px / 1.8 (publikum 45+)
-   - focus ring 3px #2B46A2, offset 2px
-   - žiadne nekonečné animácie; prechody len farby do 200 ms
+   Dizajn v103 – „čistý" vizuál (inšpirácia Mayo Clinic):
+   - biele plochy, veľa vzduchu, jedna pokojná modrá (brand) + tmavá navy
+     pre nadpisy, bledomodré/svetlosivé sekcie, 1 px linky namiesto tieňov
+   - červená LEN pre urgenciu; zelená pre potvrdenia
+   - Roboto, telový text 17px / 1.7 (publikum 45+)
+   - tokeny nižšie sú jediné miesto, kde sa farby definujú
    ============================================================ */
+@theme {
+  --color-brand: #0057B8;        /* akcia, odkazy, aktívne prvky */
+  --color-brand-dark: #003C7E;   /* nadpisy, hover tlačidiel, tmavé plochy */
+  --color-brand-soft: #E8F1FB;   /* bledomodré pozadia, čipy, vybrané položky */
+  --color-page: #FFFFFF;         /* pozadie stránky */
+  --color-soft: #F4F6F9;         /* sekundárne plochy, neaktívne záložky */
+  --color-line: #D9E0E8;         /* rámiky a oddeľovače */
+  --color-ink: #1F2A37;          /* text */
+  --color-muted: #5B6977;        /* sekundárny text */
+  --color-danger: #B42318;       /* urgencia, chyby */
+  --color-danger-soft: #FDF2F0;
+  --color-success: #157347;
+  --color-success-soft: #EAF6EF;
+  --color-warn: #7A5A00;
+  --color-warn-soft: #FFF8E5;
+}
 
 body {
   font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   font-size: 17px;
-  line-height: 1.8;
-  color: #1a1a2e;
+  line-height: 1.7;
+  color: #1F2A37;
+  background: #FFFFFF;
 }
 
 /* Tailwind v4 preflight necháva na buttonoch cursor: default —
@@ -23,7 +40,7 @@ button:not(:disabled) {
 }
 
 *:focus-visible {
-  outline: 3px solid #2b46a2;
+  outline: 3px solid #0057B8;
   outline-offset: 2px;
   border-radius: 4px;
 }

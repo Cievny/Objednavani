@@ -41,7 +41,7 @@ const newAngioId = () => {
   let s = ""; for (let i = 0; i < b.length; i++) s += abc[b[i] % 32];
   return "ANG-" + s;
 };
-const inp = "w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-sm focus:ring-2 focus:ring-[#2B46A2] outline-none";
+const inp = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm focus:ring-2 focus:ring-brand outline-none";
 const statuses = { new: "Nová", confirmed: "Potvrdená", done: "Vykonané", noshow: "Nedostavil sa", rejected: "Zrušená" };
 
 // všetky platné začiatky pre daný deň (súvislé voľné bunky jedného lekára) — pre presun personálom
@@ -179,29 +179,29 @@ function AngioBookingView({ data, landing = null }) {
 
   if (done) {
     return (
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-6 text-center">
-        <h2 className="text-xl font-bold text-[#16A34A] mb-2">Objednávka je prijatá</h2>
+      <div className="bg-white rounded-xl border border-line p-6 text-center">
+        <h2 className="text-xl font-bold text-success mb-2">Objednávka je prijatá</h2>
         <p className="text-slate-700">{done.label}</p>
         <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
-        <p className="text-sm text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] px-3 py-2 mt-3 text-left"><b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.</p>
+        <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2 mt-3 text-left"><b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.</p>
         <p className="text-xs text-slate-500 mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
-            className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Nová objednávka</button>
-          <a href="#/" className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">← Späť na hlavnú stránku</a>
+            className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">Nová objednávka</button>
+          <a href="#/" className="bg-soft hover:bg-line text-ink text-sm font-semibold px-4 py-2 rounded-lg">← Späť na hlavnú stránku</a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-5">
-      <h2 className="text-xl font-bold text-[#2B46A2]">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
+    <div className="bg-white rounded-xl border border-line p-5 md:p-6 space-y-5">
+      <h2 className="text-xl font-bold text-brand">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
       {step < 3 && data.requestCallback && (
         <p className="text-sm text-slate-600 -mt-2">Nedarí sa vám objednať online?{" "}
-          <a href="#zavolame" data-testid="booking-callback-link" className="font-bold text-[#2B46A2] underline underline-offset-2 hover:text-[#1E3580]"
+          <a href="#zavolame" data-testid="booking-callback-link" className="font-bold text-brand underline underline-offset-2 hover:text-brand-dark"
             onClick={(e) => { const el = document.getElementById("zavolame"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>
             Nechajte nám číslo, zavoláme vám ›</a></p>
       )}
@@ -210,14 +210,14 @@ function AngioBookingView({ data, landing = null }) {
           <p className="text-sm font-semibold text-slate-700">Vyberte typ vyšetrenia / návštevy</p>
           {data.pricelist.length === 0 && <p className="text-sm text-slate-400">Zatiaľ nie sú nastavené žiadne typy vyšetrení.</p>}
           {data.pricelist.map((p) => (
-            <div key={p.id} className={`border-2 rounded-[10px] transition-colors ${examTypeId === p.id ? "border-[#2B46A2] bg-[#F0F4FF]" : "border-slate-200 hover:border-[#8fb8dd]"}`}>
+            <div key={p.id} className={`border-2 rounded-lg transition-colors ${examTypeId === p.id ? "border-brand bg-brand-soft" : "border-slate-200 hover:border-brand/50"}`}>
               <button onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }} className="w-full text-left p-3">
                 <span className="font-bold text-slate-800">{p.label}</span>
                 <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
               </button>
               {p.about && (
                 <div className="px-3 pb-2">
-                  <button type="button" onClick={() => setAboutOpen((o) => (o === p.id ? "" : p.id))} className="text-xs font-semibold text-[#2B46A2] hover:underline">
+                  <button type="button" onClick={() => setAboutOpen((o) => (o === p.id ? "" : p.id))} className="text-xs font-semibold text-brand hover:underline">
                     {aboutOpen === p.id ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
                   </button>
                   {aboutOpen === p.id && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={p.about} /></div>}
@@ -232,12 +232,12 @@ function AngioBookingView({ data, landing = null }) {
         <div className="space-y-4">
           {landingExam
             ? (
-              <div data-testid="landing-exam" className="border-2 border-[#2B46A2] bg-[#F0F4FF] rounded-[10px] p-3">
+              <div data-testid="landing-exam" className="border-2 border-brand bg-brand-soft rounded-lg p-3">
                 <p className="font-bold text-slate-800">{examType?.label}</p>
                 <p className="text-xs text-slate-500 mt-1">Trvanie ~{(examType?.durationSlots || 3) * 5} min{examType?.description ? ` · ${examType.description}` : ""}{examType?.requiresReferral === false ? " · bez žiadanky" : ""}</p>
                 {examType?.about && (
                   <>
-                    <button type="button" onClick={() => setAboutOpen((o) => (o ? "" : examType.id))} className="text-xs font-semibold text-[#2B46A2] hover:underline mt-1">
+                    <button type="button" onClick={() => setAboutOpen((o) => (o ? "" : examType.id))} className="text-xs font-semibold text-brand hover:underline mt-1">
                       {aboutOpen ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
                     </button>
                     {aboutOpen && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={examType.about} /></div>}
@@ -245,7 +245,7 @@ function AngioBookingView({ data, landing = null }) {
                 )}
               </div>
             )
-            : <button onClick={() => setStep(1)} className="text-sm text-[#2B46A2] hover:underline">← Zmeniť vyšetrenie</button>}
+            : <button onClick={() => setStep(1)} className="text-sm text-brand hover:underline">← Zmeniť vyšetrenie</button>}
           {!landingExam && <p className="text-sm text-slate-600">Vybrané: <b>{examType?.label}</b></p>}
           <div className="grid md:grid-cols-2 gap-5">
             <MonthCalendar monthDate={monthDate}
@@ -256,7 +256,7 @@ function AngioBookingView({ data, landing = null }) {
               <div className="flex flex-wrap gap-2">
                 {date && freeSlotsFor(date).map((s) => (
                   <button key={s.time} onClick={() => setTime(s.time)}
-                    className={`px-3 py-2 rounded-[10px] text-sm font-semibold border transition-colors ${time === s.time ? "bg-[#2B46A2] text-white border-[#2B46A2]" : "bg-white text-[#2B46A2] border-slate-300 hover:border-[#2B46A2]"}`}>
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${time === s.time ? "bg-brand text-white border-brand" : "bg-white text-brand border-slate-300 hover:border-brand"}`}>
                     {s.time}{s.doctor ? <span className="block text-[10px] font-normal opacity-70">{s.doctor}</span> : null}
                   </button>
                 ))}
@@ -264,16 +264,16 @@ function AngioBookingView({ data, landing = null }) {
               </div>
             </div>
           </div>
-          <p data-testid="orientacny-termin" className="text-sm text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded-[10px] px-3 py-2">
+          <p data-testid="orientacny-termin" className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2">
             <b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.
           </p>
-          {time && <button onClick={() => setStep(3)} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold py-3 px-5 rounded-[10px]">Pokračovať</button>}
+          {time && <button onClick={() => setStep(3)} className="bg-brand hover:bg-brand-dark text-white font-bold py-3 px-5 rounded-lg">Pokračovať</button>}
         </div>
       )}
 
       {step === 3 && (
         <div className="space-y-3">
-          <button onClick={() => setStep(2)} className="text-sm text-[#2B46A2] hover:underline">← Späť na termín</button>
+          <button onClick={() => setStep(2)} className="text-sm text-brand hover:underline">← Späť na termín</button>
           <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {date} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">
             <div>
@@ -299,7 +299,7 @@ function AngioBookingView({ data, landing = null }) {
               {data.smsVerify && (
                 <div data-testid="otp-box" className="mt-2 text-sm">
                   {phoneVerified ? (
-                    <p className="text-[#16A34A] font-semibold">✓ Číslo overené</p>
+                    <p className="text-success font-semibold">✓ Číslo overené</p>
                   ) : otp.stage === "sent" && phoneDigits(otp.phone) === phoneDigits(form.phone) ? (
                     <div className="space-y-2">
                       <p className="text-slate-600">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
@@ -307,13 +307,13 @@ function AngioBookingView({ data, landing = null }) {
                         <input className={inp} inputMode="numeric" maxLength={6} placeholder="6-miestny kód" value={otp.code}
                           onChange={(ev) => setOtp((o) => ({ ...o, code: ev.target.value.replace(/\D/g, "").slice(0, 6), msg: "" }))} />
                         <button type="button" onClick={verifyOtp} disabled={otp.busy || otp.code.length !== 6}
-                          className="bg-[#2B46A2] disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-[10px] shrink-0">Overiť kód</button>
+                          className="bg-brand disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shrink-0">Overiť kód</button>
                       </div>
-                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-[#2B46A2] hover:underline">Poslať kód znova</button>
+                      <button type="button" onClick={sendOtp} disabled={otp.busy} className="text-xs text-brand hover:underline">Poslať kód znova</button>
                     </div>
                   ) : (
                     <button type="button" onClick={sendOtp} disabled={otp.busy}
-                      className="bg-[#F0F4FF] hover:bg-[#E0E4EF] disabled:opacity-50 text-[#2B46A2] text-sm font-semibold px-4 py-2 rounded-[10px]">
+                      className="bg-brand-soft hover:bg-line disabled:opacity-50 text-brand text-sm font-semibold px-4 py-2 rounded-lg">
                       {otp.busy ? "Posielam…" : "Poslať overovací SMS kód"}
                     </button>
                   )}
@@ -332,18 +332,18 @@ function AngioBookingView({ data, landing = null }) {
             </div>
           </div>
           {/* Nahrávanie žiadanky — povinné podľa typu vyšetrenia */}
-          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-[10px] p-3" : needsReferral ? "border border-amber-300 bg-amber-50 rounded-[10px] p-3" : "border border-slate-200 bg-[#F8F9FC] rounded-[10px] p-3"}>
+          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-lg p-3" : needsReferral ? "border border-amber-300 bg-amber-50 rounded-lg p-3" : "border border-slate-200 bg-page rounded-lg p-3"}>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               {needsReferral ? "Žiadanka (výmenný lístok) — odfoťte alebo nahrajte *" : "Žiadanka alebo lekárske správy — nepovinné"}{" "}
               <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span>
             </label>
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
-              className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-[10px] file:border-0 file:bg-[#F0F4FF] file:text-[#2B46A2] file:font-semibold hover:file:bg-[#E0E4EF]" />
+              className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-soft file:text-brand file:font-semibold hover:file:bg-line" />
             <Err k="files" />
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between text-sm bg-[#F8F9FC] border border-slate-200 rounded-[8px] px-3 py-1.5">
+                  <li key={i} className="flex items-center justify-between text-sm bg-page border border-slate-200 rounded-md px-3 py-1.5">
                     <span className="truncate">{f.name}</span>
                     <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-xs font-semibold shrink-0 ml-2">✕</button>
                   </li>
@@ -352,7 +352,7 @@ function AngioBookingView({ data, landing = null }) {
             )}
           </div>
           {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
-          <button onClick={submit} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 px-5 rounded-[10px]">
+          <button onClick={submit} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg">
             {busy ? "Odosielam…" : "Objednať sa (bez poplatku)"}
           </button>
         </div>
@@ -425,35 +425,35 @@ function AngioOrderLookup({ data, initialId = "" }) {
   };
 
   return (
-    <div id="angio-lookup" className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 md:p-6 space-y-3">
-      <h3 className="text-lg font-bold text-[#2B46A2]">Už máte objednávku?</h3>
+    <div id="angio-lookup" className="bg-white rounded-xl border border-line p-5 md:p-6 space-y-3">
+      <h3 className="text-lg font-bold text-brand">Už máte objednávku?</h3>
       <p className="text-sm text-slate-500">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli. Termín tu môžete zmeniť alebo zrušiť (najneskôr 24 hodín vopred).</p>
       <div className="grid md:grid-cols-2 gap-3">
         <input className={inp} placeholder="Číslo objednávky (ANG-…)" value={id} onChange={(e) => setId(e.target.value)} />
         <input className={inp} placeholder="Telefón zadaný pri objednávke" value={phone} onChange={(e) => setPhone(e.target.value)} />
       </div>
-      <button onClick={search} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-[10px]">
+      <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-lg">
         {busy ? "Hľadám…" : "Vyhľadať"}
       </button>
       {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
       {found && (
-        <div className="border border-slate-200 rounded-[10px] p-4 space-y-1">
+        <div className="border border-slate-200 rounded-lg p-4 space-y-1">
           <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{statuses[found.status] || found.status}</span></p>
           {found.exam?.label && <p className="text-sm text-slate-600">{found.exam.label}</p>}
           <p className="text-sm text-slate-600">Termín: <b>{found.date} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
-          {ok && <p className="text-sm text-[#16A34A] font-semibold">{ok}</p>}
+          {ok && <p className="text-sm text-success font-semibold">{ok}</p>}
           {(found.status === "new" || found.status === "confirmed") && (
             <div className="flex flex-wrap gap-2 mt-2">
-              <button onClick={() => { setResched(!resched); setOk(""); setMsg(""); }} disabled={busy} className="bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">
+              <button onClick={() => { setResched(!resched); setOk(""); setMsg(""); }} disabled={busy} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
                 {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
               </button>
-              <button onClick={cancel} disabled={busy} className="bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-[10px] hover:bg-red-50">
+              <button onClick={cancel} disabled={busy} className="bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-50">
                 Zrušiť objednávku
               </button>
             </div>
           )}
           {resched && (found.status === "new" || found.status === "confirmed") && (
-            <div data-testid="patient-resched" className="mt-3 bg-[#F8F9FC] border border-slate-200 rounded-[10px] p-3 space-y-3">
+            <div data-testid="patient-resched" className="mt-3 bg-page border border-slate-200 rounded-lg p-3 space-y-3">
               <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom. Telefón/SMS 0949 000 677 len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
               <div className="grid md:grid-cols-2 gap-4">
                 <MonthCalendar monthDate={rMonth}
@@ -464,7 +464,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
                   <div className="flex flex-wrap gap-2">
                     {rDate && rStarts(rDate).map((s) => (
                       <button key={s.time} onClick={() => pick(rDate, s.time)} disabled={busy}
-                        className="px-3 py-2 rounded-[10px] text-sm font-semibold border bg-white text-[#2B46A2] border-slate-300 hover:border-[#2B46A2]">
+                        className="px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-brand border-slate-300 hover:border-brand">
                         {s.time}{s.doctor ? <span className="block text-[10px] font-normal opacity-70">{s.doctor}</span> : null}
                       </button>
                     ))}
@@ -474,7 +474,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
               </div>
             </div>
           )}
-          {found.status === "rejected" && <p className="text-sm text-[#856404]">Objednávka je zrušená.</p>}
+          {found.status === "rejected" && <p className="text-sm text-warn">Objednávka je zrušená.</p>}
         </div>
       )}
     </div>
@@ -505,17 +505,17 @@ function PatientDetails({ order, onCopied }) {
     try { await navigator.clipboard.writeText(text); onCopied?.(true); } catch { onCopied?.(false); }
   };
   return (
-    <div data-testid="patient-details" className="bg-white/70 border border-slate-200 rounded-[10px] p-3">
+    <div data-testid="patient-details" className="bg-white/70 border border-slate-200 rounded-lg p-3">
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dátum narodenia</dt><dd className="font-semibold">{fmtD(order.birthDate)}</dd></div>
         <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Poisťovňa</dt><dd className="font-semibold">{ins}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-[#2B46A2] hover:underline">{order.phone}</a> : "—"}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-[#2B46A2] hover:underline">{order.email}</a> : "—"}</dd></div>
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-brand hover:underline">{order.phone}</a> : "—"}</dd></div>
+        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-brand hover:underline">{order.email}</a> : "—"}</dd></div>
         {order.doctor && <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Lekár</dt><dd>{order.doctor}</dd></div>}
         <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Objednané</dt><dd>{fmtDT(order.createdAt)}</dd></div>
         {order.reason && <div className="sm:col-span-2"><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
       </dl>
-      <button type="button" onClick={copy} className="mt-2 text-xs bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444] font-semibold px-3 py-1.5 rounded">📋 Kopírovať údaje pacienta</button>
+      <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded">📋 Kopírovať údaje pacienta</button>
     </div>
   );
 }
@@ -546,11 +546,11 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
   const run = async (fn) => { setMsg(""); try { await fn(); } catch (e) { setMsg(e?.message || String(e)); } };
 
   const tone = order.status === "rejected" ? "border-l-red-400 bg-red-50"
-    : order.status === "confirmed" ? "border-l-[#2B46A2] bg-[#F0F4FF]"
+    : order.status === "confirmed" ? "border-l-brand bg-brand-soft"
     : "border-l-amber-400 bg-amber-50";
 
   return (
-    <div className={`border border-[#E0E4EF] rounded-[10px] p-4 border-l-4 ${tone} space-y-2`}>
+    <div className={`border border-line rounded-lg p-4 border-l-4 ${tone} space-y-2`}>
       {!embedded && (<>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
@@ -568,41 +568,41 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
         <div className="flex flex-wrap gap-2">
           {order.attachments.map((a, i) => (
             <button key={i} onClick={() => run(() => data.openAttachment(a))}
-              className="text-xs bg-[#F0F4FF] text-[#2B46A2] border border-[#c9d6f5] rounded px-2 py-1 hover:bg-[#E0E4EF]">
+              className="text-xs bg-brand-soft text-brand border border-line rounded px-2 py-1 hover:bg-line">
               📎 {a.name || `príloha ${i + 1}`}
             </button>
           ))}
         </div>
       )}
-      {order.statusNote && <p className="text-xs text-[#856404]">{order.statusNote}</p>}
+      {order.statusNote && <p className="text-xs text-warn">{order.statusNote}</p>}
       {msg && <p className="text-xs text-red-600 font-semibold">{msg}</p>}
 
       {canManage && active && (
         <div className="flex flex-wrap gap-2 pt-1">
-          {order.status === "new" && <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-[#2B46A2] text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>}
-          <button onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-[#F0F2F5] text-[#444] text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
-          <button onClick={() => setResched(!resched)} className="bg-[#F0F2F5] text-[#444] text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
+          {order.status === "new" && <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>}
+          <button onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
+          <button onClick={() => setResched(!resched)} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
           <button onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-red-300 text-red-600 text-xs font-semibold px-3 py-1.5 rounded">Zrušiť</button>
         </div>
       )}
       {canManage && order.status === "rejected" && (
-        <button onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-[#F0F2F5] text-[#444] text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
+        <button onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
       )}
 
       {resched && active && (
-        <div className="bg-white border border-slate-200 rounded-[10px] p-3 space-y-2">
+        <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
           <input type="date" className={inp} value={rdate} onChange={(e) => setRdate(e.target.value)} />
           <div className="flex flex-wrap gap-2">
             {starts(rdate).map((s) => (
               <button key={s.time} onClick={() => run(async () => { await data.reschedule(order.id, rdate, s.time); setResched(false); })}
-                className="bg-white border border-slate-300 hover:border-[#2B46A2] text-[#2B46A2] text-xs font-semibold px-3 py-1.5 rounded">{s.time}</button>
+                className="bg-white border border-slate-300 hover:border-brand text-brand text-xs font-semibold px-3 py-1.5 rounded">{s.time}</button>
             ))}
             {starts(rdate).length === 0 && <p className="text-xs text-slate-400">Žiadne voľné časy v tento deň.</p>}
           </div>
         </div>
       )}
       {cancelOpen && active && (
-        <div className="bg-white border border-red-200 rounded-[10px] p-3 space-y-2">
+        <div className="bg-white border border-red-200 rounded-lg p-3 space-y-2">
           <div className="flex flex-wrap gap-2">
             {["Na žiadosť pacienta", "Prekážka na strane pracoviska", "Duplicitná objednávka"].map((r) => (
               <button key={r} onClick={() => run(() => data.setStatus(order.id, "rejected", r))} className="bg-white border border-red-300 text-red-600 text-xs font-semibold px-3 py-1.5 rounded">{r}</button>
@@ -620,16 +620,16 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 
 // ---------- Kompaktný riadok objednávky (zoznamy v správe) ----------
 // Jeden riadok: čas · pacient · vyšetrenie · stav; rozbalí sa na plnú kartu.
-const statusChip = (s) => s === "confirmed" ? "bg-[#E8EEFF] text-[#2B46A2]" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
+const statusChip = (s) => s === "confirmed" ? "bg-brand-soft text-brand" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
 function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const [msg, setMsg] = useMsg();
   const confirm = async (e) => { e.stopPropagation(); setMsg(""); try { await data.setStatus(order.id, "confirmed"); } catch (err) { setMsg(err?.message || String(err)); } };
   const endTime = order.durationMin ? addMinutes(order.time, order.durationMin) : "";
   return (
-    <div data-testid="order-row" className={`border border-[#E0E4EF] rounded-[10px] bg-white ${open ? "shadow-sm" : ""}`}>
+    <div data-testid="order-row" className={`border border-line rounded-lg bg-white ${open ? "shadow-sm" : ""}`}>
       <div role="button" tabIndex={0} onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}
-        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[#F8F9FC] rounded-[10px]">
+        className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-page rounded-lg">
         <div className="shrink-0 w-[4.6rem] text-sm font-mono font-bold text-slate-800 leading-tight">
           {showDate && <span className="block text-[11px] font-sans font-normal text-slate-500">{fmtD(order.date)}</span>}
           {order.time}{endTime && <span className="block text-[10px] font-normal text-slate-400">–{endTime}</span>}
@@ -643,7 +643,7 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
         </div>
         <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
         {canManage && order.status === "new" && (
-          <button type="button" onClick={confirm} className="shrink-0 bg-[#2B46A2] hover:bg-[#1E3580] text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>
+          <button type="button" onClick={confirm} className="shrink-0 bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>
         )}
         <span className="shrink-0 text-slate-400 text-xs" aria-label={open ? "Zbaliť" : "Rozbaliť"}>{open ? "▴" : "▾"}</span>
       </div>
@@ -698,42 +698,42 @@ function AngioAdmin({ data, role }) {
 
   const cbNew = data.newCallbackCount || 0;
   const tabs = [["overview", "Prehľad"], ["calendar", "Kalendár"], ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
-  const btn = "shrink-0 px-4 py-2 rounded-[10px] text-sm font-bold transition-colors";
+  const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-bold transition-colors";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         {tabs.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={`${btn} ${tab === id ? "bg-[#2B46A2] text-white" : "bg-[#F0F2F5] text-[#444]"}`}>{label}</button>
+          <button key={id} onClick={() => setTab(id)} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
         ))}
       </div>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
 
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { n: todayProgram.length, label: "dnešný program", color: "text-[#2B46A2]", go: () => showList("all", "today"), id: "today" },
+              { n: todayProgram.length, label: "dnešný program", color: "text-brand", go: () => showList("all", "today"), id: "today" },
               { n: arrivedToday, label: "v čakárni", color: "text-emerald-600", go: () => showList("all", "arrived"), id: "arrived" },
               { n: pending.length, label: "nové (na potvrdenie)", color: "text-amber-600", go: () => showList("new", "all"), id: "new" },
-              { n: next7, label: "objednaní — 7 dní", color: "text-[#2B46A2]", go: () => showList("all", "week"), id: "week" },
+              { n: next7, label: "objednaní — 7 dní", color: "text-brand", go: () => showList("all", "week"), id: "week" },
             ].map((t) => (
               <button key={t.id} type="button" data-testid={`stat-${t.id}`} onClick={t.go} title="Zobraziť zoznam"
-                className="bg-white rounded-[12px] p-4 text-center shadow-sm hover:shadow-md hover:bg-[#F8F9FC] active:bg-[#F0F4FF] transition">
-                <div className={`text-2xl font-extrabold ${t.color}`}>{t.n}</div>
+                className="bg-white rounded-lg p-4 text-center hover:bg-soft hover:bg-page active:bg-brand-soft transition">
+                <div className={`text-2xl font-semibold ${t.color}`}>{t.n}</div>
                 <div className="text-xs text-slate-500">{t.label}</div>
-                <div className="text-[10px] text-[#2B46A2] mt-1">zobraziť ›</div>
+                <div className="text-[10px] text-brand mt-1">zobraziť ›</div>
               </button>
             ))}
           </div>
           {cbNew > 0 && (
             <button type="button" data-testid="stat-callbacks" onClick={() => setTab("callbacks")}
-              className="w-full text-left bg-amber-50 border border-amber-200 text-amber-900 rounded-[12px] px-4 py-3 text-sm font-semibold hover:bg-amber-100">
+              className="w-full text-left bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-4 py-3 text-sm font-semibold hover:bg-amber-100">
               📞 {cbNew === 1 ? "1 pacient prosí" : `${cbNew} pacienti prosia`} o zavolanie späť — zobraziť ›
             </button>
           )}
-          <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
-            <h3 className="text-lg font-bold text-[#2B46A2] mb-3">Dnešný program</h3>
+          <div className="bg-white rounded-xl border border-line p-5">
+            <h3 className="text-lg font-bold text-brand mb-3">Dnešný program</h3>
             {todayProgram.length === 0 ? <p className="text-sm text-slate-400">Dnes nie sú objednaní žiadni pacienti.</p>
               : <div className="space-y-1.5">{todayProgram.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
           </div>
@@ -743,9 +743,9 @@ function AngioAdmin({ data, role }) {
       {tab === "calendar" && (
         <div className="space-y-4">
           {canManage && (
-            <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5">
+            <div className="bg-white rounded-xl border border-line p-5">
               <button type="button" onClick={() => setWinOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
-                <h3 className="text-lg font-bold text-[#2B46A2]">Otvoriť termíny</h3>
+                <h3 className="text-lg font-bold text-brand">Otvoriť termíny</h3>
                 <span className="text-sm text-slate-500">{winOpen ? "▴ Skryť" : "▾ Rozbaliť"}</span>
               </button>
               {winOpen && (<>
@@ -760,13 +760,13 @@ function AngioAdmin({ data, role }) {
                     {data.doctors.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
                   </select>
                 </label>
-                <button onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor }), "✓ Termíny otvorené.")} className="bg-[#2B46A2] text-white font-semibold px-4 py-2 rounded-[10px]">Otvoriť termíny</button>
+                <button onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor }), "✓ Termíny otvorené.")} className="bg-brand text-white font-semibold px-4 py-2 rounded-lg">Otvoriť termíny</button>
               </div>
               <p className="text-xs text-slate-400 mt-2">Termíny sa otvárajú v 5-min mriežke; dĺžku určuje typ vyšetrenia v Nastaveniach. Tip: kliknite na deň v kalendári a otvorte ho jedným tlačidlom.</p>
               </>)}
             </div>
           )}
-          <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 grid md:grid-cols-2 gap-5">
+          <div className="bg-white rounded-xl border border-line p-5 grid md:grid-cols-2 gap-5">
             <MonthCalendar monthDate={monthDate}
               onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
               isAvailable={isAvailableAdmin} isSelectable={(iso) => iso >= todayIso}
@@ -780,7 +780,7 @@ function AngioAdmin({ data, role }) {
               {canManage && dayOpen.length === 0 && (
                 <button
                   onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
-                  className="mt-2 bg-[#2B46A2] hover:bg-[#1E3580] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">
+                  className="mt-2 bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
                   Otvoriť termíny v tento deň ({wtFrom}–{wtTo}{wDoctor ? ` · ${wDoctor}` : ""})
                 </button>
               )}
@@ -789,14 +789,14 @@ function AngioAdmin({ data, role }) {
               </div>
               {canManage && dayFree.length > 0 && (
                 <div className="mt-3">
-                  <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-slate-500 hover:text-[#2B46A2]">
+                  <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-slate-500 hover:text-brand">
                     {freeOpen ? "▴ Skryť voľné bunky" : `▾ Voľné 5-min bunky (${dayFree.length}) — zavrieť jednotlivo`}
                   </button>
                   {freeOpen && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {dayFree.map((s) => (
                         <button key={s.time} onClick={() => run(() => data.closeSlot(selDay, s.time))} title="Zavrieť termín"
-                          className="text-xs bg-[#F0FDF4] border border-[#16A34A]/40 text-[#16A34A] rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
+                          className="text-xs bg-success-soft border border-success/40 text-success rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
                           {s.time} ✕
                         </button>
                       ))}
@@ -811,7 +811,7 @@ function AngioAdmin({ data, role }) {
 
       {tab === "orders" && (
         <div className="space-y-4">
-          <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-4 flex flex-wrap gap-2 items-center">
+          <div className="bg-white rounded-xl border border-line p-4 flex flex-wrap gap-2 items-center">
             <select className={inp + " w-auto"} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
               <option value="all">Aktívne</option>
               <option value="new">Nové</option><option value="confirmed">Potvrdené</option>
@@ -853,22 +853,22 @@ function AngioCallbackRow({ cb, data, canManage }) {
   const whenTxt = when ? `${fmtD(toISODate(when))} ${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}` : "";
   const prefTxt = cb.pref === "dopoludnia" ? "dopoludnia" : cb.pref === "popoludni" ? "popoludní" : "";
   return (
-    <div data-testid="callback-row" className="border border-[#E0E4EF] rounded-[10px] bg-white p-3 space-y-2">
+    <div data-testid="callback-row" className="border border-line rounded-lg bg-white p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-slate-800">{cb.patientName}</span>
-        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-[#2B46A2] hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
+        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-brand hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
         {prefTxt && <span className="text-xs text-slate-500">volať {prefTxt}</span>}
         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
         <span className="ml-auto text-xs text-slate-400">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>
       </div>
       {canManage && (
         <div className="flex flex-wrap gap-2 items-center">
-          <select className="p-2 bg-white border border-slate-300 rounded-[8px] text-sm" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="callback-status">
+          <select className="p-2 bg-white border border-slate-300 rounded-md text-sm" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="callback-status">
             {Object.entries(CB_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <input className="flex-1 min-w-[12rem] p-2 bg-white border border-slate-300 rounded-[8px] text-sm" placeholder="Poznámka (napr. objednaný na 20.10. 9:00, číslo objednávky)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="callback-note" />
-          <button type="button" onClick={save} disabled={!dirty} className="bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-[8px]">Uložiť</button>
-          {msg && <span className={`text-xs font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</span>}
+          <input className="flex-1 min-w-[12rem] p-2 bg-white border border-slate-300 rounded-md text-sm" placeholder="Poznámka (napr. objednaný na 20.10. 9:00, číslo objednávky)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="callback-note" />
+          <button type="button" onClick={save} disabled={!dirty} className="bg-brand hover:bg-brand-dark disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-md">Uložiť</button>
+          {msg && <span className={`text-xs font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</span>}
         </div>
       )}
       {!canManage && cb.statusNote && <p className="text-xs text-slate-600">{cb.statusNote}</p>}
@@ -879,9 +879,9 @@ function AngioCallbacks({ data, canManage }) {
   const [onlyOpen, setOnlyOpen] = useState(true);
   const list = (data.callbacks || []).filter((c) => (onlyOpen ? c.status === "new" || c.status === "unreachable" : true));
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
+    <div className="bg-white rounded-xl border border-line p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Spätné volania</h3>
+        <h3 className="text-lg font-bold text-brand">Spätné volania</h3>
         <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
           <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} data-testid="callbacks-only-open" /> len nevybavené
         </label>
@@ -916,13 +916,13 @@ function AngioSettings({ data, isSuper }) {
 
   return (
     <div className="space-y-5">
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-[#16A34A]" : "text-red-600"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
 
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Typy vyšetrení / návštev</h3>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+        <h3 className="text-lg font-bold text-brand">Typy vyšetrení / návštev</h3>
         <p className="text-xs text-slate-400">Poradie v zozname je poradie, v akom typy uvidí pacient — šípkami ▲▼ ho zmeníte a uložte.</p>
         {exams.map((e, i) => (
-          <div key={e.id} className="border border-slate-200 rounded-[10px] p-3 space-y-2">
+          <div key={e.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
             <div className="flex gap-2">
               <input className={inp} placeholder="Názov vyšetrenia" value={e.label} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, label: ev.target.value } : x))} />
               <label className="text-sm shrink-0">Trvanie<br />
@@ -931,8 +931,8 @@ function AngioSettings({ data, isSuper }) {
                 </select>
               </label>
               <div className="flex flex-col shrink-0 self-start pt-1">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Posunúť vyššie" aria-label="Posunúť vyššie" className="text-slate-500 hover:text-[#2B46A2] text-xs leading-none px-1 py-0.5 disabled:opacity-30">▲</button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === exams.length - 1} title="Posunúť nižšie" aria-label="Posunúť nižšie" className="text-slate-500 hover:text-[#2B46A2] text-xs leading-none px-1 py-0.5 disabled:opacity-30">▼</button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Posunúť vyššie" aria-label="Posunúť vyššie" className="text-slate-500 hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-30">▲</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === exams.length - 1} title="Posunúť nižšie" aria-label="Posunúť nižšie" className="text-slate-500 hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-30">▼</button>
               </div>
               <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
             </div>
@@ -946,42 +946,42 @@ function AngioSettings({ data, isSuper }) {
             </label>
           </div>
         ))}
-        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", about: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať vyšetrenie</button>
-        <div><button onClick={saveExams} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť typy vyšetrení</button></div>
+        <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", about: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-soft text-ink text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať vyšetrenie</button>
+        <div><button onClick={saveExams} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť typy vyšetrení</button></div>
       </div>
 
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Spoločné pokyny pre pacientov</h3>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+        <h3 className="text-lg font-bold text-brand">Spoločné pokyny pre pacientov</h3>
         <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich dostane v potvrdzovacom e-maili, pri zmene termínu a v pripomienke deň vopred — na stránke sa nezobrazujú. Platia pre všetky typy vyšetrení.</p>
-        {!isSuper && <p className="text-xs text-[#856404]">Spoločné pokyny môže meniť len superadmin.</p>}
+        {!isSuper && <p className="text-xs text-warn">Spoločné pokyny môže meniť len superadmin.</p>}
         <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} disabled={!isSuper} />
-        {isSuper && <div><button onClick={saveNotesClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť spoločné pokyny</button></div>}
+        {isSuper && <div><button onClick={saveNotesClick} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť spoločné pokyny</button></div>}
       </div>
 
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Overovanie telefónu SMS kódom</h3>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+        <h3 className="text-lg font-bold text-brand">Overovanie telefónu SMS kódom</h3>
         <p className="text-xs text-slate-400">Pacient si pred odoslaním objednávky nechá poslať 6-miestny kód SMS a zadá ho — objednávka bez overeného čísla neprejde. Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje spustený angio-005.sql a kľúče SMS brány.)</p>
         <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
           <input type="checkbox" data-testid="sms-verify-toggle" checked={smsVerify} onChange={(ev) => setSmsVerify(ev.target.checked)} disabled={!isSuper} />
           Vyžadovať overenie telefónneho čísla SMS kódom pri objednaní
         </label>
-        {!isSuper && <p className="text-xs text-[#856404]">Overovanie môže zapnúť/vypnúť len superadmin.</p>}
-        {isSuper && <div><button onClick={saveSmsVerifyClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť overovanie</button></div>}
+        {!isSuper && <p className="text-xs text-warn">Overovanie môže zapnúť/vypnúť len superadmin.</p>}
+        {isSuper && <div><button onClick={saveSmsVerifyClick} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť overovanie</button></div>}
       </div>
 
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Spätné volania — mobil pre SMS</h3>
+      <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+        <h3 className="text-lg font-bold text-brand">Spätné volania — mobil pre SMS</h3>
         <p className="text-xs text-slate-400">Keď pacient na stránke nechá číslo („Zavolajte mi späť"), príde SMS na tento mobil a e-mail na kópiu objednávok. Prázdne = SMS sa neposiela, e-mail áno. (Vyžaduje spustený angio-013.sql.)</p>
         <input className={inp} type="tel" placeholder="napr. 0949 000 677" value={cbSmsTo} onChange={(ev) => setCbSmsTo(ev.target.value)} disabled={!isSuper} data-testid="callback-sms-to" />
-        {!isSuper && <p className="text-xs text-[#856404]">Mobil môže zmeniť len superadmin.</p>}
-        {isSuper && <div><button onClick={saveCbSmsToClick} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť mobil</button></div>}
+        {!isSuper && <p className="text-xs text-warn">Mobil môže zmeniť len superadmin.</p>}
+        {isSuper && <div><button onClick={saveCbSmsToClick} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť mobil</button></div>}
       </div>
 
-      <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-5 space-y-3">
-        <h3 className="text-lg font-bold text-[#2B46A2]">Lekári ambulancie</h3>
-        {!isSuper && <p className="text-xs text-[#856404]">Zoznam lekárov môže meniť len superadmin.</p>}
+      <div className="bg-white rounded-xl border border-line p-5 space-y-3">
+        <h3 className="text-lg font-bold text-brand">Lekári ambulancie</h3>
+        {!isSuper && <p className="text-xs text-warn">Zoznam lekárov môže meniť len superadmin.</p>}
         {docs.map((d, i) => (
-          <div key={i} className="border border-slate-200 rounded-[10px] p-3 space-y-2">
+          <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
             <div className="flex gap-2">
               <input className={inp} placeholder="MUDr. Meno Priezvisko" value={d.name} onChange={(e) => setDocs((p) => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} disabled={!isSuper} />
               <button onClick={() => setDocs((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2" disabled={!isSuper}>✕</button>
@@ -993,15 +993,15 @@ function AngioSettings({ data, isSuper }) {
                 return (
                   <button key={ex.id} disabled={!isSuper}
                     onClick={() => setDocs((p) => p.map((x, j) => j === i ? { ...x, examTypeIds: on ? x.examTypeIds.filter((t) => t !== ex.id) : [...(x.examTypeIds || []), ex.id] } : x))}
-                    className={`text-xs px-2 py-1 rounded border ${on ? "bg-[#2B46A2] text-white border-[#2B46A2]" : "bg-white text-slate-600 border-slate-300"}`}>{ex.label}</button>
+                    className={`text-xs px-2 py-1 rounded border ${on ? "bg-brand text-white border-brand" : "bg-white text-slate-600 border-slate-300"}`}>{ex.label}</button>
                 );
               })}
             </div>
             <p className="text-[11px] text-slate-400">Ak nevyberiete žiadne, lekár robí všetky.</p>
           </div>
         ))}
-        {isSuper && <button onClick={() => setDocs((p) => [...p, { name: "", email: "", location: "", examTypeIds: [] }])} className="bg-[#F0F2F5] text-[#444] text-sm font-semibold px-4 py-2 rounded-[10px]">+ Pridať lekára</button>}
-        {isSuper && <div><button onClick={saveDocs} className="bg-[#2B46A2] text-white text-sm font-semibold px-4 py-2 rounded-[10px]">Uložiť lekárov</button></div>}
+        {isSuper && <button onClick={() => setDocs((p) => [...p, { name: "", email: "", location: "", examTypeIds: [] }])} className="bg-soft text-ink text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať lekára</button>}
+        {isSuper && <div><button onClick={saveDocs} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť lekárov</button></div>}
       </div>
     </div>
   );
@@ -1029,12 +1029,12 @@ export function AngioPatientApp() {
   }
   return (
     <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-[15px] bg-gradient-to-r from-[#1E3580] to-[#2B46A2] text-white p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+      <div className="relative overflow-hidden rounded-xl bg-brand-dark text-white p-6 md:p-8 border border-line">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-          <p className="text-[11px] md:text-xs font-bold tracking-widest text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+          <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
           <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Späť na hlavnú stránku</a>
         </div>
-        <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">{CLINIC_NAME}</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold leading-tight">{CLINIC_NAME}</h1>
         <p className="text-sm text-white/90 mt-2 max-w-xl">
           Online objednanie na angiologické vyšetrenie. Vyšetrenie je <b>bez poplatku</b> — hradí ho zdravotná poisťovňa,
           preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
@@ -1052,7 +1052,7 @@ export function AngioAdminApp({ role = "superadmin", backHref = "#/sprava" }) {
   const data = useAngioData(true);
   return (
     <div className="space-y-4">
-      <div className="bg-[#F0F4FF] border border-[#c9d6f5] text-[#2B46A2] rounded-[10px] px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-brand-soft border border-line text-brand rounded-lg px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
         <span>{CLINIC_NAME} — správa objednávok{data.pendingCount > 0 ? ` · nové na potvrdenie: ${data.pendingCount}` : ""}</span>
         <a href={backHref} className="hover:underline">← Späť do správy USG</a>
       </div>

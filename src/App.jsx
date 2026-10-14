@@ -11,7 +11,7 @@ import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v102";
+const APP_VERSION = "v103";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -53,21 +53,21 @@ const CodeGate = ({ onUnlock }) => {
   };
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 max-w-md mx-auto text-center">
-      <h2 className="text-xl font-bold text-[#2B46A2] mb-2">Prístup pre pracovisko</h2>
+    <div className="bg-white rounded-xl border border-line p-8 max-w-md mx-auto text-center">
+      <h2 className="text-xl font-bold text-brand mb-2">Prístup pre pracovisko</h2>
       <p className="text-sm text-slate-500 mb-4">Zadajte prístupový kód sonografického pracoviska.</p>
-      {!ADMIN_ACCESS_CODE && <p className="text-xs text-[#856404] bg-[#FFF6E0] border border-[#E0C878] p-2 rounded mb-3">Demo kód nie je nakonfigurovaný (VITE_DEMO_CODE).</p>}
+      {!ADMIN_ACCESS_CODE && <p className="text-xs text-warn bg-warn-soft border border-warn/30 p-2 rounded mb-3">Demo kód nie je nakonfigurovaný (VITE_DEMO_CODE).</p>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="password"
           value={code}
           onChange={(e) => { setCode(e.target.value); setError(false); }}
-          className="w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 text-center tracking-widest focus:ring-2 focus:ring-[#2B46A2] outline-none"
+          className="w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-center tracking-wide focus:ring-2 focus:ring-brand outline-none"
           placeholder="Prístupový kód"
           autoFocus
         />
         {error && <p className="text-sm text-red-600 font-semibold">Nesprávny kód.</p>}
-        <button type="submit" className="w-full bg-[#2B46A2] hover:bg-[#1E3580] text-white font-bold py-3 rounded-[10px] transition-colors">
+        <button type="submit" className="w-full bg-brand hover:bg-brand-dark text-white font-bold py-3 rounded-lg transition-colors">
           Vstúpiť
         </button>
       </form>
@@ -96,8 +96,8 @@ const LoginGate = ({ auth }) => {
   };
 
   return (
-    <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 max-w-md mx-auto text-center">
-      <h2 className="text-xl font-bold text-[#2B46A2] mb-2">Prihlásenie pracoviska</h2>
+    <div className="bg-white rounded-xl border border-line p-8 max-w-md mx-auto text-center">
+      <h2 className="text-xl font-bold text-brand mb-2">Prihlásenie pracoviska</h2>
       <p className="text-sm text-slate-500 mb-4">Prístup majú len pozvané kontá personálu (@nusch.sk).</p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
@@ -105,7 +105,7 @@ const LoginGate = ({ auth }) => {
           required
           value={email}
           onChange={(e) => { setEmail(e.target.value); setError(""); }}
-          className="w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 focus:ring-2 focus:ring-[#2B46A2] outline-none"
+          className="w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-2 focus:ring-brand outline-none"
           placeholder="meno.priezvisko@nusch.sk"
           autoFocus
         />
@@ -114,11 +114,11 @@ const LoginGate = ({ auth }) => {
           required
           value={password}
           onChange={(e) => { setPassword(e.target.value); setError(""); }}
-          className="w-full p-3 bg-white border border-slate-300 rounded-[10px] text-slate-800 focus:ring-2 focus:ring-[#2B46A2] outline-none"
+          className="w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-2 focus:ring-brand outline-none"
           placeholder="Heslo"
         />
         {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
-        <button type="submit" disabled={busy} className="w-full bg-[#2B46A2] hover:bg-[#1E3580] disabled:opacity-60 text-white font-bold py-3 rounded-[10px] transition-colors">
+        <button type="submit" disabled={busy} className="w-full bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 rounded-lg transition-colors">
           {busy ? "Prihlasujem…" : "Prihlásiť sa"}
         </button>
       </form>
@@ -166,23 +166,23 @@ export default function App() {
   const data = useBookingData(isStaff);
 
   const adminContent = (
-    <div className="bg-white rounded-[15px] p-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+    <div className="bg-white rounded-xl p-5 md:p-6 border border-line">
       {auth.isSupabase && (
-        <div className="flex items-center justify-between gap-2 mb-4 text-xs text-[#767676]">
+        <div className="flex items-center justify-between gap-2 mb-4 text-xs text-muted">
           <span>Prihlásený: {auth.session?.user?.email}</span>
-          <button onClick={auth.signOut} className="bg-[#F0F2F5] hover:bg-[#E0E4EF] text-[#444444] font-semibold px-3 py-1.5 rounded-[8px] transition-colors">
+          <button onClick={auth.signOut} className="bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-md transition-colors">
             Odhlásiť sa
           </button>
         </div>
       )}
       {/* Diskrétne odkazy na skryté testovacie pod-appky (len pre personál) */}
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
-        <span className="text-[#856404] bg-[#FFF6E0] border border-[#E0C878] rounded px-2 py-0.5 font-semibold">Testovacie</span>
-        <a href="#/platba" className="text-[#2B46A2] font-semibold hover:underline">Ad-hoc platba za výkon</a>
+        <span className="text-warn bg-warn-soft border border-warn/30 rounded px-2 py-0.5 font-semibold">Testovacie</span>
+        <a href="#/platba" className="text-brand font-semibold hover:underline">Ad-hoc platba za výkon</a>
         <span className="text-slate-300">·</span>
-        <a href="#/ct" className="text-[#2B46A2] font-semibold hover:underline">CT objednávanie (bez poplatku)</a>
+        <a href="#/ct" className="text-brand font-semibold hover:underline">CT objednávanie (bez poplatku)</a>
         <span className="text-slate-300">·</span>
-        <a href={angioAdminHref} className="text-[#2B46A2] font-semibold hover:underline">{ANGIO_NAME} — správa</a>
+        <a href={angioAdminHref} className="text-brand font-semibold hover:underline">{ANGIO_NAME} — správa</a>
       </div>
       <AdminView
         orders={data.orders}
@@ -242,16 +242,16 @@ export default function App() {
   const renderGated = (node) => staffGate(node, true);
 
   return (
-    <div className="bg-[#F8F9FC] text-slate-900 min-h-screen font-sans">
-      <header className="bg-white border-b border-slate-200">
+    <div className="bg-page text-slate-900 min-h-screen font-sans">
+      <header className="bg-white border-b border-line">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
           <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 shrink-0" />
           <div>
-            <p className="font-extrabold text-[#2B46A2] leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+            <p className="font-semibold text-brand leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
             <p className="text-xs text-slate-500">{isAngioRoute ? ANGIO_NAME : APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
           </div>
           {IS_BETA && (
-            <span className="ml-auto shrink-0 bg-[#FFF6E0] border border-[#E0C878] text-[#856404] text-xs font-extrabold px-3 py-1.5 rounded-[8px]">
+            <span className="ml-auto shrink-0 bg-warn-soft border border-warn/30 text-warn text-xs font-semibold px-3 py-1.5 rounded-md">
               BETA — testovacia verzia
             </span>
           )}
@@ -266,19 +266,19 @@ export default function App() {
             <>
               <a
                 href="#/"
-                className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${!isAdminRoute ? "text-[#2B46A2] border-[#2B46A2]" : "text-[#2B46A2] border-transparent hover:text-[#2B46A2]"}`}
+                className={`py-3 text-sm font-bold border-b-2 transition-colors ${!isAdminRoute ? "text-brand border-brand" : "text-brand border-transparent hover:text-brand"}`}
               >
                 Objednať sa
               </a>
               <a
                 href="#/sprava"
-                className={`py-3 text-sm font-bold border-b-[3px] transition-colors ${isAdminRoute ? "text-[#2B46A2] border-[#2B46A2]" : "text-[#2B46A2] border-transparent hover:text-[#2B46A2]"}`}
+                className={`py-3 text-sm font-bold border-b-2 transition-colors ${isAdminRoute ? "text-brand border-brand" : "text-brand border-transparent hover:text-brand"}`}
               >
                 Pre pracovisko{isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}
               </a>
             </>
           ) : (
-            <span className="py-3 text-sm font-bold text-[#2B46A2] border-b-[3px] border-[#2B46A2]">
+            <span className="py-3 text-sm font-bold text-brand border-b-2 border-brand">
               {APP_MODE === "admin" ? `Správa objednávok${isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}` : "Objednať sa"}
             </span>
           )}
@@ -298,7 +298,7 @@ export default function App() {
           <>
             <UsgHero />
             {data.isSupabase && data.loading ? (
-              <div className="bg-white rounded-[15px] shadow-[0_2px_12px_rgba(0,0,0,0.08)] p-8 text-center text-slate-400">Načítavam voľné termíny…</div>
+              <div className="bg-white rounded-xl border border-line p-8 text-center text-slate-400">Načítavam voľné termíny…</div>
             ) : (
               <PatientView
                 occupied={data.occupied}
@@ -317,9 +317,9 @@ export default function App() {
 
       <footer className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-slate-400">
         <p className="mb-1">
-          <a href="#/podmienky" className="text-[#2B46A2] font-semibold hover:underline">Podmienky online objednávania</a>
+          <a href="#/podmienky" className="text-brand font-semibold hover:underline">Podmienky online objednávania</a>
           {" · "}
-          <a href="#/osobne-udaje" className="text-[#2B46A2] font-semibold hover:underline">Ochrana osobných údajov</a>
+          <a href="#/osobne-udaje" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
         </p>
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
         {data.isSupabase
