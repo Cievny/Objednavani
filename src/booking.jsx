@@ -420,59 +420,48 @@ const PaymentQr = ({ order, settings, note }) => {
 
 // --- 4. PACIENTSKY SPRIEVODCA (štýl Bookio) ---
 
+// Úvod USG objednávania (v105): delený hero – svetlý panel s nadpisom a výzvou,
+// vpravo fotografia bez prekryvu; pod ním tri krátke body namiesto ťažkých kariet.
+const USG_POINTS = [
+  ["Skúsení odborníci", "Vyšetrenie vykonávajú lekári s dlhoročnou praxou v cievnej diagnostike na moderných ultrazvukových prístrojoch."],
+  ["Tradícia a špecializácia", "NÚSCH je špičkové slovenské pracovisko pre srdce a cievy — diagnostike cievnych ochorení sa venujeme desaťročia."],
+  ["Starostlivosť, ktorá nekončí nálezom", "Pri pozitívnom náleze priamo nadväzuje ďalšia diagnostika a liečba u našich špecialistov — všetko pod jednou strechou."],
+];
 const UsgHero = () => (
-  <div className="bg-white rounded-xl border border-line p-5 md:p-8 mb-4 text-slate-800">
-    <div className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-3 mb-4 text-sm font-semibold">
-      Skúšobná prevádzka: objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné
-      a pracovisko vás môže kontaktovať s upresnením. Ďakujeme za pochopenie.
-    </div>
-    {/* Bannerový hero — fotografia USG vyšetrenia s modrým prekryvom pre text */}
-    <div className="relative overflow-hidden rounded-lg mb-5 min-h-[240px] md:min-h-[300px] flex flex-col justify-center">
-      <img
-        src="hero-usg.jpg" alt="" aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover object-right"
-      />
-      {/* modrý gradient zľava — text ostane čitateľný, fotka presvitá vpravo */}
-      <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand/85 to-transparent" />
-      <div className="relative p-6 md:p-8">
-        <div className="flex items-center gap-4">
-          <div className="shrink-0 bg-white rounded-lg p-2 shadow-sm">
-            <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-12 h-12 md:w-14 md:h-14 block" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 uppercase mb-1">
-              Národný ústav srdcových a cievnych chorôb, a.s.
-            </p>
-            <h2 className="text-xl md:text-3xl font-semibold text-white leading-tight drop-shadow-sm">
-              Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie
-            </h2>
-          </div>
+  <div className="mb-4 space-y-4">
+    <p className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-2 text-sm">
+      <b>Skúšobná prevádzka:</b> objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné a pracovisko vás môže kontaktovať s upresnením.
+    </p>
+    <section className="rounded-xl border border-line overflow-hidden grid md:grid-cols-[3fr_2fr] bg-brand-soft" aria-label="Úvod">
+      <div className="p-6 md:p-10 flex flex-col justify-center md:min-h-[360px]">
+        <p className="text-[11px] md:text-xs font-semibold tracking-wide text-muted uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+        <h2 className="text-3xl md:text-4xl leading-tight text-brand-dark mt-3">Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie</h2>
+        <p className="text-ink text-base md:text-lg mt-4 max-w-xl">
+          Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH. Termín si vyberiete sami, bez čakania v rade; platí sa vopred QR kódom.
+        </p>
+        <ul className="flex flex-wrap gap-2 mt-4" aria-label="Základné informácie">
+          {["termín si vyberiete sami", "potvrdenie e-mailom", "platba QR kódom"].map((c) => (
+            <li key={c} className="text-xs md:text-sm font-medium bg-white border border-line text-brand-dark rounded-full px-3 py-1">{c}</li>
+          ))}
+        </ul>
+        <div className="mt-6">
+          <a href="#objednanie" onClick={(e) => { const el = document.getElementById("objednanie"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); } }}
+            className="inline-block bg-brand hover:bg-brand-dark text-white font-semibold text-base px-6 py-3 rounded-lg transition-colors" data-testid="usg-hero-cta">
+            Vybrať vyšetrenie a termín ›
+          </a>
         </div>
-        <p className="text-white/90 text-sm md:text-base mt-4 max-w-xl drop-shadow-sm">
-          Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH — bez čakania v rade,
-          s termínom, ktorý si vyberiete sami, a platbou vopred cez QR kód.
-        </p>
       </div>
-    </div>
-    <div className="grid md:grid-cols-3 gap-3">
-      <div className="bg-soft border border-slate-200 rounded-lg p-4">
-        <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Skúsení odborníci</p>
-        <p className="text-base md:text-lg text-slate-600 leading-relaxed">
-          Vyšetrenie vykonávajú lekári s dlhoročnou praxou v cievnej diagnostike na moderných ultrazvukových prístrojoch.
-        </p>
+      <div className="relative min-h-[200px] md:min-h-[360px]">
+        <img src="hero-usg.jpg" alt="Lekár vyšetruje cievy ultrazvukom" className="absolute inset-0 h-full w-full object-cover object-[72%_50%]" />
       </div>
-      <div className="bg-soft border border-slate-200 rounded-lg p-4">
-        <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Tradícia a špecializácia</p>
-        <p className="text-base md:text-lg text-slate-600 leading-relaxed">
-          NÚSCH je špičkové slovenské pracovisko pre srdce a cievy — diagnostike cievnych ochorení sa venujeme desaťročia.
-        </p>
-      </div>
-      <div className="bg-soft border border-slate-200 rounded-lg p-4">
-        <p className="font-bold text-slate-800 text-lg md:text-xl mb-1">Starostlivosť, ktorá nekončí nálezom</p>
-        <p className="text-base md:text-lg text-slate-600 leading-relaxed">
-          Pri pozitívnom náleze na vyšetrenie priamo nadväzuje ďalšia diagnostika a liečba u našich špecialistov — všetko pod jednou strechou.
-        </p>
-      </div>
+    </section>
+    <div className="grid md:grid-cols-3 gap-4 md:gap-6 px-1 md:px-2 py-2">
+      {USG_POINTS.map(([title, text]) => (
+        <div key={title} className="border-t-2 border-brand/40 pt-3">
+          <p className="font-semibold text-brand-dark text-base md:text-lg leading-snug">{title}</p>
+          <p className="text-sm md:text-base text-muted mt-1 leading-relaxed">{text}</p>
+        </div>
+      ))}
     </div>
   </div>
 );
@@ -489,16 +478,16 @@ const StepIndicator = ({ current }) => (
         <div key={label} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${
-              done ? "bg-emerald-500 text-white" : active ? "bg-brand text-white" : "bg-slate-200 text-slate-500"
+              done ? "bg-brand-dark text-white" : active ? "bg-brand text-white" : "bg-soft text-muted border border-line"
             }`}>
               {done ? "✓" : stepNum}
             </div>
-            <span className={`text-[11px] mt-1 font-semibold whitespace-nowrap ${active ? "text-brand" : done ? "text-emerald-600" : "text-slate-400"}`}>
+            <span className={`text-[11px] mt-1 font-semibold whitespace-nowrap ${active ? "text-brand" : done ? "text-brand-dark" : "text-muted"}`}>
               {label}
             </span>
           </div>
           {i < wizardSteps.length - 1 && (
-            <div className={`flex-1 h-0.5 mx-2 mb-4 ${stepNum < current ? "bg-emerald-400" : "bg-slate-200"}`} />
+            <div className={`flex-1 h-0.5 mx-2 mb-4 ${stepNum < current ? "bg-brand" : "bg-line"}`} />
           )}
         </div>
       );
@@ -754,7 +743,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
   const labelCls = "block text-sm font-semibold text-slate-600 mb-1";
 
   return (
-    <div className="bg-white rounded-xl border border-line p-5 md:p-8 text-slate-800">
+    <div id="objednanie" tabIndex={-1} className="bg-white rounded-xl border border-line p-5 md:p-8 text-slate-800 scroll-mt-4 outline-none">
       <StepIndicator current={step} />
 
       {/* KROK 1 — VYŠETRENIE */}
