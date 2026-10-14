@@ -451,8 +451,8 @@ const UsgHero = () => (
           </a>
         </div>
       </div>
-      <div className="relative min-h-[200px] md:min-h-[360px]">
-        <img src="hero-usg.jpg" alt="Lekár vyšetruje cievy ultrazvukom" className="absolute inset-0 h-full w-full object-cover object-[72%_50%]" />
+      <div className="relative min-h-[260px] md:min-h-[360px]">
+        <img src="hero-usg-krk.webp" alt="Ultrazvukové vyšetrenie krčných tepien" className="absolute inset-0 h-full w-full object-cover object-[50%_35%]" />
       </div>
     </section>
     <div className="grid md:grid-cols-3 gap-4 md:gap-6 px-1 md:px-2 py-2">
