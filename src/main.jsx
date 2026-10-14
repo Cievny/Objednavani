@@ -1,12 +1,20 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
-import '@fontsource/roboto/latin-400.css'
-import '@fontsource/roboto/latin-ext-400.css'
-import '@fontsource/roboto/latin-500.css'
-import '@fontsource/roboto/latin-ext-500.css'
-import '@fontsource/roboto/latin-700.css'
-import '@fontsource/roboto/latin-ext-700.css'
+// písmo (v104): Source Sans 3 pre text a rozhranie, Source Serif 4 len pre hlavné nadpisy;
+// latin-ext = slovenská diakritika; self-hosted (žiadne externé CDN, CSP ostáva prísne)
+import '@fontsource/source-sans-3/latin-400.css'
+import '@fontsource/source-sans-3/latin-ext-400.css'
+import '@fontsource/source-sans-3/latin-500.css'
+import '@fontsource/source-sans-3/latin-ext-500.css'
+import '@fontsource/source-sans-3/latin-600.css'
+import '@fontsource/source-sans-3/latin-ext-600.css'
+import '@fontsource/source-sans-3/latin-700.css'
+import '@fontsource/source-sans-3/latin-ext-700.css'
+import '@fontsource/source-serif-4/latin-600.css'
+import '@fontsource/source-serif-4/latin-ext-600.css'
+import '@fontsource/source-serif-4/latin-700.css'
+import '@fontsource/source-serif-4/latin-ext-700.css'
 import './index.css'
 
 // PWA manifest podľa režimu nasadenia: správa (/sprava/) má vlastný názov

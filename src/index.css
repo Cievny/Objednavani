@@ -5,7 +5,7 @@
    - biele plochy, veľa vzduchu, jedna pokojná modrá (brand) + tmavá navy
      pre nadpisy, bledomodré/svetlosivé sekcie, 1 px linky namiesto tieňov
    - červená LEN pre urgenciu; zelená pre potvrdenia
-   - Roboto, telový text 17px / 1.7 (publikum 45+)
+   - Source Sans 3 (text) + Source Serif 4 (H1/H2), telový text 17px / 1.7 (publikum 45+)
    - tokeny nižšie sú jediné miesto, kde sa farby definujú
    ============================================================ */
 @theme {
@@ -23,10 +23,20 @@
   --color-success-soft: #EAF6EF;
   --color-warn: #7A5A00;
   --color-warn-soft: #FFF8E5;
+  --font-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+}
+
+/* hlavné nadpisy pätkovým písmom (ako Mayo Clinic), všetko ostatné bezpätkové */
+@layer base {
+  h1, h2 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
 }
 
 body {
-  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   line-height: 1.7;
   color: #1F2A37;
