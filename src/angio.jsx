@@ -7,6 +7,7 @@ import {
 } from "./booking.jsx";
 import { useAngioData } from "./podappkyData.js";
 import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
+import { ConsentAck } from "./legal.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -96,6 +97,7 @@ function AngioBookingView({ data, landing = null }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useMsg();
   const [errs, setErrs] = useState({});
+  const [ack, setAck] = useState(false); // oboznámenie s podmienkami a informáciami o osobných údajoch
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
   // overenie telefónu SMS kódom (ak je zapnuté v Nastaveniach)
   const [otp, setOtp] = useState({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
@@ -162,6 +164,7 @@ function AngioBookingView({ data, landing = null }) {
     if (!form.email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = "Zadajte platný e-mail.";
     if (needsReferral && files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
     if (data.smsVerify && !e.phone && !phoneVerified) e.phone = "Overte telefónne číslo SMS kódom.";
+    if (!ack) e.ack = "Potvrďte, prosím, že ste sa oboznámili s podmienkami a informáciami o spracúvaní osobných údajov.";
     setErrs(e);
     if (Object.keys(e).length > 0) { setMsg("Skontrolujte a doplňte zvýraznené polia."); return; }
     setBusy(true); setMsg("");
@@ -188,7 +191,7 @@ function AngioBookingView({ data, landing = null }) {
         <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2 mt-3 text-left"><b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.</p>
         <p className="text-xs text-slate-500 mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
         <div className="flex flex-wrap justify-center gap-2 mt-5">
-          <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); }}
+          <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); setAck(false); setErrs({}); }}
             className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">Nová objednávka</button>
           <a href="#/" className="bg-soft hover:bg-line text-ink text-sm font-semibold px-4 py-2 rounded-lg">← Späť na hlavnú stránku</a>
         </div>
@@ -351,6 +354,7 @@ function AngioBookingView({ data, landing = null }) {
               </ul>
             )}
           </div>
+          <ConsentAck checked={ack} onChange={(v) => { setAck(v); clearErr("ack"); }} error={errs.ack} testId="angio-ack" />
           {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
           <button onClick={submit} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg">
             {busy ? "Odosielam…" : "Objednať sa (bez poplatku)"}

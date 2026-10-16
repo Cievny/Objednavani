@@ -7,6 +7,14 @@ treba dokončiť body nižšie.
 
 ## 1. Texty — chýbajúce údaje ([DOPLNIŤ] v src/legal.jsx)
 
+- [ ] v107: právne texty rozšírené o angio/CT objednávky, program Zachráň nohu,
+      žiadosť o spätné zavolanie, OTP a upozornenia personálu; angio a CT formulár
+      majú povinné políčko „Oboznámil/a som sa…", karta Zavolajte mi späť vetu
+      s odkazom. Podklad na právne posúdenie (otázky, plné znenie, technická
+      príloha, kontrolný zoznam): `docs/pravne-posudenie-navrh.md` — čaká na
+      posúdenie (praktik.ai → DPO + právne oddelenie NÚSCH). Po schválení
+      preniesť opravy do src/legal.jsx aj do docs súboru.
+
 - [ ] Oficiálny e-mail pre objednávky (VOP, hlavička dokumentu)
 - [ ] Oficiálny reklamačný kontakt (VOP čl. VIII)
 - [ ] IBAN v texte VOP čl. IV (v systéme už je, v texte je placeholder)

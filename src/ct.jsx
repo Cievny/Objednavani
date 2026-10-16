@@ -6,6 +6,7 @@ import {
   insuranceOptions, validateBirthNumber, normalizePhone, ArrivedBadge, BirthDateInput,
 } from "./booking.jsx";
 import { useCtData } from "./podappkyData.js";
+import { ConsentAck } from "./legal.jsx";
 
 const newCtId = () => {
   const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -45,6 +46,7 @@ function CtBookingView({ data }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useMsg();
   const [errs, setErrs] = useState({});
+  const [ack, setAck] = useState(false); // oboznámenie s podmienkami a informáciami o osobných údajoch
   const clearErr = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
 
   const handleFilePick = (e) => {
@@ -87,6 +89,7 @@ function CtBookingView({ data }) {
     if (form.phone.replace(/\D/g, "").length < 9) e.phone = "Neplatné telefónne číslo (aspoň 9 číslic).";
     if (!form.email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = "Zadajte platný e-mail.";
     if (files.length === 0) e.files = "Priložte žiadanku (výmenný lístok) — môžete ju odfotiť.";
+    if (!ack) e.ack = "Potvrďte, prosím, že ste sa oboznámili s podmienkami a informáciami o spracúvaní osobných údajov.";
     setErrs(e);
     if (Object.keys(e).length > 0) { setMsg("Skontrolujte a doplňte zvýraznené polia."); return; }
     setBusy(true); setMsg("");
@@ -209,6 +212,7 @@ function CtBookingView({ data }) {
               </ul>
             )}
           </div>
+          <ConsentAck checked={ack} onChange={(v) => { setAck(v); clearErr("ack"); }} error={errs.ack} testId="ct-ack" />
           {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
           <button onClick={submit} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg">
             {busy ? "Odosielam…" : "Objednať sa (bez poplatku)"}

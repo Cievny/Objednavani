@@ -229,7 +229,11 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
             className="w-full md:w-auto md:min-w-[18rem] bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-lg font-bold px-8 py-4 rounded-lg shadow-md transition-colors">
             {busy ? "Odosielam…" : "Zavolajte mi späť ›"}
           </button>
-          <p className="text-sm text-slate-500 leading-relaxed">Číslo použijeme len na dohodnutie termínu. Objednať vás môže aj syn, dcéra či sused — stačí, keď sem napíše vaše meno a telefón, na ktorom vás zastihneme.</p>
+          <p className="text-sm text-slate-500 leading-relaxed" data-testid="cb-privacy">
+            Odoslaním potvrdzujete, že ste sa oboznámili s{" "}
+            <a href="#/osobne-udaje" target="_blank" rel="noopener" className="text-brand font-semibold underline underline-offset-2">informáciami o spracúvaní osobných údajov</a>.
+            Meno a číslo použijeme len na dohodnutie termínu; žiadosť po vybavení vymažeme. Objednať vás môže aj syn, dcéra či sused — s vaším vedomím napíše vaše meno a telefón, na ktorom vás zastihneme.
+          </p>
         </form>
       )}
     </div>
@@ -395,6 +399,10 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
         <p>Obsah tejto stránky má informačný charakter a nenahrádza vyšetrenie ani rozhovor s lekárom. Pri zdravotných ťažkostiach sa vždy obráťte na svojho lekára; pri náhlych ťažkostiach volajte 155.</p>
         <p className="font-semibold text-slate-600">Zdroje</p>
         <ul className="list-disc pl-5 space-y-0.5">{SOURCES.map((s) => <li key={s}>{s}</li>)}</ul>
+        <p>
+          <a href="#/podmienky" className="text-brand font-semibold hover:underline">Podmienky online objednávania</a>{" · "}
+          <a href="#/osobne-udaje" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
+        </p>
         <p>© {new Date().getFullYear()} Národný ústav srdcových a cievnych chorôb, a.s. · Angiologická ambulancia č. 1</p>
       </footer>
     </div>
