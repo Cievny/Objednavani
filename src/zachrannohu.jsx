@@ -34,6 +34,14 @@ const STEPS = [
   { n: "5", title: "Výsledok a smer hneď", text: "Ešte v ambulancii sa dozviete, či má rana cievnu príčinu, a dostanete správu s odporúčaním: ošetrovanie u vášho chirurga, zákrok na cievach u nás alebo ďalšia starostlivosť u angiológa vo vašom regióne." },
 ];
 
+// Texty závislé od toho, či vyšetrenie v cenníku vyžaduje žiadanku (predvolene nie)
+const stepsFor = (needsRef) => STEPS.map((s) => (s.n === "1" && needsRef
+  ? { ...s, text: "Prídete na objednaný termín s kartičkou poistenca a so žiadankou (výmenným lístkom) od lekára. Ak máte, prineste fotku rany a zoznam liekov." }
+  : s));
+const mythsFor = (needsRef) => MYTHS.map((m) => (m.q.includes("Bez žiadanky") && needsRef
+  ? { ...m, a: "Na toto vyšetrenie je potrebná žiadanka (výmenný lístok) od vášho lekára; vyšetrenie je bez poplatku a objednáte sa sami online." }
+  : m));
+
 const FINDINGS = [
   ["Prekrvenie je dostatočné", "Rana nemá cievnu príčinu. Ošetrovanie pokračuje u vášho chirurga alebo v ambulancii, ktorá sa o ranu stará — dostanete pre nich správu z vyšetrenia."],
   ["Zlé prekrvenie, ktoré treba riešiť", "Navrhneme vám obnovenie prietoku (revaskularizáciu): zákrok cez cievu balónikom alebo stentom, prípadne bypass. Naplánujeme ho u nás v NÚSCH."],
@@ -141,7 +149,7 @@ function SelfTest() {
         ))}
       </div>
       {result ? (
-        <div data-testid="selftest-result" className={`mt-4 rounded-lg p-5 text-center ${result.cls}`}>
+        <div data-testid="selftest-result" role="status" aria-live="polite" className={`mt-4 rounded-lg p-5 text-center ${result.cls}`}>
           <p className="text-xl font-semibold">{result.title}</p>
           <p className="mt-1 text-sm opacity-95">{result.text}</p>
           <Cta className={`mt-4 ${strong ? "!bg-danger !text-white hover:!bg-danger/90" : ""}`}>Chcem sa objednať ›</Cta>
@@ -154,11 +162,11 @@ function SelfTest() {
   );
 }
 
-function Myths() {
+function Myths({ needsRef = false }) {
   const [open, setOpen] = useState(null);
   return (
     <div className="space-y-2">
-      {MYTHS.map((m, i) => (
+      {mythsFor(needsRef).map((m, i) => (
         <div key={i} className="bg-white rounded-lg border border-line overflow-hidden">
           <button type="button" onClick={() => setOpen((o) => (o === i ? null : i))} aria-expanded={open === i} data-testid={`myth${i + 1}`}
             className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 font-bold text-brand-dark">
@@ -198,8 +206,13 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
   const [done, setDone] = useState(null);
   const [err, setErr] = useState("");
   const submit = async (e) => {
-    e.preventDefault(); setErr(""); setBusy(true);
-    try { const r = await onRequest({ name, phone, pref: "", source }); setDone(r || { ok: true }); }
+    e.preventDefault(); setErr("");
+    // rovnaké pravidlá ako server (angio-013) — bez zbytočného kola na server
+    const nm = name.trim();
+    if (nm.length < 3 || !/[A-Za-zÀ-ž]{2,}/.test(nm)) { setErr("Zadajte prosím meno a priezvisko."); return; }
+    if (phone.replace(/\D/g, "").length < 9) { setErr("Zadajte platné telefónne číslo (napr. 0949 123 456)."); return; }
+    setBusy(true);
+    try { const r = await onRequest({ name: nm, phone: phone.trim(), pref: "", source }); setDone(r || { ok: true }); }
     catch (ex) { setErr(friendlyError(ex?.message || String(ex))); }
     finally { setBusy(false); }
   };
@@ -241,13 +254,15 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
 }
 
 export default function ZachranNohuLanding({ landing, exam, children, requestCallback = null }) {
+  const needsRef = exam?.requiresReferral !== false && exam != null && exam.requiresReferral === true;
+  const nav = NAV.filter(([id]) => id !== "zavolame" || requestCallback);
   return (
     <div className="space-y-6" data-testid="zn-landing">
       {/* lišta s kotvami */}
       <nav className="sticky top-0 z-20 -mx-2 sm:-mx-4 md:-mx-6 px-2 sm:px-4 md:px-6 py-2 bg-white/95 backdrop-blur border-b border-line" aria-label="Obsah stránky">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="font-semibold text-brand-dark whitespace-nowrap mr-1">Zachráň nohu</span>
-          {NAV.map(([id, lbl]) => (
+          {nav.map(([id, lbl]) => (
             <a key={id} href={hereHref()} onClick={goTo(id)} className={`whitespace-nowrap text-sm font-semibold px-3 py-2.5 min-h-[40px] inline-flex items-center rounded-full ${id === "urgent" ? "bg-danger-soft text-danger" : "bg-soft text-brand hover:bg-line"}`} data-testid={`nav-${id}`}>{lbl}</a>
           ))}
           <a href={hereHref()} onClick={goTo("objednat")} className="whitespace-nowrap text-sm font-bold px-4 py-2.5 min-h-[40px] inline-flex items-center rounded-full bg-brand text-white hover:bg-brand-dark ml-auto" data-testid="nav-objednat">Objednať sa</a>
@@ -261,7 +276,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
           <h1 data-testid="landing-title" className="text-3xl md:text-[2.75rem] font-semibold leading-tight mt-3 text-brand-dark">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
           <p className="text-base md:text-lg text-ink mt-4">Zistíme, či je príčinou <b>zlé prekrvenie</b>, a nasmerujeme vás tam, kde vám pomôžu.</p>
           <ul className="flex flex-wrap gap-2 mt-4" aria-label="Základné informácie">
-            {["bez poplatku", "bez žiadanky", "termín do 7 dní", "15 – 20 minút"].map((c) => (
+            {["bez poplatku", needsRef ? "so žiadankou od lekára" : "bez žiadanky", "termín do 7 dní", "15 – 20 minút"].map((c) => (
               <li key={c} className="text-xs md:text-sm font-medium bg-white border border-line text-brand-dark rounded-full px-3 py-1">{c}</li>
             ))}
           </ul>
@@ -322,7 +337,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
           <p className="text-slate-600 mt-1 mb-4">Päť jednoduchých krokov. Žiadna bolesť, žiadne ihly, žiadna príprava vopred.</p>
           <div className="grid md:grid-cols-2 gap-6 items-start">
           <ol className="space-y-3">
-            {STEPS.map((s) => (
+            {stepsFor(needsRef).map((s) => (
               <li key={s.n} className="flex gap-3">
                 <span className="shrink-0 w-9 h-9 rounded-full bg-brand text-white font-semibold flex items-center justify-center">{s.n}</span>
                 <div><p className="font-bold text-brand-dark">{s.title}</p><p className="text-sm text-slate-700">{s.text}</p></div>
@@ -369,7 +384,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       {/* mýty */}
       <section id="myty" tabIndex={-1} className="scroll-mt-16 outline-none">
         <H2>Mýty vs. realita</H2>
-        <div className="mt-3"><Myths /></div>
+        <div className="mt-3"><Myths needsRef={needsRef} /></div>
       </section>
 
       {/* záverečná výzva: fotka páru ako pozadie, modrý prekryv */}

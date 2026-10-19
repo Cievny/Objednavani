@@ -35,6 +35,11 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] v110 (audit UX 1): spustiť `supabase/angio-015.sql` — zrušenie pacientom
+      len ≥ 24 h vopred, notifikácia „potvrdené" len z nová → potvrdená (Vrátiť
+      medzi aktívne už nepíše pacientovi), angio/ct_close_free_slots (hromadné
+      zatváranie len voľných buniek), arrived_at sa pri presune na iný deň nuluje,
+      tabuľky ambulancií v realtime publikácii. Správa: `docs/audit-ux-1.md`.
 - [ ] v108: spustiť `supabase/termin-zajtra-001.sql` — pacient sa online objedná
       (aj presunie termín) najskôr na nasledujúci deň; 5 pacientskych RPC,
       personál v správe bez zmeny. Frontend to isté (kalendár od zajtra).

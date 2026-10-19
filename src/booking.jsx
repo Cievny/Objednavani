@@ -219,7 +219,11 @@ export function BirthDateInput({ value, onChange, className = "", ...rest }) {
 export function normalizePhone(input) {
   const d = (input || "").replace(/\D/g, "");
   if (d.startsWith("00")) return "+" + d.slice(2);
-  if (d.startsWith("421") || d.startsWith("420")) return "+" + d;
+  if (d.startsWith("421") || d.startsWith("420")) {
+    // „+421 0949…" (predvoľba aj domáca nula) → bez nuly
+    const rest = d.slice(3);
+    return "+" + d.slice(0, 3) + (rest.length === 10 && rest.startsWith("0") ? rest.slice(1) : rest);
+  }
   if (d.length === 10 && d.startsWith("0")) return "+421" + d.slice(1);
   if (d.length === 9 && d.startsWith("9")) return "+421" + d;
   return (input || "").trim();
@@ -443,7 +447,7 @@ const UsgHero = () => (
     <section className="rounded-xl border border-line overflow-hidden grid md:grid-cols-[3fr_2fr] bg-brand-soft" aria-label="Úvod">
       <div className="p-6 md:p-10 flex flex-col justify-center md:min-h-[360px]">
         <p className="text-[11px] md:text-xs font-semibold tracking-wide text-muted uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
-        <h2 className="text-3xl md:text-4xl leading-tight text-brand-dark mt-3">Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie</h2>
+        <h1 className="text-3xl md:text-4xl leading-tight text-brand-dark mt-3">Cievne USG vyšetrenie tam, kde cievam rozumejú najlepšie</h1>
         <p className="text-ink text-base md:text-lg mt-4 max-w-xl">
           Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH. Termín si vyberiete sami, bez čakania v rade; platí sa vopred QR kódom.
         </p>
@@ -638,7 +642,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSlots, takenByDate, isReferral, settings.referralFrom]);
+  }, [openSlots, takenByDate, isReferral, settings.referralFrom, examType?.id]);
 
   const [monthDate, setMonthDate] = useState(() => {
     const base = firstAvailableIso ? new Date(`${firstAvailableIso}T12:00:00`) : new Date();
@@ -697,14 +701,19 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
     if (form.phone.replace(/\D/g, "").length < 9) {
       return setError("Zadajte platné telefónne číslo (aspoň 9 číslic).");
     }
+    if (!form.birthDate) {
+      return setError("Zadajte dátum narodenia v tvare DD.MM.RRRR.");
+    }
     if (smsVerify && !phoneVerified) {
       return setError("Overte prosím telefónne číslo SMS kódom (tlačidlo pod telefónom).");
     }
     if (isReferral && files.length === 0) {
       return setError("Pri objednávke so žiadankou priložte žiadanku (výmenný lístok) — na mobile ju môžete odfotiť.");
     }
+    // číslo objednávky raz za sedenie — pri opakovaní po chybe sa prílohy nenahrávajú pod novým číslom
+    if (!orderIdRef.current) orderIdRef.current = newOrderId();
     const order = {
-      id: newOrderId(),
+      id: orderIdRef.current,
       variableSymbol: String(Date.now()).slice(-10),
       durationMin: (examType?.durationSlots || 2) * BASE_SLOT_MIN,
       createdAt: new Date().toISOString(),
@@ -739,13 +748,32 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
       setStep(4);
       setFiles([]);
     } catch (err) {
-      setError(err?.message || "Objednávku sa nepodarilo odoslať. Skúste to znova.");
+      const m = err?.message || "Objednávku sa nepodarilo odoslať. Skúste to znova.";
+      setError(m);
+      if (err?.code === "SLOT_TAKEN" || /obsaden/i.test(m)) { setStep(2); setField("time", ""); }
+      else if (/overen/i.test(m)) setOtp({ stage: "idle", phone: "", code: "", msg: "", busy: false, demoCode: "" }); // overenie vypršalo → nový kód
     } finally {
       setBusy(false);
     }
   };
 
-  const resetWizard = () => { setCreatedOrder(null); setForm(emptyForm); setStep(1); setError(""); };
+  const orderIdRef = useRef("");
+  const resetWizard = () => {
+    setCreatedOrder(null); setForm(emptyForm); setStep(1); setError(""); setFiles([]);
+    setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
+    orderIdRef.current = "";
+  };
+  // pri vstupe na krok 2 ukázať mesiac prvého voľného dňa (pre zvolené vyšetrenie)
+  useEffect(() => {
+    if (step === 2 && firstAvailableIso) { const d = new Date(`${firstAvailableIso}T12:00:00`); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, firstAvailableIso]);
+  // po zmene kroku posunúť pohľad na začiatok sprievodcu (na mobile inak ostane uprostred)
+  useEffect(() => {
+    if (step === 1) return;
+    const el = document.getElementById("objednanie");
+    if (el) { const r = el.getBoundingClientRect(); if (r.top < 0 || r.top > 160) el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }, [step]);
 
   const inputCls = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-2 focus:ring-brand focus:border-brand outline-none";
   const labelCls = "block text-sm font-semibold text-slate-600 mb-1";
@@ -891,7 +919,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
           <div className="grid md:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Meno a priezvisko *</label>
-              <input required value={form.patientName} onChange={(e) => setField("patientName", e.target.value)} className={inputCls} placeholder="Ján Novák" />
+              <input required autoComplete="name" value={form.patientName} onChange={(e) => setField("patientName", e.target.value)} className={inputCls} placeholder="Ján Novák" />
             </div>
             <div>
               <label className={labelCls}>Dátum narodenia *</label>
@@ -906,7 +934,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </div>
             <div>
               <label className={labelCls}>Telefón *</label>
-              <input required type="tel" inputMode="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
+              <input required type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className={inputCls} placeholder="+421 900 000 000" />
               {smsVerify && (
                 <div data-testid="otp-box" className="mt-2 text-sm">
                   {phoneVerified ? (
@@ -934,7 +962,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>E-mail *</label>
-              <input type="email" required value={form.email} onChange={(e) => setField("email", e.target.value)} className={inputCls} placeholder="jan.novak@..." />
+              <input type="email" required autoComplete="email" value={form.email} onChange={(e) => setField("email", e.target.value)} className={inputCls} placeholder="jan.novak@…" />
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>Dôvod vyšetrenia / ťažkosti *</label>
@@ -1043,7 +1071,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               </p>
             )}
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 p-3 rounded-lg">
-              Termín je rezervovaný a bude <strong>potvrdený po prijatí platby</strong>. Ak platba nepríde do 24 hodín, rezervácia môže byť zrušená.
+              Termín je rezervovaný a bude <strong>potvrdený po prijatí platby</strong>. Ak platba nepríde do 3 pracovných dní (najneskôr 24 hodín pred termínom), rezervácia môže byť zrušená.
             </p>
           </div>
 
@@ -1058,8 +1086,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               const loc = `NÚSCH, a.s., Pod Krásnou hôrkou 1, Bratislava${doctorLocation(settings.doctors, createdOrder.doctor) ? ` — ${doctorLocation(settings.doctors, createdOrder.doctor)}` : ""}`;
               const ics = [
                 "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NUSCH//USG//SK", "BEGIN:VEVENT",
-                `UID:${createdOrder.id}@nusch`, `DTSTART:${d}T${pad(h)}${pad(m)}00`,
-                `DTEND:${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`,
+                `UID:${createdOrder.id}@nusch`, `DTSTART;TZID=Europe/Bratislava:${d}T${pad(h)}${pad(m)}00`,
+                `DTEND;TZID=Europe/Bratislava:${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`,
                 `SUMMARY:${esc(`USG vyšetrenie — NÚSCH (${createdOrder.exam.label})`)}`,
                 `LOCATION:${esc(loc)}`,
                 `DESCRIPTION:${esc(`Objednávka ${createdOrder.id}${createdOrder.doctor ? `\nLekár: ${createdOrder.doctor}` : ""}`)}`,
@@ -1070,7 +1098,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
               a.href = URL.createObjectURL(blob);
               a.download = "usg-termin.ics";
               a.click();
-              URL.revokeObjectURL(a.href);
+              setTimeout(() => URL.revokeObjectURL(a.href), 1500);
             }}
             className="w-full bg-white border-2 border-brand text-brand hover:bg-brand-soft font-bold py-3 px-6 rounded-lg text-lg transition duration-200"
           >
@@ -1082,7 +1110,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
         </div>
       )}
 
-      {error && <div className="bg-red-50 border border-red-300 text-red-700 p-3 rounded-lg font-semibold mt-4">{error}</div>}
+      {error && <div role="alert" className="bg-danger-soft border border-danger/40 text-danger p-3 rounded-lg font-semibold mt-4">{error}</div>}
 
       {/* NAVIGÁCIA */}
       {step < 4 && (
@@ -1137,7 +1165,8 @@ const PaidBadge = ({ order }) => {
 // Pacient potvrdil príchod cez QR check-in (#/som-tu) — zobrazí sa
 // len pri aktívnych objednávkach; po vybavení/zrušení už nie je podstatný.
 export const ArrivedBadge = ({ order }) => {
-  if (!order.arrivedAt || (order.status !== "new" && order.status !== "confirmed")) return null;
+  // len dnešné aktívne objednávky — príznak z minulých dní nemá v zozname čo robiť (audit UX 1)
+  if (!order.arrivedAt || (order.status !== "new" && order.status !== "confirmed") || order.date !== toISODate(new Date())) return null;
   let t = "";
   try { t = new Date(order.arrivedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch { t = ""; }
   return <span className="bg-emerald-100 text-emerald-800 border border-emerald-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">🪑 V ČAKÁRNI{t && ` od ${t}`}</span>;
@@ -2028,7 +2057,7 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, onListInvoices, onIssueMissingInvoices, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseSlots, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, onListInvoices, onIssueMissingInvoices, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState(todayIso);
@@ -2257,6 +2286,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
   // zavrie všetky voľné 5-min bunky jedného bloku naraz
   const doCloseSegment = (iso, cellTimes) => run(async () => {
+    if (onCloseSlots) { await onCloseSlots(iso, cellTimes); return; } // jeden dotaz namiesto N (audit UX 1)
     for (const t of cellTimes) await onCloseSlot(iso, t);
   }, "Voľný blok zatvorený.");
 
@@ -2910,7 +2940,17 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
   const [busy, setBusy] = useState(false);
   const [resched, setResched] = useState(false);
   const [reschedDate, setReschedDate] = useState("");
+  const [reschedMonth, setReschedMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [info, setInfo] = useState("");
+  // deep-link z e-mailu (#/objednavka/USG-…): predvyplniť číslo, prísť na sekciu a dať fokus na telefón
+  const phoneRef = useRef(null);
+  useEffect(() => {
+    if (!initialOrderId) return;
+    setOrderId(initialOrderId); setFound(null); setMessage("");
+    const el = document.getElementById("usg-lookup");
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    setTimeout(() => phoneRef.current?.focus({ preventScroll: true }), 400);
+  }, [initialOrderId]);
 
   // ponuka časov pre zmenu termínu — rovnaké pravidlo ako pri objednávaní
   // (najbližšie 3 časy natesno); bunky vlastnej objednávky sa nepočítajú
@@ -2930,6 +2970,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
   };
 
   const doReschedule = async (date, time, doctor) => {
+    if (!window.confirm(`Zmeniť termín na ${formatDateHuman(date)} o ${time}?`)) return;
     setBusy(true); setMessage(""); setInfo("");
     try {
       await onReschedule(found.id, phone, date, time);
@@ -2975,27 +3016,28 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
   const cancelAllowed = canCancel && hoursUntil >= 48;
 
   return (
-    <details open={defaultOpen || undefined} className="bg-white rounded-xl border border-line mt-4 text-slate-800">
-      <summary className="p-5 font-bold text-brand cursor-pointer select-none">Už máte objednávku? Overiť stav alebo zrušiť</summary>
+    <details id="usg-lookup" open={defaultOpen || undefined} className="bg-white rounded-xl border border-line mt-4 text-slate-800 scroll-mt-4">
+      <summary className="p-5 font-bold text-brand cursor-pointer select-none">Už máte objednávku? Overiť stav, zmeniť alebo zrušiť termín</summary>
       <div className="px-5 pb-5 space-y-3">
         <div className="grid md:grid-cols-2 gap-3">
           <input
             value={orderId}
             onChange={(e) => { setOrderId(e.target.value); setFound(null); setMessage(""); }}
-            placeholder="Číslo objednávky (USG-…)"
+            placeholder="Číslo objednávky (USG-…)" aria-label="Číslo objednávky"
             className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
           />
           <input
+            ref={phoneRef} type="tel" inputMode="tel" autoComplete="tel"
             value={phone}
             onChange={(e) => { setPhone(e.target.value); setFound(null); setMessage(""); }}
-            placeholder="Telefón zadaný pri objednávke"
+            placeholder="Telefón zadaný pri objednávke" aria-label="Telefón zadaný pri objednávke"
             className="p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand outline-none"
           />
         </div>
         <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold px-5 py-2.5 rounded-lg transition-colors">
           {busy ? "Pracujem…" : "Vyhľadať"}
         </button>
-        {message && <p className="text-sm text-red-600 font-semibold">{message}</p>}
+        {message && <p className="text-sm text-danger font-semibold" role="alert">{message}</p>}
         {found && (
           <div className="border border-slate-200 rounded-lg p-4 space-y-2">
             <p className="font-bold">{found.exam.label}</p>
@@ -3009,8 +3051,8 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
               </p>
             )}
             <p className="text-sm">
-              Stav: <strong>{usgStatuses[found.status].label}</strong>
-              {found.statusNote && <span className="text-slate-500"> ({found.statusNote})</span>}
+              Stav: <strong>{found.status === "rejected" && /pacientom/i.test(found.statusNote || "") ? "Zrušená" : (usgStatuses[found.status]?.label ?? found.status)}</strong>
+              {found.statusNote && !(found.status === "rejected" && /pacientom/i.test(found.statusNote)) && <span className="text-slate-500"> ({found.statusNote})</span>}
             </p>
             {found.price > 0 && (
               <p className="text-sm">
@@ -3026,7 +3068,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
             {cancelAllowed && onReschedule && (
               <div className="space-y-2">
                 <button
-                  onClick={() => { setResched(!resched); setReschedDate(found.date); setInfo(""); }}
+                  onClick={() => { setResched(!resched); setReschedDate(""); setInfo(""); const d = new Date(`${firstPatientIso()}T12:00:00`); setReschedMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}
                   disabled={busy}
                   className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
                 >
@@ -3035,13 +3077,12 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
                 {resched && (
                   <div className="bg-page border border-line rounded-lg p-3 space-y-2">
                     <p className="text-sm font-semibold text-brand">Vyberte nový deň a čas (platba zostáva v platnosti):</p>
-                    <input
-                      type="date"
-                      value={reschedDate}
-                      min={firstPatientIso()}
-                      onChange={(e) => setReschedDate(e.target.value)}
-                      className="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm"
-                    />
+                    <div className="max-w-xs">
+                      <MonthCalendar monthDate={reschedMonth} onMonthChange={(delta) => setReschedMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
+                        isAvailable={(iso) => offeredFor(iso).length > 0} selected={reschedDate} onSelect={(iso) => setReschedDate(iso)} />
+                      <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
+                    </div>
+                    {reschedDate && <p className="text-sm font-semibold text-slate-700 capitalize">{formatDateHuman(reschedDate)}</p>}
                     {reschedDate && (
                       offeredFor(reschedDate).length === 0
                         ? <p className="text-xs text-slate-500">V tento deň nie sú voľné termíny — vyberte iný deň.</p>

@@ -7,6 +7,7 @@ import {
 } from "./booking.jsx";
 import { useCtData } from "./podappkyData.js";
 import { ConsentAck } from "./legal.jsx";
+import { fmtLong } from "./angio.jsx";
 
 const newCtId = () => {
   const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -100,7 +101,11 @@ function CtBookingView({ data }) {
         insurance: form.insurance, phone: normalizePhone(form.phone), email: form.email.trim(), reason: form.reason.trim(), date, time }, files);
       setDone({ id, date, time, label: examType?.label });
       setFiles([]);
-    } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
+    } catch (err) {
+      const m = err?.message || String(err);
+      setMsg(m);
+      if (err?.code === "SLOT_TAKEN" || /obsaden/i.test(m)) { setStep(2); setTime(""); }
+    } finally { setBusy(false); }
   };
   const ic = (k) => inp + (errs[k] ? " border-red-400 ring-1 ring-red-300" : "");
   const Err = ({ k }) => errs[k] ? <p className="text-xs text-red-600 mt-1">{errs[k]}</p> : null;
@@ -110,9 +115,14 @@ function CtBookingView({ data }) {
       <div className="bg-white rounded-xl border border-line p-6 text-center">
         <h2 className="text-xl font-bold text-success mb-2">Objednávka na CT je prijatá</h2>
         <p className="text-slate-700">{done.label}</p>
-        <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
+        <p className="text-slate-700">Termín: <b>{fmtLong(done.date)} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
-        <p className="text-sm text-slate-500 mt-3">CT je bez poplatku. Potvrdenie sme poslali e-mailom (ak bol zadaný).</p>
+        <p className="text-sm text-slate-500 mt-3">CT vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom so žiadankou.</p>
+        <p className="text-xs text-slate-500 mt-2">Zrušenie termínu vybavíte v sekcii „Už máte CT objednávku?“ (číslo objednávky + telefón).</p>
+        <div className="flex flex-wrap justify-center gap-2 mt-5">
+          <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setAck(false); setErrs({}); }}
+            className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">Nová objednávka</button>
+        </div>
       </div>
     );
   }
@@ -147,7 +157,7 @@ function CtBookingView({ data }) {
               <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${date}` : "Vyberte deň"}</p>
+              <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${fmtLong(date)}` : "Vyberte deň"}</p>
               <div className="flex flex-wrap gap-2">
                 {date && freeSlotsFor(date).map((s) => (
                   <button key={s.time} onClick={() => setTime(s.time)}
@@ -246,7 +256,11 @@ function CtOrderLookup({ data }) {
   const cancel = async () => {
     if (!window.confirm("Naozaj zrušiť CT objednávku?")) return;
     setBusy(true); setMsg("");
-    try { await data.cancelOrder(found.id, phone.trim()); setFound({ ...found, status: "rejected" }); }
+    try {
+      const ok = await data.cancelOrder(found.id, phone.trim());
+      if (ok === false) throw new Error("Objednávku sa nepodarilo zrušiť — skontrolujte číslo a telefón.");
+      setFound({ ...found, status: "rejected" });
+    }
     catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
   };
 
@@ -255,17 +269,17 @@ function CtOrderLookup({ data }) {
       <h3 className="text-lg font-bold text-brand">Už máte CT objednávku?</h3>
       <p className="text-sm text-slate-500">Zadajte číslo objednávky (CT-…) a telefón, ktorý ste uviedli.</p>
       <div className="grid md:grid-cols-2 gap-3">
-        <input className={inp} placeholder="Číslo objednávky (CT-…)" value={id} onChange={(e) => setId(e.target.value)} />
-        <input className={inp} placeholder="Telefón zadaný pri objednávke" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input className={inp} placeholder="Číslo objednávky (CT-…)" aria-label="Číslo objednávky" value={id} onChange={(e) => { setId(e.target.value); setFound(null); setMsg(""); }} />
+        <input className={inp} type="tel" inputMode="tel" autoComplete="tel" placeholder="Telefón zadaný pri objednávke" aria-label="Telefón zadaný pri objednávke" value={phone} onChange={(e) => { setPhone(e.target.value); setFound(null); setMsg(""); }} />
       </div>
       <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-lg">
         {busy ? "Hľadám…" : "Vyhľadať"}
       </button>
-      {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
+      {msg && <p className="text-sm text-red-600 font-semibold" role="alert">{msg}</p>}
       {found && (
         <div className="border border-slate-200 rounded-lg p-4 space-y-1">
           <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{ctStatuses[found.status] || found.status}</span></p>
-          <p className="text-sm text-slate-600">Termín: <b>{found.date} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
+          <p className="text-sm text-slate-600">Termín: <b>{fmtLong(found.date)} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
           {(found.status === "new" || found.status === "confirmed") && (
             <button onClick={cancel} disabled={busy} className="mt-2 bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-50">
               Zrušiť objednávku
@@ -306,6 +320,8 @@ function CtOrderCard({ order, data, canManage }) {
 
   const tone = order.status === "rejected" ? "border-l-red-400 bg-red-50"
     : order.status === "confirmed" ? "border-l-brand bg-brand-soft"
+    : order.status === "done" ? "border-l-emerald-400 bg-emerald-50"
+    : order.status === "noshow" ? "border-l-slate-400 bg-slate-50"
     : "border-l-amber-400 bg-amber-50";
 
   return (

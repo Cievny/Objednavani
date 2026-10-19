@@ -173,15 +173,16 @@ const CheckinView = () => {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-700">{error}</div>
+        <div role="alert" className="bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-700">{error}</div>
       )}
 
       <div className="space-y-2">
-        <label className="block text-sm font-semibold text-ink">Telefónne číslo</label>
+        <label htmlFor="checkin-phone" className="block text-sm font-semibold text-ink">Telefónne číslo</label>
         <input
-          type="tel"
+          id="checkin-phone"
+          type="tel" inputMode="tel" autoComplete="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => { setPhone(e.target.value); setList(null); setConfirmedAt(""); setError(""); }}
           onKeyDown={(e) => { if (e.key === "Enter") search(); }}
           placeholder="+421 900 000 000"
           className="w-full border border-line rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-brand"

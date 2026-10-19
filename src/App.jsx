@@ -11,7 +11,7 @@ import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v109";
+const APP_VERSION = "v110";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -163,18 +163,20 @@ export default function App() {
   const isAngioAdmin = APP_MODE === "admin" ? true : APP_MODE === "patient" ? false : hash.startsWith("#/angio1/sprava");
   const angioAdminHref = APP_MODE === "combined" ? "#/angio1/sprava" : "#/angio1";
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
-  const data = useBookingData(isStaff);
+  // USG dáta len tam, kde sa používajú (USG pacient, USG správa, check-in nie — má vlastné RPC)
+  const usgActive = !isAngioRoute && !isCtRoute && !isPayRoute && !isCheckinRoute && !legalPage;
+  const data = useBookingData(isStaff, usgActive);
+
+  // titulok okna podľa stránky
+  useEffect(() => {
+    const t = legalPage === "vop" ? "Podmienky online objednávania" : legalPage === "privacy" ? "Ochrana osobných údajov"
+      : isCheckinRoute ? "Som tu — príchod do čakárne" : isAngioRoute ? (isAngioAdmin ? `${ANGIO_NAME} — správa` : ANGIO_NAME)
+      : isCtRoute ? "CT objednávanie" : isPayRoute ? "Ad-hoc platba" : isAdminRoute ? "Správa objednávok — USG" : "Objednávanie na USG vyšetrenia";
+    document.title = `${t} · NÚSCH`;
+  }, [legalPage, isCheckinRoute, isAngioRoute, isAngioAdmin, isCtRoute, isPayRoute, isAdminRoute]);
 
   const adminContent = (
     <div className="bg-white rounded-xl p-5 md:p-6 border border-line">
-      {auth.isSupabase && (
-        <div className="flex items-center justify-between gap-2 mb-4 text-xs text-muted">
-          <span>Prihlásený: {auth.session?.user?.email}</span>
-          <button onClick={auth.signOut} className="bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-md transition-colors">
-            Odhlásiť sa
-          </button>
-        </div>
-      )}
       {/* Diskrétne odkazy na skryté testovacie pod-appky (len pre personál) */}
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
         <span className="text-warn bg-warn-soft border border-warn/30 rounded px-2 py-0.5 font-semibold">Testovacie</span>
@@ -191,6 +193,7 @@ export default function App() {
         pricelist={data.pricelist}
         onOpenWindow={data.openWindow}
         onCloseSlot={data.closeSlot}
+        onCloseSlots={data.closeSlots}
         onCloseDay={data.closeDay}
         onSetStatus={data.setStatus}
         onSetPaid={data.setPaid}
@@ -221,9 +224,18 @@ export default function App() {
     if (!auth.isSupabase) {
       return codeUnlocked ? node : <CodeGate onUnlock={() => setCodeUnlocked(true)} />;
     }
-    const loading = <p className="text-center text-slate-400 py-10">Načítavam…</p>;
+    const loading = <p className="text-center text-muted py-10">Načítavam…</p>;
     if (!auth.ready) return loading;
     if (!auth.session) return <LoginGate auth={auth} />;
+    if (auth.roleError) {
+      return (
+        <div className="text-center py-10 space-y-3" role="alert">
+          <p className="text-danger font-semibold">Nepodarilo sa overiť rolu personálu ({auth.roleError}).</p>
+          <button type="button" onClick={auth.reloadRole} className="bg-brand hover:bg-brand-dark text-white font-semibold px-4 py-2 rounded-lg">Skúsiť znova</button>
+          <button type="button" onClick={auth.signOut} className="ml-2 bg-soft hover:bg-line text-ink font-semibold px-4 py-2 rounded-lg">Odhlásiť sa</button>
+        </div>
+      );
+    }
     if (auth.role === null || !auth.mfa?.ready) return loading;
     if (requireRole && !STAFF_ROLES.includes(auth.role)) {
       return <p className="text-center text-slate-500 py-10">Tento účet nemá pridelenú rolu personálu. Požiadajte správcu o prístup.</p>;
@@ -232,7 +244,16 @@ export default function App() {
       if (auth.mfa.hasFactor && auth.mfa.level !== "aal2") return <MfaChallenge auth={auth} />;
       if (!auth.mfa.hasFactor) return <MfaEnroll auth={auth} />;
     }
-    return node;
+    // lišta prihláseného používateľa + odhlásenie pre každú správu (USG, angio, CT, platby)
+    return (
+      <>
+        <div className="flex items-center justify-between gap-2 mb-3 text-xs text-muted" data-testid="staff-bar">
+          <span>Prihlásený: <b className="text-ink font-semibold">{auth.session?.user?.email}</b>{auth.role ? ` · ${auth.role}` : ""}</span>
+          <button type="button" onClick={auth.signOut} className="bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg transition-colors">Odhlásiť sa</button>
+        </div>
+        {node}
+      </>
+    );
   };
 
   const renderAdmin = () => staffGate(adminContent, false);
@@ -274,12 +295,12 @@ export default function App() {
                 href="#/sprava"
                 className={`py-3 text-sm font-bold border-b-2 transition-colors ${isAdminRoute ? "text-brand border-brand" : "text-brand border-transparent hover:text-brand"}`}
               >
-                Pre pracovisko{isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}
+                Pre pracovisko{isStaff && usgActive && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}
               </a>
             </>
           ) : (
             <span className="py-3 text-sm font-bold text-brand border-b-2 border-brand">
-              {APP_MODE === "admin" ? `Správa objednávok${isStaff && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}` : "Objednať sa"}
+              {APP_MODE === "admin" ? `Správa objednávok${isStaff && usgActive && data.pendingCount > 0 ? ` (${data.pendingCount})` : ""}` : "Objednať sa"}
             </span>
           )}
         </div>
@@ -298,7 +319,13 @@ export default function App() {
           <>
             <UsgHero />
             {data.isSupabase && data.loading ? (
-              <div className="bg-white rounded-xl border border-line p-8 text-center text-slate-400">Načítavam voľné termíny…</div>
+              <div className="bg-white rounded-xl border border-line p-8 text-center text-muted">Načítavam voľné termíny…</div>
+            ) : data.isSupabase && data.loadError && Object.keys(data.openSlots).length === 0 ? (
+              <div className="bg-white rounded-xl border border-line p-8 text-center space-y-2" role="alert">
+                <p className="text-danger font-semibold">Nepodarilo sa načítať voľné termíny.</p>
+                <p className="text-sm text-muted">Skontrolujte pripojenie a skúste stránku obnoviť. Ak problém pretrváva, napíšte nám SMS na 0949 000 677.</p>
+                <button type="button" onClick={data.reload} className="bg-brand hover:bg-brand-dark text-white font-semibold px-4 py-2 rounded-lg">Skúsiť znova</button>
+              </div>
             ) : (
               <PatientView
                 occupied={data.occupied}
@@ -317,9 +344,9 @@ export default function App() {
 
       <footer className="max-w-5xl mx-auto px-4 py-6 text-center text-xs text-slate-400">
         <p className="mb-1">
-          <a href="#/podmienky" className="text-brand font-semibold hover:underline">Podmienky online objednávania</a>
+          <a href="#/podmienky" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Podmienky online objednávania</a>
           {" · "}
-          <a href="#/osobne-udaje" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
+          <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
         </p>
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
         {data.isSupabase

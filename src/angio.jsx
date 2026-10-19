@@ -154,6 +154,16 @@ function AngioBookingView({ data, landing = null }) {
   const todayIso = toISODate(new Date());
   const minIso = firstPatientIso();
   const isAvailable = (iso) => iso >= minIso && freeSlotsFor(iso).length > 0;
+  // prvý voľný deň pre zvolené vyšetrenie — kalendár sa naň otvorí; bez neho hláška
+  const firstFreeIso = useMemo(() => {
+    let d = minIso;
+    for (let i = 0; i < 180; i++) { if (isAvailable(d)) return d; d = addDays(d, 1); }
+    return "";
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.openSlots, data.occupied, examTypeId, durationMin]);
+  useEffect(() => {
+    if (step === 2 && firstFreeIso) { const d = isoDate(firstFreeIso); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1)); }
+  }, [step, firstFreeIso]);
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); clearErr(k); };
 
@@ -176,7 +186,12 @@ function AngioBookingView({ data, landing = null }) {
         verifyToken: phoneVerified ? otp.token : "" }, files);
       setDone({ id, date, time, label: examType?.label, needsReferral });
       setFiles([]);
-    } catch (err) { setMsg(err?.message || String(err)); } finally { setBusy(false); }
+    } catch (err) {
+      const m = err?.message || String(err);
+      setMsg(m);
+      if (err?.code === "SLOT_TAKEN" || /obsaden/i.test(m)) { setStep(2); setTime(""); } // termín medzičasom obsadený → späť na výber času s čerstvou ponukou
+      else if (/overen/i.test(m)) setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
+    } finally { setBusy(false); }
   };
   const ic = (k) => inp + (errs[k] ? " border-red-400 ring-1 ring-red-300" : "");
   const Err = ({ k }) => errs[k] ? <p className="text-xs text-red-600 mt-1">{errs[k]}</p> : null;
@@ -186,7 +201,7 @@ function AngioBookingView({ data, landing = null }) {
       <div className="bg-white rounded-xl border border-line p-6 text-center">
         <h2 className="text-xl font-bold text-success mb-2">Objednávka je prijatá</h2>
         <p className="text-slate-700">{done.label}</p>
-        <p className="text-slate-700">Termín: <b>{done.date} o {done.time}</b></p>
+        <p className="text-slate-700">Termín: <b>{fmtLong(done.date)} o {done.time}</b></p>
         <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
         <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
         <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2 mt-3 text-left"><b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.</p>
@@ -194,7 +209,7 @@ function AngioBookingView({ data, landing = null }) {
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); setAck(false); setErrs({}); }}
             className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">Nová objednávka</button>
-          <a href="#/" className="bg-soft hover:bg-line text-ink text-sm font-semibold px-4 py-2 rounded-lg">← Späť na hlavnú stránku</a>
+          <a href="#/angio1" className="bg-soft hover:bg-line text-ink text-sm font-semibold px-4 py-2 rounded-lg">← Späť na stránku ambulancie</a>
         </div>
       </div>
     );
@@ -259,7 +274,8 @@ function AngioBookingView({ data, landing = null }) {
               <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${date}` : "Vyberte deň"}</p>
+              <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${fmtLong(date)}` : "Vyberte deň"}</p>
+              {!date && !firstFreeIso && <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2" data-testid="no-slots">Momentálne nie sú otvorené žiadne termíny. Skúste to neskôr alebo nám nechajte číslo nižšie — zavoláme vám.</p>}
               <div className="flex flex-wrap gap-2">
                 {date && freeSlotsFor(date).map((s) => (
                   <button key={s.time} onClick={() => setTime(s.time)}
@@ -281,7 +297,7 @@ function AngioBookingView({ data, landing = null }) {
       {step === 3 && (
         <div className="space-y-3">
           <button onClick={() => setStep(2)} className="text-sm text-brand hover:underline">← Späť na termín</button>
-          <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {date} o {time}</p>
+          <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {fmtLong(date)} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Meno a priezvisko *</label>
@@ -395,9 +411,17 @@ function AngioOrderLookup({ data, initialId = "" }) {
   const cancel = async () => {
     if (!window.confirm("Naozaj zrušiť objednávku?")) return;
     setBusy(true); setMsg("");
-    try { await data.cancelOrder(found.id, phone.trim()); setFound({ ...found, status: "rejected" }); }
+    try {
+      const ok = await data.cancelOrder(found.id, phone.trim());
+      if (ok === false) throw new Error("Objednávku sa nepodarilo zrušiť — skontrolujte číslo a telefón alebo nám napíšte SMS na 0949 000 677.");
+      setFound({ ...found, status: "rejected", statusNote: "Zrušené pacientom" });
+    }
     catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
   };
+  // zmena a zrušenie online najneskôr 24 h pred termínom (rovnaké pravidlo stráži databáza, angio-015)
+  const hoursUntil = found ? (new Date(`${found.date}T${found.time || "00:00"}:00`) - Date.now()) / 3600000 : 0;
+  const activeFound = found && (found.status === "new" || found.status === "confirmed");
+  const canChange = activeFound && hoursUntil >= 24;
 
   // zmena termínu pacientom — výber z otvorených termínov (rovnaké pravidlá ako pri objednaní)
   const [resched, setResched] = useState(false);
@@ -416,19 +440,19 @@ function AngioOrderLookup({ data, initialId = "" }) {
     const [h, mi] = (found.time || "00:00").split(":").map(Number);
     const own = new Set(Array.from({ length: Math.max(1, Math.round(dur / 5)) }, (_, i) => addMinutes(`${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`, i * 5)));
     const taken = new Set([...(takenByDate.get(iso) || new Set())].filter((t) => !(iso === found.date && own.has(t))));
-    return freeStartsFor(data.openSlots, taken, iso, dur, data.doctors, found.exam?.typeId)
-      .filter((s) => !(iso === found.date && s.time === found.time))
-      .filter((s) => iso > todayIso || s.time >= earliestTimeFor(iso, ""));
+    // rovnaká ponuka ako pri objednávaní: najbližšie 3 časy natesno
+    return computeOfferedSlots({ openSlots: data.openSlots, takenSet: taken, doctors: data.doctors, examTypeId: found.exam?.typeId, durationMin: dur, iso, minTime: earliestTimeFor(iso, "") })
+      .filter((s) => !(iso === found.date && s.time === found.time));
   };
   const rAvailable = (iso) => iso >= firstPatientIso() && rStarts(iso).length > 0;
   const pick = async (iso, t) => {
-    if (!window.confirm(`Zmeniť termín na ${iso} o ${t}?`)) return;
+    if (!window.confirm(`Zmeniť termín na ${fmtLong(iso)} o ${t}?`)) return;
     setBusy(true); setMsg(""); setOk("");
     try {
       await data.patientReschedule(found.id, phone.trim(), iso, t);
       setFound({ ...found, date: iso, time: t, status: "new" });
       setResched(false); setRDate("");
-      setOk(`Termín je zmenený na ${iso} o ${t}. Potvrdenie pošleme e-mailom${data.smsVerify ? " a SMS" : ""}.`);
+      setOk(`Termín je zmenený na ${fmtLong(iso)} o ${t}. Pracovisko ho ešte raz potvrdí; potvrdenie pošleme e-mailom a SMS.`);
     } catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); }
   };
 
@@ -437,20 +461,25 @@ function AngioOrderLookup({ data, initialId = "" }) {
       <h3 className="text-lg font-bold text-brand">Už máte objednávku?</h3>
       <p className="text-sm text-slate-500">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli. Termín tu môžete zmeniť alebo zrušiť (najneskôr 24 hodín vopred).</p>
       <div className="grid md:grid-cols-2 gap-3">
-        <input className={inp} placeholder="Číslo objednávky (ANG-…)" value={id} onChange={(e) => setId(e.target.value)} />
-        <input className={inp} placeholder="Telefón zadaný pri objednávke" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input className={inp} placeholder="Číslo objednávky (ANG-…)" aria-label="Číslo objednávky" value={id} onChange={(e) => { setId(e.target.value); setFound(null); setMsg(""); }} />
+        <input className={inp} type="tel" inputMode="tel" autoComplete="tel" placeholder="Telefón zadaný pri objednávke" aria-label="Telefón zadaný pri objednávke" value={phone} onChange={(e) => { setPhone(e.target.value); setFound(null); setMsg(""); }} />
       </div>
       <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-lg">
         {busy ? "Hľadám…" : "Vyhľadať"}
       </button>
-      {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
+      {msg && <p className="text-sm text-red-600 font-semibold" role="alert">{msg}</p>}
       {found && (
         <div className="border border-slate-200 rounded-lg p-4 space-y-1">
           <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{statuses[found.status] || found.status}</span></p>
           {found.exam?.label && <p className="text-sm text-slate-600">{found.exam.label}</p>}
-          <p className="text-sm text-slate-600">Termín: <b>{found.date} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
-          {ok && <p className="text-sm text-success font-semibold">{ok}</p>}
-          {(found.status === "new" || found.status === "confirmed") && (
+          <p className="text-sm text-slate-600">Termín: <b>{fmtLong(found.date)} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
+          {ok && <p className="text-sm text-success font-semibold" role="status">{ok}</p>}
+          {activeFound && !canChange && (
+            <p className="text-xs bg-warn-soft border border-warn/30 rounded-lg p-2 text-warn font-semibold" data-testid="too-late">
+              Do termínu zostáva menej ako 24 hodín — online zmena ani zrušenie už nie je možné. Ak sa nemôžete dostaviť, pošlite nám SMS s číslom objednávky na 0949 000 677.
+            </p>
+          )}
+          {canChange && (
             <div className="flex flex-wrap gap-2 mt-2">
               <button onClick={() => { setResched(!resched); setOk(""); setMsg(""); }} disabled={busy} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
                 {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
@@ -460,7 +489,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
               </button>
             </div>
           )}
-          {resched && (found.status === "new" || found.status === "confirmed") && (
+          {resched && canChange && (
             <div data-testid="patient-resched" className="mt-3 bg-page border border-slate-200 rounded-lg p-3 space-y-3">
               <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom. Telefón/SMS 0949 000 677 len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
               <div className="grid md:grid-cols-2 gap-4">
@@ -471,7 +500,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
                   <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-700 mb-2">{rDate ? `Voľné časy — ${rDate}` : "Vyberte deň"}</p>
+                  <p className="text-sm font-semibold text-slate-700 mb-2">{rDate ? `Voľné časy — ${fmtLong(rDate)}` : "Vyberte deň"}</p>
                   <div className="flex flex-wrap gap-2">
                     {rDate && rStarts(rDate).map((s) => (
                       <button key={s.time} onClick={() => pick(rDate, s.time)} disabled={busy}
@@ -495,7 +524,7 @@ function AngioOrderLookup({ data, initialId = "" }) {
 // ---------- Karta objednávky (správa) ----------
 // Všetky údaje pacienta pre personál (na zaevidovanie do nemocničného systému) + kopírovanie
 const fmtD = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join(".") : "—");
-const fmtDT = (iso) => (iso ? `${fmtD(iso)} ${String(iso).slice(11, 16)}` : "—");
+const fmtDT = (iso) => { if (!iso) return "—"; try { return new Date(iso).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return String(iso).slice(0, 16); } };
 function PatientDetails({ order, onCopied }) {
   const ins = insuranceOptions.find((o) => o.id === order.insurance)?.label || order.insurance || "—";
   const rows = [
@@ -551,10 +580,16 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 
   const starts = (iso) => {
     const taken = new Set([...(takenByDate.get(iso) || new Set())].filter((t) => !(iso === order.date && ownCells.has(t))));
-    return freeStartsFor(data.openSlots, taken, iso, order.durationMin || 15, data.doctors, order.exam?.typeId);
+    const minT = earliestTimeFor(iso, ""); // uplynuté časy dnes server odmietne — neponúkať ich
+    return freeStartsFor(data.openSlots, taken, iso, order.durationMin || 15, data.doctors, order.exam?.typeId).filter((s) => !minT || s.time >= minT);
   };
 
-  const run = async (fn) => { setMsg(""); try { await fn(); } catch (e) { setMsg(e?.message || String(e)); } };
+  const [busy, setBusy] = useState(false);
+  const run = async (fn) => { setMsg(""); setBusy(true); try { await fn(); } catch (e) { setMsg(e?.message || String(e)); } finally { setBusy(false); } };
+  const doCancel = (reason) => {
+    if (!window.confirm(`Zrušiť objednávku ${order.id} (${order.patientName})?\nPacient dostane SMS a e-mail o zrušení; priložená žiadanka sa vymaže.`)) return;
+    run(() => data.setStatus(order.id, "rejected", reason));
+  };
 
   const tone = order.status === "rejected" ? "border-l-red-400 bg-red-50"
     : order.status === "confirmed" ? "border-l-brand bg-brand-soft"
@@ -591,16 +626,19 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
       {msg && <p className="text-xs text-red-600 font-semibold">{msg}</p>}
 
       {canManage && active && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {order.status === "new" && <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>}
-          <button onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
-          <button onClick={() => run(() => data.setStatus(order.id, "noshow"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Neprišiel</button>
-          <button onClick={() => setResched(!resched)} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
-          <button onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-red-300 text-red-600 text-xs font-semibold px-3 py-1.5 rounded">Zrušiť</button>
+        <div className="flex flex-wrap gap-2 pt-1" aria-busy={busy}>
+          {order.status === "new" && <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded">{busy ? "Ukladám…" : "Potvrdiť"}</button>}
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "noshow"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Neprišiel</button>
+          <button disabled={busy} onClick={() => setResched(!resched)} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
+          <button disabled={busy} onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded">Zrušiť</button>
         </div>
       )}
       {canManage && order.status === "rejected" && (
-        <button onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
+          <span className="text-xs text-slate-500">Pri zrušení sa prílohy vymazali — po obnovení ich treba od pacienta vyžiadať znova.</span>
+        </div>
       )}
       {canManage && isSettled(order) && (
         <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded" title="Vrátiť medzi aktívne objednávky">Vrátiť medzi aktívne</button>
@@ -608,7 +646,7 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 
       {resched && active && (
         <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-          <input type="date" className={inp} value={rdate} onChange={(e) => setRdate(e.target.value)} />
+          <input type="date" className={inp} min={toISODate(new Date())} value={rdate} onChange={(e) => setRdate(e.target.value)} />
           <div className="flex flex-wrap gap-2">
             {starts(rdate).map((s) => (
               <button key={s.time} onClick={() => run(async () => { await data.reschedule(order.id, rdate, s.time); setResched(false); })}
@@ -622,12 +660,12 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
         <div className="bg-white border border-red-200 rounded-lg p-3 space-y-2">
           <div className="flex flex-wrap gap-2">
             {["Na žiadosť pacienta", "Prekážka na strane pracoviska", "Duplicitná objednávka"].map((r) => (
-              <button key={r} onClick={() => run(() => data.setStatus(order.id, "rejected", r))} className="bg-white border border-red-300 text-red-600 text-xs font-semibold px-3 py-1.5 rounded">{r}</button>
+              <button key={r} disabled={busy} onClick={() => doCancel(r)} className="bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded">{r}</button>
             ))}
           </div>
           <div className="flex gap-2">
             <input className={inp} placeholder="Vlastný dôvod…" value={cancelText} onChange={(e) => setCancelText(e.target.value)} />
-            <button onClick={() => run(() => data.setStatus(order.id, "rejected", cancelText.trim() || "Zrušené pracoviskom"))} className="bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Zrušiť</button>
+            <button disabled={busy} onClick={() => doCancel(cancelText.trim() || "Zrušené pracoviskom")} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Zrušiť</button>
           </div>
         </div>
       )}
@@ -639,17 +677,18 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 const DOW_LONG = ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"];
 const DOW_SHORT = ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"];
 const isoDate = (iso) => new Date(`${iso}T12:00:00`);
-const fmtLong = (iso) => { const d = isoDate(iso); return `${DOW_LONG[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`; };
+export const fmtLong = (iso) => { if (!iso) return ""; const d = isoDate(iso); return `${DOW_LONG[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`; };
 const addDays = (iso, n) => { const d = isoDate(iso); d.setDate(d.getDate() + n); return toISODate(d); };
 const mondayOf = (iso) => addDays(iso, -((isoDate(iso).getDay() + 6) % 7));
 const fmtDur = (min) => min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}` : `${min} min`;
 const isSettled = (o) => o.status === "done" || o.status === "noshow";
 // poradie v zoznamoch: najprv pacienti v čakárni, potom nasledujúci podľa času, vybavení (vykonané / neprišiel) nakoniec
-const orderRank = (o) => isSettled(o) ? 2 : (o.arrivedAt ? 0 : 1);
+const orderRank = (o) => isSettled(o) ? 2 : (o.arrivedAt && o.date === toISODate(new Date()) ? 0 : 1);
 const byPriority = (a, b) => a.date.localeCompare(b.date) || orderRank(a) - orderRank(b) || a.time.localeCompare(b.time);
 const cellsOf = (o) => {
-  const [h, m] = (o.time || "00:00").split(":").map(Number);
-  const n = Math.max(1, Math.round((o.durationMin || 15) / 5));
+  const [h, m0] = (o.time || "00:00").split(":").map(Number);
+  const m = m0 - (m0 % 5); // čas mimo 5-min mriežky zarovnať nadol
+  const n = Math.max(1, Math.ceil((o.durationMin || 15) / 5));
   return Array.from({ length: n }, (_, i) => { const t = h * 60 + m + i * 5; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; });
 };
 // Deň ako bloky: súvislé bunky jednej objednávky alebo súvislé voľno jedného lekára.
@@ -661,7 +700,9 @@ function daySegments(openCells, orders) {
   openCells.forEach((c) => {
     const o = byTime.get(c.time) || null;
     const last = segs[segs.length - 1];
-    const cont = last && addMinutes(last.end, 0) === c.time && ((o && last.order && last.order.id === o.id) || (!o && !last.order && last.doctor === (c.doctor || "")));
+    // tá istá objednávka pokračuje aj cez medzeru v otvorených bunkách (jeden blok, nie dva);
+    // voľno sa spája len ak nadväzuje a patrí tomu istému lekárovi
+    const cont = last && ((o && last.order && last.order.id === o.id) || (!o && !last.order && last.end === c.time && last.doctor === (c.doctor || "")));
     if (cont) { last.end = addMinutes(c.time, 5); last.cells.push(c.time); }
     else segs.push({ start: c.time, end: addMinutes(c.time, 5), cells: [c.time], order: o, doctor: o ? (o.doctor || "") : (c.doctor || ""), outOfHours: false });
     if (o) seen.add(o.id);
@@ -696,7 +737,7 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
           <div className="text-xs text-slate-500 truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}</div>
         </div>
         <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
-        {canManage && order.status === "new" && (
+        {canManage && order.status === "new" && !open && (
           <button type="button" onClick={confirm} className="shrink-0 bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>
         )}
         <span className="shrink-0 text-slate-400 text-xs" aria-label={open ? "Zbaliť" : "Rozbaliť"}>{open ? "▴" : "▾"}</span>
@@ -721,19 +762,22 @@ function AngioAdmin({ data, role }) {
   const [fStatus, setFStatus] = useState("all"), [fText, setFText] = useState("");
   const [msg, setMsg] = useMsg();
 
-  const run = async (fn, ok) => { setMsg(""); try { await fn(); if (ok) setMsg(ok); } catch (e) { setMsg(e?.message || String(e)); } };
+  const [busyAll, setBusyAll] = useState(false);
+  const run = async (fn, ok) => { setMsg(""); setBusyAll(true); try { await fn(); if (ok) setMsg(ok); } catch (e) { setMsg(e?.message || String(e)); } finally { setBusyAll(false); } };
 
   const active = data.orders.filter((o) => o.status !== "rejected");
-  const pending = data.orders.filter((o) => o.status === "new");
+  const pending = data.orders.filter((o) => o.status === "new" && o.date >= todayIso); // minulé „nové" už nie sú na potvrdenie
   const todayProgram = active.filter((o) => o.date === todayIso).sort(byPriority);
   const arrivedToday = todayProgram.filter((o) => o.arrivedAt && (o.status === "new" || o.status === "confirmed")).length;
-  const in7Iso = (() => { const e = new Date(); e.setDate(e.getDate() + 7); return toISODate(e); })();
+  const in7Iso = (() => { const e = new Date(); e.setDate(e.getDate() + 6); return toISODate(e); })(); // dnes + 6 = 7 dní
   const next7 = active.filter((o) => o.date >= todayIso && o.date <= in7Iso).length;
   // filter rozsahu pre zoznam Objednávky (dlaždice v Prehľade naň odkazujú)
   const [fRange, setFRange] = useState("all"); // all | today | week | arrived
   const showList = (status, range) => { setFStatus(status); setFRange(range); setFText(""); setTab("orders"); };
 
-  const takenSet = (iso) => new Set(data.occupied.filter((o) => o.date === iso).map((o) => o.time));
+  const takenMap = useMemo(() => { const m = new Map(); data.occupied.forEach(({ date: d, time: t }) => { if (!m.has(d)) m.set(d, new Set()); m.get(d).add(t); }); return m; }, [data.occupied]);
+  const takenSet = (iso) => takenMap.get(iso) || new Set();
+  const selectDay = (iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); const d = isoDate(iso); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1)); };
   const dayOpen = (data.openSlots[selDay] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
   const dayFree = dayOpen.filter((s) => !takenSet(selDay).has(s.time));
   const [freeOpen, setFreeOpen] = useState(false); // zoznam voľných 5-min buniek zbalený
@@ -743,15 +787,26 @@ function AngioAdmin({ data, role }) {
   const isAvailableAdmin = (iso) => (data.openSlots[iso] || []).length > 0;
   // deň ako bloky (objednávky + voľno), pacienti v čakárni hore, vybavení dole
   const day = daySegments(dayOpen, dayOrders);
-  const waiting = dayOrders.filter((o) => !isSettled(o) && o.arrivedAt);
+  const isWaiting = (o) => !isSettled(o) && o.arrivedAt && selDay === todayIso; // čakáreň len dnes
+  const waiting = dayOrders.filter(isWaiting);
   const settled = dayOrders.filter(isSettled);
-  const timeline = day.segs.filter((x) => !x.order || (!isSettled(x.order) && !x.order.arrivedAt));
+  const timeline = day.segs.filter((x) => !x.order || (!isSettled(x.order) && !isWaiting(x.order)));
   const dayRange = dayOpen.length ? `${dayOpen[0].time}–${addMinutes(dayOpen[dayOpen.length - 1].time, 5)}` : "";
-  // náhľad otvorenia
+  useEffect(() => { // rozsah zatvorenia = skutočné otváracie hodiny dňa
+    if (dayOpen.length) { setCFrom(dayOpen[0].time); setCTo(addMinutes(dayOpen[dayOpen.length - 1].time, 5)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selDay, dayOpen.length]);
+  // náhľad otvorenia (rovnaké zarovnanie na 5 min ako openWindow)
+  const align5 = (t) => { const [h, m] = String(t || "").split(":").map(Number); if (Number.isNaN(h) || Number.isNaN(m)) return t; const tot = Math.round((h * 60 + m) / 5) * 5; return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`; };
   const openPreview = (() => {
-    const times = genSlots(wtFrom, wtTo, 5).length;
-    let days = 0; if (wFrom && wTo && wFrom <= wTo) { let d = wFrom; let guard = 0; while (d <= wTo && guard++ < 370) { const dow = isoDate(d).getDay(); if (!wSkipWeekends || (dow !== 0 && dow !== 6) || wFrom === wTo) days++; d = addDays(d, 1); } }
-    return { days, times, cells: days * times };
+    const times = genSlots(align5(wtFrom), align5(wtTo), 5).length;
+    let days = 0, past = false, weekendOnly = false;
+    if (wFrom && wTo && wFrom <= wTo) {
+      let d = wFrom; let guard = 0; let anyDay = 0;
+      while (d <= wTo && guard++ < 370) { const dow = isoDate(d).getDay(); anyDay++; if (d >= todayIso && (!wSkipWeekends || (dow !== 0 && dow !== 6) || wFrom === wTo)) days++; d = addDays(d, 1); }
+      past = wTo < todayIso; weekendOnly = !past && days === 0 && anyDay > 0;
+    }
+    return { days, times, cells: days * times, past, weekendOnly };
   })();
   const weekStart = mondayOf(selDay);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -761,7 +816,7 @@ function AngioAdmin({ data, role }) {
     const taken = takenSet(iso);
     return { open: open.length, free: open.filter((c) => !taken.has(c.time)).length, patients: ords.length, waiting: ords.filter((o) => !isSettled(o) && o.arrivedAt).length };
   };
-  const closeCells = (times, label) => { if (!times.length) return; if (!window.confirm(`Zavrieť ${label}?`)) return; run(() => data.closeSlots(selDay, times), "✓ Termíny zavreté."); };
+  const closeCells = (times, label) => { if (!times.length) return; if (!window.confirm(`Zavrieť ${label}?\nObjednaní pacienti ostávajú, zatvoria sa len voľné časy.`)) return; run(() => data.closeSlots(selDay, times), "✓ Termíny zavreté."); };
   const freeInRange = dayFree.filter((c) => c.time >= cFrom && c.time < cTo).map((c) => c.time);
 
   const filtered = data.orders
@@ -770,21 +825,25 @@ function AngioAdmin({ data, role }) {
       : fRange === "week" ? (o.date >= todayIso && o.date <= in7Iso)
       : fRange === "arrived" ? (o.date === todayIso && o.arrivedAt && (o.status === "new" || o.status === "confirmed"))
       : true)
-    .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.phone.includes(q); })
+    .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; const qd = q.replace(/\s/g, ""); return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || (o.phone || "").replace(/\s/g, "").includes(qd); })
     .sort(byPriority);
 
   const cbNew = data.newCallbackCount || 0;
-  const tabs = [["overview", "Prehľad"], ["calendar", "Kalendár"], ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
+  // lekár vidí cez RLS len vlastných pacientov — kalendár obsadenosti by mu klamal, preto ho nemá
+  const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
+  const filterActive = fRange !== "all" || fStatus !== "all";
   const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-bold transition-colors";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         {tabs.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
+          <button key={id} type="button" onClick={() => { setTab(id); if (id === "orders" && tab !== "orders") { setFRange("all"); setFStatus("all"); } }} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
         ))}
+        <button type="button" onClick={() => data.reload?.()} title="Načítať aktuálne dáta" className={`${btn} ml-auto bg-white border border-line text-muted hover:text-ink`} data-testid="reload">↻ Obnoviť</button>
       </div>
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
+      {data.loadError && <p className="text-sm font-semibold text-danger" role="alert">Dáta sa nepodarilo načítať ({data.loadError}). Zobrazený stav nemusí byť aktuálny.</p>}
+      {msg && !msg.startsWith("✓") && <p className="text-sm font-semibold text-red-600" role="alert">{msg}</p>}
 
       {tab === "overview" && (
         <div className="space-y-4">
@@ -822,15 +881,15 @@ function AngioAdmin({ data, role }) {
           {/* týždeň: 7 dní s obsadenosťou, výber dňa */}
           <div className="bg-white rounded-xl border border-line p-3 md:p-4">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => setSelDay(addDays(selDay, -7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">‹ Predchádzajúci týždeň</button>
-              <button type="button" onClick={() => setSelDay(todayIso)} className="text-sm font-semibold text-brand px-3 py-1 rounded border border-line hover:bg-brand-soft">Dnes</button>
-              <button type="button" onClick={() => setSelDay(addDays(selDay, 7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">Nasledujúci týždeň ›</button>
+              <button type="button" onClick={() => selectDay(addDays(selDay, -7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">‹ Predchádzajúci týždeň</button>
+              <button type="button" onClick={() => selectDay(todayIso)} className="text-sm font-semibold text-brand px-3 py-1 rounded border border-line hover:bg-brand-soft">Dnes</button>
+              <button type="button" onClick={() => selectDay(addDays(selDay, 7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">Nasledujúci týždeň ›</button>
             </div>
             <div className="grid grid-cols-7 gap-1 md:gap-2">
               {weekDays.map((iso) => {
                 const st = dayStats(iso); const d = isoDate(iso); const sel = iso === selDay; const past = iso < todayIso;
                 return (
-                  <button key={iso} type="button" data-iso={iso} data-testid="week-day" onClick={() => { setSelDay(iso); setWFrom(iso); setWTo(iso); }}
+                  <button key={iso} type="button" data-iso={iso} data-testid="week-day" onClick={() => selectDay(iso)}
                     className={`rounded-lg border p-1.5 md:p-2 text-left transition-colors ${sel ? "border-brand bg-brand-soft" : "border-line hover:bg-page"} ${past ? "opacity-60" : ""}`}>
                     <div className={`text-[11px] md:text-xs font-semibold ${iso === todayIso ? "text-brand" : "text-slate-500"}`}>{DOW_SHORT[d.getDay()]} {d.getDate()}.{d.getMonth() + 1}.{iso === todayIso ? " · dnes" : ""}</div>
                     {st.open === 0
@@ -883,7 +942,7 @@ function AngioAdmin({ data, role }) {
                       <div key={`f-${x.start}`} data-testid="free-block" className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-dashed border-success/50 bg-success-soft/40 text-sm">
                         <span className="shrink-0 w-[6.6rem] font-mono text-success font-semibold whitespace-nowrap">{x.start}–{x.end}</span>
                         <span className="flex-1 text-slate-600 truncate">voľné {fmtDur(x.cells.length * 5)}{x.doctor ? ` · ${x.doctor}` : " · ktorýkoľvek lekár"}</span>
-                        {canManage && <button type="button" title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end}`)} className="shrink-0 text-xs font-semibold text-slate-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">Zavrieť</button>}
+                        {canManage && <button type="button" disabled={busyAll} title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end} (${fmtDur(x.cells.length * 5)})`)} className="shrink-0 text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-50 px-2 py-1 rounded hover:bg-red-50">Zavrieť</button>}
                       </div>
                     ))}
                   </div>
@@ -920,14 +979,14 @@ function AngioAdmin({ data, role }) {
                 <MonthCalendar monthDate={monthDate}
                   onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
                   isAvailable={isAvailableAdmin} isSelectable={() => true}
-                  selected={selDay} onSelect={(iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); }} />
+                  selected={selDay} onSelect={(iso) => selectDay(iso)} />
                 <p className="text-[11px] text-slate-400 mt-1 text-center">Modré dni majú otvorené termíny.</p>
               </div>
               {canManage && (
                 <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="open-panel">
                   <h3 className="text-base font-bold text-brand">Otvoriť termíny</h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {[["Dopoludnie", "07:30", "12:00"], ["Celý deň", "07:30", "14:30"], ["Popoludnie", "12:00", "15:30"]].map(([l, f, t]) => (
+                    {[["Dopoludnie", "07:30", "12:00"], ["Celý deň", "07:30", "15:30"], ["Popoludnie", "12:00", "15:30"]].map(([l, f, t]) => (
                       <button key={l} type="button" onClick={() => { setWtFrom(f); setWtTo(t); }}
                         className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${wtFrom === f && wtTo === t ? "bg-brand text-white border-brand" : "border-line text-slate-600 hover:bg-page"}`}>{l} {f}–{t}</button>
                     ))}
@@ -947,10 +1006,10 @@ function AngioAdmin({ data, role }) {
                   {wFrom !== wTo && (
                     <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={wSkipWeekends} onChange={(e) => setWSkipWeekends(e.target.checked)} className="accent-brand" /> preskočiť soboty a nedele</label>
                   )}
-                  <button type="button" disabled={openPreview.cells === 0}
-                    onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: wFrom !== wTo && wSkipWeekends }), "✓ Termíny otvorené.")}
+                  <button type="button" disabled={busyAll || openPreview.cells === 0}
+                    onClick={() => { if (openPreview.days > 10 && !window.confirm(`Otvoriť termíny na ${openPreview.days} dní?`)) return; run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: wFrom !== wTo && wSkipWeekends }), "✓ Termíny otvorené."); }}
                     className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg" data-testid="open-run">
-                    {openPreview.cells === 0 ? "Zadajte platný rozsah" : `Otvoriť ${openPreview.days === 1 ? "deň" : `${openPreview.days} ${openPreview.days < 5 ? "dni" : "dní"}`} · ${fmtDur(openPreview.times * 5)}${openPreview.days > 1 ? " denne" : ""}`}
+                    {busyAll ? "Ukladám…" : openPreview.past ? "Minulé dni nemožno otvoriť" : openPreview.weekendOnly ? "V rozsahu nie sú pracovné dni" : openPreview.cells === 0 ? "Zadajte platný rozsah" : `Otvoriť ${openPreview.days === 1 ? "deň" : `${openPreview.days} ${openPreview.days < 5 ? "dni" : "dní"}`} · ${fmtDur(openPreview.times * 5)}${openPreview.days > 1 ? " denne" : ""}`}
                   </button>
                   <p className="text-[11px] text-slate-400">Už otvorené časy sa nemenia (ani lekár); ak treba zmeniť lekára, čas najprv zavrite. Dĺžku vyšetrenia určuje typ v Nastaveniach.</p>
                 </div>
@@ -958,14 +1017,14 @@ function AngioAdmin({ data, role }) {
               {canManage && dayFree.length > 0 && (
                 <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="close-panel">
                   <h3 className="text-base font-bold text-slate-700">Zavrieť voľné termíny · {fmtD(selDay)}</h3>
-                  <button type="button" onClick={() => closeCells(dayFree.map((c) => c.time), `všetky voľné termíny ${fmtD(selDay)} (${dayFree.length} buniek)`)}
-                    className="w-full bg-white border border-red-300 text-red-600 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg text-sm" data-testid="close-all-free">
+                  <button type="button" disabled={busyAll} onClick={() => closeCells(dayFree.map((c) => c.time), `všetky voľné termíny ${fmtD(selDay)} (${fmtDur(dayFree.length * 5)})`)}
+                    className="w-full bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 font-semibold px-4 py-2 rounded-lg text-sm" data-testid="close-all-free">
                     Zavrieť všetky voľné ({fmtDur(dayFree.length * 5)})
                   </button>
                   <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                     <label className="text-xs text-slate-600">Od<input type="time" step={300} className={inp} value={cFrom} onChange={(e) => setCFrom(e.target.value)} /></label>
                     <label className="text-xs text-slate-600">Do<input type="time" step={300} className={inp} value={cTo} onChange={(e) => setCTo(e.target.value)} /></label>
-                    <button type="button" disabled={freeInRange.length === 0} onClick={() => closeCells(freeInRange, `voľné termíny ${cFrom}–${cTo} (${freeInRange.length} buniek)`)}
+                    <button type="button" disabled={busyAll || freeInRange.length === 0} onClick={() => closeCells(freeInRange, `voľné termíny ${cFrom}–${cTo} (${fmtDur(freeInRange.length * 5)})`)}
                       className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-sm font-semibold px-3 py-2 rounded-lg" data-testid="close-range">Zavrieť</button>
                   </div>
                   <p className="text-[11px] text-slate-400">Zatvárajú sa len voľné časy; obsadené termíny pacientov ostávajú.</p>
@@ -992,6 +1051,7 @@ function AngioAdmin({ data, role }) {
             </select>
             <input className={inp + " flex-1 min-w-[10rem]"} placeholder="Hľadať meno / číslo / telefón" value={fText} onChange={(e) => setFText(e.target.value)} />
             <span className="text-xs text-slate-500">{filtered.length} objednávok</span>
+            {filterActive && <button type="button" onClick={() => { setFRange("all"); setFStatus("all"); }} className="text-xs font-semibold text-brand hover:underline" data-testid="filter-reset">zrušiť filter ✕</button>}
           </div>
           {filtered.length === 0 ? <p className="text-sm text-slate-400">Žiadne objednávky.</p>
             : <div className="space-y-1.5">{filtered.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} showDate />)}</div>}
@@ -1044,7 +1104,7 @@ function AngioCallbackRow({ cb, data, canManage }) {
 }
 function AngioCallbacks({ data, canManage }) {
   const [onlyOpen, setOnlyOpen] = useState(true);
-  const list = (data.callbacks || []).filter((c) => (onlyOpen ? c.status === "new" || c.status === "unreachable" : true));
+  const list = (data.callbacks || []).filter((c) => (onlyOpen ? c.status === "new" || c.status === "called" || c.status === "unreachable" : true));
   return (
     <div className="bg-white rounded-xl border border-line p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1062,15 +1122,23 @@ function AngioCallbacks({ data, canManage }) {
 
 // ---------- Nastavenia (typy vyšetrení + lekári) ----------
 function AngioSettings({ data, isSuper }) {
-  const [exams, setExams] = useState(() => data.pricelist.map((p) => ({ ...p })));
-  const [docs, setDocs] = useState(() => normalizeDoctors(data.doctors));
+  const [exams, setExamsRaw] = useState(() => data.pricelist.map((p) => ({ ...p })));
+  const [docs, setDocsRaw] = useState(() => normalizeDoctors(data.doctors));
+  // Supabase: dáta prídu asynchrónne — kým personál nič nezmenil, formulár sleduje načítané hodnoty;
+  // uložiť sa dá až po načítaní (inak by sa prepísal skutočný cenník predvoleným)
+  const [dirty, setDirty] = useState({ exams: false, docs: false });
+  const setExams = (v) => { setDirty((d) => ({ ...d, exams: true })); setExamsRaw(v); };
+  const setDocs = (v) => { setDirty((d) => ({ ...d, docs: true })); setDocsRaw(v); };
+  const examsKey = JSON.stringify(data.pricelist), docsKey = JSON.stringify(data.doctors);
+  useEffect(() => { if (!dirty.exams) setExamsRaw(data.pricelist.map((p) => ({ ...p }))); }, [examsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!dirty.docs) setDocsRaw(normalizeDoctors(data.doctors)); }, [docsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const [msg, setMsg] = useMsg();
   const slug = () => "ang_" + Math.random().toString(36).slice(2, 10);
   // presun typu v zozname (poradie = sort_order = poradie pre pacienta)
   const move = (i, d) => setExams((p) => { const j = i + d; if (j < 0 || j >= p.length) return p; const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n; });
 
-  const saveExams = () => { setMsg(""); data.savePricelist(exams.filter((e) => e.label.trim())).then(() => setMsg("✓ Typy vyšetrení uložené.")).catch((e) => setMsg(e.message)); };
-  const saveDocs = () => { setMsg(""); data.saveDoctors(docs.filter((d) => d.name.trim())).then(() => setMsg("✓ Lekári uložení.")).catch((e) => setMsg(e.message)); };
+  const saveExams = () => { setMsg(""); data.savePricelist(exams.filter((e) => e.label.trim())).then(() => { setMsg("✓ Typy vyšetrení uložené."); setDirty((d) => ({ ...d, exams: false })); }).catch((e) => setMsg(e.message)); };
+  const saveDocs = () => { setMsg(""); data.saveDoctors(docs.filter((d) => d.name.trim())).then(() => { setMsg("✓ Lekári uložení."); setDirty((d) => ({ ...d, docs: false })); }).catch((e) => setMsg(e.message)); };
   const [notes, setNotes] = useState(() => data.notes || "");
   useEffect(() => { setNotes(data.notes || ""); }, [data.notes]); // Supabase: hodnota príde asynchrónne
   const [smsVerify, setSmsVerify] = useState(() => !!data.smsVerify);
@@ -1114,7 +1182,7 @@ function AngioSettings({ data, isSuper }) {
           </div>
         ))}
         <button onClick={() => setExams((p) => [...p, { id: slug(), label: "", description: "", about: "", instructions: "", requiresReferral: true, durationSlots: 3 }])} className="bg-soft text-ink text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať vyšetrenie</button>
-        <div><button onClick={saveExams} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť typy vyšetrení</button></div>
+        <div><button type="button" onClick={saveExams} disabled={data.loading} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť typy vyšetrení</button></div>
       </div>
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
@@ -1168,7 +1236,7 @@ function AngioSettings({ data, isSuper }) {
           </div>
         ))}
         {isSuper && <button onClick={() => setDocs((p) => [...p, { name: "", email: "", location: "", examTypeIds: [] }])} className="bg-soft text-ink text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať lekára</button>}
-        {isSuper && <div><button onClick={saveDocs} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť lekárov</button></div>}
+        {isSuper && <div><button type="button" onClick={saveDocs} disabled={data.loading} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť lekárov</button></div>}
       </div>
     </div>
   );
@@ -1189,7 +1257,7 @@ export function AngioPatientApp() {
   if (landing && landingExam) {
     return (
       <ZachranNohuLanding landing={landing} exam={landingExam} requestCallback={data.requestCallback}>
-        <AngioBookingView data={data} landing={landing} />
+        {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : <AngioBookingView data={data} landing={landing} />}
         <AngioOrderLookup data={data} initialId={orderLinkId} />
       </ZachranNohuLanding>
     );
@@ -1199,7 +1267,7 @@ export function AngioPatientApp() {
       <div className="relative overflow-hidden rounded-xl bg-brand-dark text-white p-6 md:p-8 border border-line">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
           <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
-          <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Späť na hlavnú stránku</a>
+          <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Objednávanie na USG</a>
         </div>
         <h1 className="text-2xl md:text-3xl font-semibold leading-tight">{CLINIC_NAME}</h1>
         <p className="text-sm text-white/90 mt-2 max-w-xl">
@@ -1207,7 +1275,7 @@ export function AngioPatientApp() {
           preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
         </p>
       </div>
-      <AngioBookingView data={data} landing={null} />
+      {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : <AngioBookingView data={data} landing={null} />}
       <section id="zavolame" className="scroll-mt-16"><CallbackCard onRequest={data.requestCallback} source="angio1" /></section>
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>

@@ -155,7 +155,8 @@ const normalizeLocalSlots = (map) => {
 
 const friendlyDbError = (error) => {
   if (!error) return null;
-  if (error.code === "23505" || error.code === "23P01") return new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný.");
+  if (error.code === "23505" || error.code === "23P01") { const e = new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný."); e.code = "SLOT_TAKEN"; return e; }
+  if (error.code === "PGRST301" || /jwt expired|invalid jwt/i.test(error.message || "")) return new Error("Relácia vypršala — prihláste sa, prosím, znova.");
   return new Error(error.message || "Operácia zlyhala. Skúste to znova.");
 };
 
@@ -170,6 +171,7 @@ export function useAuth() {
   // priradenej roly (prístup odmietne aj databáza cez RLS).
   // Demo režim bez Supabase sa správa ako superadmin.
   const [role, setRole] = useState(isSupabaseConfigured ? null : "superadmin");
+  const [roleError, setRoleError] = useState("");
   const [doctorName, setDoctorName] = useState("");
   // MFA (TOTP, audit vlna 8): level = aktuálna úroveň (aal1/aal2),
   // hasFactor = má overený autentifikátor; ready = načítané
@@ -197,18 +199,25 @@ export function useAuth() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // rola sa načíta pri zmene používateľa, nie pri každom obnovení tokenu (~hodinovo) —
+  // inak by sa správa odmontovala a personál by prišiel o rozpísané formuláre (audit UX 1)
+  const userId = session?.user?.id || null;
+  const loadRole = useCallback(async () => {
+    if (!supabase || !userId) return;
+    setRoleError("");
+    const { data, error } = await supabase.from("staff_roles").select("role, doctor_name").eq("user_id", userId).maybeSingle();
+    if (error) { setRoleError(error.message || "Nepodarilo sa overiť rolu."); setRole(null); return; }
+    setRole(data?.role || "none");
+    setDoctorName(data?.doctor_name || "");
+  }, [userId]);
   useEffect(() => {
     if (!supabase) return;
-    if (!session) { setRole(null); setDoctorName(""); setMfa(noMfa); return; }
+    if (!userId) { setRole(null); setRoleError(""); setDoctorName(""); setMfa(noMfa); return; }
     setMfa((m) => ({ ...m, ready: false }));
     refreshMfa();
-    supabase.from("staff_roles").select("role, doctor_name").eq("user_id", session.user.id).maybeSingle()
-      .then(({ data }) => {
-        setRole(data?.role || "none");
-        setDoctorName(data?.doctor_name || "");
-      });
+    loadRole();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [userId]);
 
   // zápis nového TOTP faktora → { id, secret, uri } (QR kreslí mfa.jsx)
   const mfaEnroll = async () => {
@@ -235,12 +244,12 @@ export function useAuth() {
   };
   const signOut = () => supabase?.auth.signOut();
 
-  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut, role, doctorName, mfa, mfaEnroll, mfaVerify };
+  return { isSupabase: isSupabaseConfigured, session, ready, signIn, signOut, role, roleError, reloadRole: loadRole, doctorName, mfa, mfaEnroll, mfaVerify };
 }
 
 // --- hlavný hook s dátami a akciami ---
 
-export function useBookingData(isStaff) {
+export function useBookingData(isStaff, enabled = true) {
   const [orders, setOrders] = useState(() => (isSupabaseConfigured ? [] : loadJson(USG_ORDERS_KEY, [])));
   const [occupiedRemote, setOccupiedRemote] = useState([]);
   const [openSlots, setOpenSlots] = useState(() => (isSupabaseConfigured ? {} : normalizeLocalSlots(loadJson(USG_OPEN_SLOTS_KEY, {}))));
@@ -254,7 +263,7 @@ export function useBookingData(isStaff) {
   useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(USG_SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
   useEffect(() => { if (!isSupabaseConfigured) localStorage.setItem(USG_PRICELIST_KEY, JSON.stringify(pricelist)); }, [pricelist]);
 
-  const reload = useCallback(async () => {
+  const reloadInner = useCallback(async () => {
     if (!supabase) return;
     const [slotsRes, priceRes, settingsRes] = await Promise.all([
       supabase.from("open_slots").select("slot_date, slot_time, doctor"),
@@ -296,26 +305,37 @@ export function useBookingData(isStaff) {
       const { data, error } = await supabase.rpc("get_booked_slots");
       if (!error) setOccupiedRemote(data.map((r) => ({ date: r.slot_date, time: r.slot_time.slice(0, 5) })));
     }
-    setLoading(false);
+    if (slotsRes.error) throw new Error(slotsRes.error.message || "Nepodarilo sa načítať termíny.");
   }, [isStaff]);
+  const [loadError, setLoadError] = useState("");
+  const reload = useCallback(async () => {
+    try { await reloadInner(); setLoadError(""); }
+    catch (e) { setLoadError(e?.message || "Nepodarilo sa načítať dáta."); }
+    finally { setLoading(false); }
+  }, [reloadInner]);
 
-  useEffect(() => { reload(); }, [reload]);
+  // USG dáta sa načítavajú len na USG routách (enabled) — angio/CT/právne stránky ich nepotrebujú
+  useEffect(() => { if (enabled) reload(); }, [reload, enabled]);
 
-  // realtime pre personál, periodické obnovenie pre pacienta
+  // realtime pre personál (s debounce — otvorenie týždňa je stovky riadkov), periodické obnovenie pre pacienta
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !enabled) return;
     if (isStaff) {
+      let timer = null;
+      const bump = () => { clearTimeout(timer); timer = setTimeout(reload, 400); };
       const channel = supabase
         .channel("booking-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, reload)
-        .on("postgres_changes", { event: "*", schema: "public", table: "open_slots" }, reload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, bump)
+        .on("postgres_changes", { event: "*", schema: "public", table: "open_slots" }, bump)
         .subscribe();
-      return () => { supabase.removeChannel(channel); };
+      const onFocus = () => reload();
+      window.addEventListener("focus", onFocus);
+      return () => { clearTimeout(timer); supabase.removeChannel(channel); window.removeEventListener("focus", onFocus); };
     }
     const interval = setInterval(reload, 30000);
     window.addEventListener("focus", reload);
     return () => { clearInterval(interval); window.removeEventListener("focus", reload); };
-  }, [isStaff, reload]);
+  }, [isStaff, reload, enabled]);
 
   // obsadené termíny pre pacientsky kalendár — objednávka obsadzuje
   // všetky 10-min bunky svojho trvania
@@ -385,6 +405,7 @@ export function useBookingData(isStaff) {
     if (missingAttachParam) {
       ({ data, error } = await supabase.rpc("create_order", rpcParams));
     }
+    if (error && (error.code === "23505" || error.code === "23P01")) await reload(); // obsadený termín → hneď čerstvá ponuka
     throwIf(error);
     await reload();
     // Nová verzia create_order vracia serverom pridelený ČÍSELNÝ variabilný
@@ -496,6 +517,23 @@ export function useBookingData(isStaff) {
       return;
     }
     const { error } = await supabase.from("open_slots").delete().eq("slot_date", date).eq("slot_time", time);
+    throwIf(error);
+    await reload();
+  };
+
+  // hromadné zatvorenie voľných buniek (blok v kalendári) — jeden dotaz namiesto N
+  const closeSlots = async (date, times) => {
+    const list = [...new Set(times || [])];
+    if (list.length === 0) return;
+    const bookedTimes = new Set(orders.filter((o) => o.date === date && isSlotOccupying(o)).flatMap(expandOrderCells).map((c) => c.time));
+    const freeTimes = list.filter((t) => !bookedTimes.has(t));
+    if (freeTimes.length === 0) return;
+    if (!supabase) {
+      const rm = new Set(freeTimes);
+      setOpenSlots((prev) => ({ ...prev, [date]: (prev[date] || []).filter((slot) => !rm.has(slot.time)) }));
+      return;
+    }
+    const { error } = await supabase.from("open_slots").delete().eq("slot_date", date).in("slot_time", freeTimes);
     throwIf(error);
     await reload();
   };
@@ -740,9 +778,9 @@ export function useBookingData(isStaff) {
   };
 
   return {
-    isSupabase: isSupabaseConfigured, loading, sendOtp, verifyOtp,
+    isSupabase: isSupabaseConfigured, loading, loadError, reload, sendOtp, verifyOtp,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeDay,
+    addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeSlots, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
     listStaff, setStaffRole, removeStaffRole, checkPayments,
     lookupOrder, cancelOrder, patientReschedule, openAttachment,

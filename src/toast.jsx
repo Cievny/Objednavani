@@ -14,7 +14,11 @@ export function useMsg() {
   const [msg, set] = useState("");
   const setMsg = useCallback((m) => {
     set(m);
-    if (typeof m === "string" && m.startsWith("✓")) showToast(m.replace(/^✓\s*/, ""));
+    if (typeof m !== "string" || !m) return;
+    // „✓ …" = úspech (zelený toast); čokoľvek iné je chyba — zobrazí sa aj ako červený toast,
+    // aby ju používateľ videl, aj keď je inline text mimo obrazovky (audit UX 1)
+    if (m.startsWith("✓")) showToast(m.replace(/^✓\s*/, ""));
+    else showToast(m, "err");
   }, []);
   return [msg, setMsg];
 }
@@ -22,20 +26,21 @@ export function useMsg() {
 export function Toaster() {
   const [items, setItems] = useState([]);
   useEffect(() => {
-    let n = 0;
+    let n = 0; const timers = new Set();
     const onToast = (e) => {
       const id = ++n;
       setItems((l) => [...l.slice(-2), { id, ...e.detail }]);
-      setTimeout(() => setItems((l) => l.filter((t) => t.id !== id)), 2600);
+      const t = setTimeout(() => { timers.delete(t); setItems((l) => l.filter((x) => x.id !== id)); }, e.detail?.kind === "err" ? 5000 : 2600);
+      timers.add(t);
     };
     window.addEventListener(EVT, onToast);
-    return () => window.removeEventListener(EVT, onToast);
+    return () => { window.removeEventListener(EVT, onToast); timers.forEach(clearTimeout); };
   }, []);
   if (items.length === 0) return null;
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none px-4 w-full max-w-md" aria-live="polite" role="status">
       {items.map((t) => (
-        <div key={t.id} data-testid="toast" className={`toast-in pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg ${t.kind === "ok" ? "bg-success text-white" : "bg-danger text-white"}`}>
+        <div key={t.id} data-testid="toast" data-kind={t.kind} className={`toast-in pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg ${t.kind === "ok" ? "bg-success text-white" : "bg-danger text-white"}`}>
           <span aria-hidden="true">{t.kind === "ok" ? "✓" : "!"}</span>
           <span>{t.text}</span>
         </div>

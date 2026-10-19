@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import { defaultSettings, toISODate, loadJson, genSlots, normalizeDoctors, normalizePhone } from "./booking.jsx";
 
@@ -150,7 +150,7 @@ const CT_CFG = {
   keys: { slots: "ctOpenSlots_v1", orders: CT_ORDERS_KEY, pricelist: "ctPricelist_v1", doctors: "ctDoctors_v1" },
   tables: { slots: "ct_open_slots", orders: "ct_orders", pricelist: "ct_pricelist" },
   rpc: { doctors: "public_ct_doctors", booked: "ct_get_booked_slots", create: "ct_create_order",
-    reschedule: "ct_reschedule", lookup: "ct_lookup_order", cancel: "ct_cancel_order" },
+    reschedule: "ct_reschedule", lookup: "ct_lookup_order", cancel: "ct_cancel_order", closeFree: "ct_close_free_slots" },
   doctorsKey: "ct_doctors",
   defaultPricelist: defaultCtPricelist,
 };
@@ -159,7 +159,7 @@ const ANGIO_CFG = {
   keys: { slots: "angioOpenSlots_v1", orders: ANGIO_ORDERS_KEY, pricelist: "angioPricelist_v1", doctors: "angioDoctors_v1", notes: "angioNotes_v1", smsVerify: "angioSmsVerify_v1", callbacks: "angioCallbacks_v1", callbackSmsTo: "angioCallbackSmsTo_v1" },
   tables: { slots: "angio_open_slots", orders: "angio_orders", pricelist: "angio_pricelist", callbacks: "angio_callbacks" },
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
-    reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order",
+    reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order", closeFree: "angio_close_free_slots",
     sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp", patientReschedule: "angio_patient_reschedule",
     requestCallback: "angio_request_callback" },
   callbackSmsKey: "angio_callback_sms_to", // mobil pracoviska pre SMS o žiadosti o spätné volanie (angio-013), číta len personál
@@ -191,8 +191,12 @@ function useClinicData(cfg, isStaff) {
   // žiadosti „Zavolajte mi späť" (angio-013) — len personál; demo: localStorage
   const [callbacks, setCallbacks] = useState(() => (!T.callbacks || isSupabaseConfigured || !isStaff ? [] : loadJson(K.callbacks, [])));
   const [callbackSmsTo, setCallbackSmsTo] = useState(() => (!cfg.callbackSmsKey || isSupabaseConfigured ? "" : localStorage.getItem(K.callbackSmsTo) || ""));
+  // loading = prvé načítanie z databázy ešte beží (pacient nevidí predvolený cenník,
+  // personál neukladá nastavenia nad nenačítanými dátami); loadError = posledná chyba načítania
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [loadError, setLoadError] = useState("");
 
-  const reload = useCallback(async () => {
+  const reloadInner = useCallback(async () => {
     if (!supabase) {
       setOpenSlots(loadJson(K.slots, {})); setOrders(loadJson(K.orders, []));
       setPricelist(loadJson(K.pricelist, cfg.defaultPricelist));
@@ -259,8 +263,37 @@ function useClinicData(cfg, isStaff) {
       const { data, error } = await supabase.rpc(R.booked);
       if (!error) setOccupiedRemote((data || []).map((r) => ({ date: r.slot_date, time: (r.slot_time || "").slice(0, 5) })));
     }
+    if (slotsRes.error) throw new Error(slotsRes.error.message || "Nepodarilo sa načítať termíny.");
   }, [isStaff, cfg]);
+  const reload = useCallback(async () => {
+    try { await reloadInner(); setLoadError(""); }
+    catch (e) { setLoadError(e?.message || "Nepodarilo sa načítať dáta."); }
+    finally { setLoading(false); }
+  }, [reloadInner]);
   useEffect(() => { reload(); }, [reload]);
+
+  // Aktuálnosť dát (audit UX 1): personál má realtime kanál (objednávky, termíny,
+  // spätné volania) s krátkym debounce + poistku každú minútu; pacient obnovuje
+  // každých 30 s a pri návrate do okna, aby nevidel už obsadené termíny.
+  useEffect(() => {
+    if (!supabase) return;
+    const onFocus = () => reload();
+    if (isStaff) {
+      let timer = null;
+      const bump = () => { clearTimeout(timer); timer = setTimeout(reload, 400); };
+      let ch = supabase.channel(`${T.orders}-staff`)
+        .on("postgres_changes", { event: "*", schema: "public", table: T.orders }, bump)
+        .on("postgres_changes", { event: "*", schema: "public", table: T.slots }, bump);
+      if (T.callbacks) ch = ch.on("postgres_changes", { event: "*", schema: "public", table: T.callbacks }, bump);
+      ch.subscribe();
+      const iv = setInterval(reload, 60000);
+      window.addEventListener("focus", onFocus);
+      return () => { clearTimeout(timer); supabase.removeChannel(ch); clearInterval(iv); window.removeEventListener("focus", onFocus); };
+    }
+    const iv = setInterval(reload, 30000);
+    window.addEventListener("focus", onFocus);
+    return () => { clearInterval(iv); window.removeEventListener("focus", onFocus); };
+  }, [isStaff, reload, T.orders, T.slots, T.callbacks]);
 
   // obsadené 5-min bunky (rozvinuté podľa trvania) — pre pacientsky kalendár
   const expandCells = (o) => {
@@ -271,9 +304,9 @@ function useClinicData(cfg, isStaff) {
       return { date: o.date, time: `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}` };
     });
   };
-  const occupied = isSupabaseConfigured && !isStaff
+  const occupied = useMemo(() => (isSupabaseConfigured && !isStaff
     ? occupiedRemote
-    : orders.filter((o) => o.status !== "rejected").flatMap(expandCells);
+    : orders.filter((o) => o.status !== "rejected").flatMap(expandCells)), [isStaff, occupiedRemote, orders]);
 
   // personál otvorí termíny (5-min mriežka ako USG)
   const openWindow = async ({ dateFrom, dateTo, timeFrom, timeTo, doctor = "", skipWeekends = true }) => {
@@ -287,8 +320,12 @@ function useClinicData(cfg, isStaff) {
     const times = genSlots(align5(timeFrom), align5(timeTo), 5);
     if (times.length === 0) throw new Error("Zadajte platné časové okno — „čas do“ musí byť neskôr ako „čas od“.");
     const days = [];
+    const todayIso = toISODate(new Date());
     const d = new Date(`${dateFrom}T12:00:00`); const end = new Date(`${dateTo}T12:00:00`);
-    while (d <= end) { const dow = d.getDay(); if (!skipWeekends || (dow !== 0 && dow !== 6)) days.push(toISODate(d)); d.setDate(d.getDate() + 1); }
+    while (d <= end) { const dow = d.getDay(); const iso = toISODate(d); if (iso >= todayIso && (!skipWeekends || (dow !== 0 && dow !== 6))) days.push(iso); d.setDate(d.getDate() + 1); }
+    if (dateTo < todayIso) throw new Error("Minulé dni nemožno otvoriť.");
+    if (days.length === 0) throw new Error("V rozsahu nie je žiadny deň na otvorenie (soboty a nedele sa preskakujú).");
+    if (days.length > 92) throw new Error("Naraz možno otvoriť najviac 92 dní — skontrolujte dátumy.");
     if (!supabase) {
       const next = { ...loadJson(K.slots, {}) };
       days.forEach((iso) => {
@@ -326,7 +363,9 @@ function useClinicData(cfg, isStaff) {
       next[date] = (next[date] || []).filter((s) => !rm.has(s.time));
       localStorage.setItem(K.slots, JSON.stringify(next)); setOpenSlots(next); return;
     }
-    const { error } = await supabase.from(T.slots).delete().eq("slot_date", date).in("slot_time", list);
+    // server maže len bunky, ktoré nepokrýva aktívna objednávka (angio-015) — aj keď je
+    // stav v prehliadači neaktuálny, pacientovi sa termín nezavrie pod rukami
+    const { error } = await supabase.rpc(R.closeFree, { p_date: date, p_times: list });
     if (error) throw new Error(error.message);
     await reload();
   };
@@ -368,7 +407,11 @@ function useClinicData(cfg, isStaff) {
       // p_verify_token existuje až po angio-005 — posiela sa len keď je overovanie zapnuté
       ...(cfg.smsVerifyKey && smsVerify ? { p_verify_token: order.verifyToken || null } : {}),
     });
-    if (error) throw new Error(error.code === "23505" || error.code === "23P01" ? "Vybraný termín bol medzičasom obsadený. Vyberte iný." : error.message);
+    if (error) {
+      const taken = error.code === "23505" || error.code === "23P01" || /obsaden/i.test(error.message || "");
+      if (taken) { await reload(); const e = new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný."); e.code = "SLOT_TAKEN"; throw e; }
+      throw new Error(error.message);
+    }
     await reload();
     return order.id;
   };
@@ -411,8 +454,9 @@ function useClinicData(cfg, isStaff) {
     const { error } = await supabase.from(T.pricelist).upsert(rows, { onConflict: "id" });
     if (error) throw new Error(error.message);
     if (rows.length > 0) {
-      const ids = rows.map((r) => `"${r.id}"`).join(",");
-      await supabase.from(T.pricelist).update({ active: false }).not("id", "in", `(${ids})`);
+      const ids = rows.map((r) => `"${String(r.id).replace(/"/g, "")}"`).join(",");
+      const { error: e2 } = await supabase.from(T.pricelist).update({ active: false }).not("id", "in", `(${ids})`);
+      if (e2) throw new Error(e2.message);
     }
     await reload();
   };
@@ -533,7 +577,7 @@ function useClinicData(cfg, isStaff) {
   const pendingCount = orders.filter((o) => o.status === "new").length;
 
   return {
-    isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
+    isSupabase: isSupabaseConfigured, loading, loadError, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
     openWindow, closeSlot, closeSlots, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
     // spätné volania len pre ambulancie s tabuľkou (angio); CT/USG dostanú null
