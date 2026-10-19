@@ -5,35 +5,35 @@
 // (a nastaviť dátum účinnosti). Rovnaké znenie je v docs/pravne-posudenie-navrh.md
 // (podklad na právne posúdenie) — pri zmene upraviť oboje.
 
-const M = ({ children }) => <mark className="bg-yellow-200 px-1 rounded">{children}</mark>;
+const M = ({ children }) => <mark className="bg-yellow-200 px-1 rounded-lg">{children}</mark>;
 
 const DraftBanner = () => (
-  <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-900 text-sm font-semibold p-3 rounded-r-lg mb-5">
+  <div className="bg-warn-soft border-l-4 border-warn text-warn text-sm font-semibold p-3 rounded-r-lg mb-5">
     NÁVRH — tento text čaká na schválenie právnym oddelením a zodpovednou osobou (DPO) NÚSCH, a.s.
     Do schválenia nie je právne účinný. Žlto označené miesta sa dopĺňajú.
   </div>
 );
 
-const H = ({ children }) => <h3 className="text-base font-bold text-brand mt-5 mb-2">{children}</h3>;
-const P = ({ children }) => <p className="text-sm text-slate-700 mb-2 leading-relaxed">{children}</p>;
-const LI = ({ children }) => <li className="text-sm text-slate-700 mb-1 leading-relaxed">{children}</li>;
+const H = ({ children }) => <h3 className="text-base font-semibold text-brand mt-5 mb-2">{children}</h3>;
+const P = ({ children }) => <p className="text-sm text-ink mb-2 leading-relaxed">{children}</p>;
+const LI = ({ children }) => <li className="text-sm text-ink mb-1 leading-relaxed">{children}</li>;
 const OL = ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>;
 const UL = ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>;
 
 const InfoRow = ({ k, children }) => (
-  <div className="grid md:grid-cols-[180px_1fr] gap-1 md:gap-3 py-1.5 border-b border-slate-100 text-sm">
-    <div className="font-semibold text-slate-500">{k}</div>
-    <div className="text-slate-800">{children}</div>
+  <div className="grid md:grid-cols-[180px_1fr] gap-1 md:gap-3 py-1.5 border-b border-line text-sm">
+    <div className="font-semibold text-muted">{k}</div>
+    <div className="text-ink">{children}</div>
   </div>
 );
 
 const LegalShell = ({ title, children }) => (
   <div className="bg-white rounded-xl border border-line p-6 md:p-8">
     <DraftBanner />
-    <h2 className="text-xl md:text-2xl font-semibold text-brand mb-1">{title}</h2>
-    <p className="text-xs text-slate-400 mb-4">objednanie.cievny.sk · Národný ústav srdcových a cievnych chorôb, a.s.</p>
+    <h2 className="font-serif text-xl md:text-2xl font-semibold text-brand mb-1">{title}</h2>
+    <p className="text-xs text-muted mb-4">objednanie.cievny.sk · Národný ústav srdcových a cievnych chorôb, a.s.</p>
     {children}
-    <p className="text-xs text-slate-400 mt-6">
+    <p className="text-xs text-muted mt-6">
       <a href="#/" className="text-brand font-semibold hover:underline"
         onClick={(e) => { if (window.history.length > 1) { e.preventDefault(); window.history.back(); } }}>‹ Späť na objednávanie</a>
     </p>
@@ -45,8 +45,8 @@ const LegalShell = ({ title, children }) => (
 // „oboznámil/a som sa", nie „súhlasím"). Používa sa v angio a CT formulári.
 export function ConsentAck({ checked, onChange, error, testId = "consent-ack" }) {
   return (
-    <div className={error ? "border border-red-300 bg-red-50 rounded-lg p-3" : "border border-slate-200 bg-page rounded-lg p-3"}>
-      <label className="flex items-start gap-3 cursor-pointer text-sm text-slate-700 leading-relaxed">
+    <div className={error ? "border border-danger/40 bg-danger-soft rounded-lg p-3" : "border border-line bg-page rounded-lg p-3"}>
+      <label className="flex items-start gap-3 cursor-pointer text-sm text-ink leading-relaxed">
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} data-testid={testId}
           aria-invalid={error ? "true" : undefined} className="mt-1 h-5 w-5 shrink-0 accent-brand" />
         <span>
@@ -54,10 +54,10 @@ export function ConsentAck({ checked, onChange, error, testId = "consent-ack" })
           <a href="#/podmienky" target="_blank" rel="noopener" className="text-brand font-semibold underline underline-offset-2">Podmienkami online objednávania</a>{" "}
           a s{" "}
           <a href="#/osobne-udaje" target="_blank" rel="noopener" className="text-brand font-semibold underline underline-offset-2">Informáciami o spracúvaní osobných údajov</a>. *
-          <span className="block text-xs text-slate-500 mt-1">Ak objednávate inú osobu, potvrdzujete, že konáte s jej vedomím.</span>
+          <span className="block text-xs text-muted mt-1">Ak objednávate inú osobu, potvrdzujete, že konáte s jej vedomím.</span>
         </span>
       </label>
-      {error && <p className="text-xs text-red-600 mt-1" role="alert">{error}</p>}
+      {error && <p className="text-xs text-danger mt-1" role="alert">{error}</p>}
     </div>
   );
 }

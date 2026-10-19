@@ -27,9 +27,10 @@
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
 }
 
-/* hlavné nadpisy pätkovým písmom (ako Mayo Clinic), všetko ostatné bezpätkové */
+/* Pätkové písmo (ako Mayo Clinic) len pre hlavné nadpisy pacientskych stránok:
+   h1 všade, h2 len s triedou font-serif (správa, brány a MFA ostávajú bezpätkové). */
 @layer base {
-  h1, h2 {
+  h1 {
     font-family: var(--font-serif);
     letter-spacing: -0.01em;
   }
@@ -39,8 +40,8 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   line-height: 1.7;
-  color: #1F2A37;
-  background: #FFFFFF;
+  color: var(--color-ink);
+  background: var(--color-page);
 }
 
 /* Tailwind v4 preflight necháva na buttonoch cursor: default —
@@ -50,9 +51,17 @@ button:not(:disabled) {
 }
 
 *:focus-visible {
-  outline: 3px solid #0057B8;
+  outline: 3px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: 4px;
+}
+/* na tmavomodrých plochách by bol modrý obrys neviditeľný */
+.bg-brand-dark *:focus-visible, .bg-brand *:focus-visible {
+  outline-color: #ffffff;
+}
+/* vstupy majú vlastný ring — bez druhého obrysu */
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -105,12 +105,12 @@ function PhotoFigure({ name, alt, caption, className = "", figureClass = "" }) {
     <figure className={figureClass}>
       <img src={IMG(name)} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)}
         data-testid={`img-${name}`} className={`block w-full h-auto object-cover rounded-lg ${className}`} />
-      <figcaption className="text-xs text-slate-500 mt-2">{caption}</figcaption>
+      <figcaption className="text-xs text-muted mt-2">{caption}</figcaption>
     </figure>
   );
 }
 
-const H2 = ({ children }) => <h2 className="text-2xl md:text-3xl font-semibold text-brand-dark leading-tight">{children}</h2>;
+const H2 = ({ children }) => <h2 className="font-serif text-2xl md:text-3xl font-semibold text-brand-dark leading-tight">{children}</h2>;
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-xl border border-line p-5 md:p-7 ${className}`}>{children}</div>
 );
@@ -132,15 +132,15 @@ function SelfTest() {
   return (
     <Card>
       <H2>Môžem sa objednať?</H2>
-      <p className="text-slate-600 mt-1 mb-4">Odpovedzte na 4 otázky. Nič sa nikam neukladá.</p>
+      <p className="text-muted mt-1 mb-4">Odpovedzte na 4 otázky. Nič sa nikam neukladá.</p>
       <div className="space-y-3">
         {QUESTIONS.map((q, i) => (
           <div key={i} className="border border-line rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid={`q${i + 1}`}>
-            <p className="flex-1 text-base text-slate-800">{q.t}</p>
+            <p className="flex-1 text-base text-ink">{q.t}</p>
             <div className="flex gap-2 shrink-0">
               {[["Áno", true], ["Nie", false]].map(([lbl, v]) => (
                 <button key={lbl} type="button" onClick={() => setAns((a) => a.map((x, j) => (j === i ? v : x)))} aria-pressed={ans[i] === v}
-                  className={`min-h-[44px] px-5 py-2 rounded-lg text-base font-bold border-2 transition-colors ${ans[i] === v ? (v ? "bg-danger border-danger text-white" : "bg-brand border-brand text-white") : "bg-white border-slate-300 text-slate-700 hover:border-brand"}`}>
+                  className={`min-h-[44px] px-5 py-2 rounded-lg text-base font-semibold border-2 transition-colors ${ans[i] === v ? (v ? "bg-danger border-danger text-white" : "bg-brand border-brand text-white") : "bg-white border-line text-ink hover:border-brand"}`}>
                   {lbl}
                 </button>
               ))}
@@ -155,9 +155,9 @@ function SelfTest() {
           <Cta className={`mt-4 ${strong ? "!bg-danger !text-white hover:!bg-danger/90" : ""}`}>Chcem sa objednať ›</Cta>
         </div>
       ) : (
-        <p className="mt-4 text-xs text-slate-500">Výsledok sa zobrazí po zodpovedaní všetkých otázok.</p>
+        <p className="mt-4 text-xs text-muted">Výsledok sa zobrazí po zodpovedaní všetkých otázok.</p>
       )}
-      <p className="mt-3 text-xs text-slate-500">Test nenahrádza vyšetrenie. Pri náhlej silnej bolesti a bledej či studenej nohe volajte 155.</p>
+      <p className="mt-3 text-xs text-muted">Test nenahrádza vyšetrenie. Pri náhlej silnej bolesti a bledej či studenej nohe volajte 155.</p>
     </Card>
   );
 }
@@ -169,10 +169,10 @@ function Myths({ needsRef = false }) {
       {mythsFor(needsRef).map((m, i) => (
         <div key={i} className="bg-white rounded-lg border border-line overflow-hidden">
           <button type="button" onClick={() => setOpen((o) => (o === i ? null : i))} aria-expanded={open === i} data-testid={`myth${i + 1}`}
-            className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 font-bold text-brand-dark">
+            className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 font-semibold text-brand-dark">
             <span>{m.q}</span><span className="text-xl text-brand" aria-hidden="true">{open === i ? "−" : "+"}</span>
           </button>
-          {open === i && <p className="px-4 pb-4 text-sm text-slate-700"><b className="text-danger">Realita:</b> {m.a}</p>}
+          {open === i && <p className="px-4 pb-4 text-sm text-ink"><b className="text-danger">Realita:</b> {m.a}</p>}
         </div>
       ))}
     </div>
@@ -216,33 +216,33 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
     catch (ex) { setErr(friendlyError(ex?.message || String(ex))); }
     finally { setBusy(false); }
   };
-  const field = "w-full px-4 py-3.5 bg-white border-2 border-slate-200 rounded-lg text-slate-800 text-lg placeholder:text-slate-400 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none transition-colors";
+  const field = "w-full px-4 py-3.5 bg-white border-2 border-line rounded-lg text-ink text-lg placeholder:text-muted focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none transition-colors";
   return (
     <div className="bg-white rounded-xl border border-line p-5 md:p-7 border-2 border-brand/20" data-testid="callback-card">
-      <h2 className="text-2xl md:text-3xl font-semibold text-brand-dark leading-tight">Nejde vám objednanie online? Zavoláme vám.</h2>
-      <p className="text-slate-700 mt-2 text-base md:text-lg">Napíšte nám meno a telefónne číslo. <b>Zavoláme vám najneskôr nasledujúci pracovný deň</b> a termín dohodneme spolu. Nič iné vypĺňať nemusíte.</p>
+      <h2 className="font-serif text-2xl md:text-3xl font-semibold text-brand-dark leading-tight">Nejde vám objednanie online? Zavoláme vám.</h2>
+      <p className="text-ink mt-2 text-base md:text-lg">Napíšte nám meno a telefónne číslo. <b>Zavoláme vám najneskôr nasledujúci pracovný deň</b> a termín dohodneme spolu. Nič iné vypĺňať nemusíte.</p>
       {done ? (
         <div className="mt-5 rounded-lg bg-brand-soft border border-line p-5 text-brand-dark" data-testid="callback-done" role="status" aria-live="polite">
           <p className="text-xl font-semibold">Ďakujeme, {name.trim()}.</p>
           <p className="mt-1 text-base">Žiadosť sme prijali. Zavoláme vám na číslo <b>{phone.trim()}</b> najneskôr nasledujúci pracovný deň. Telefón majte prosím pri sebe.</p>
-          <p className="mt-3 text-sm text-slate-600">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
+          <p className="mt-3 text-sm text-muted">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
         </div>
       ) : (
         <form onSubmit={submit} className="mt-6 space-y-5" noValidate>
           <label className="block">
-            <span className="block text-sm font-bold text-slate-700 mb-1">Meno a priezvisko</span>
+            <span className="block text-sm font-semibold text-ink mb-1">Meno a priezvisko</span>
             <input className={field} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="napr. Mária Nováková" data-testid="cb-name" required />
           </label>
           <label className="block">
-            <span className="block text-sm font-bold text-slate-700 mb-1">Telefónne číslo</span>
+            <span className="block text-sm font-semibold text-ink mb-1">Telefónne číslo</span>
             <input className={field} type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="napr. 0949 123 456" data-testid="cb-phone" required />
           </label>
-          {err && <p className="text-red-600 font-semibold" data-testid="cb-error" role="alert">{err}</p>}
+          {err && <p className="text-danger font-semibold" data-testid="cb-error" role="alert">{err}</p>}
           <button type="submit" disabled={busy} data-testid="cb-submit"
-            className="w-full md:w-auto md:min-w-[18rem] bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-lg font-bold px-8 py-4 rounded-lg shadow-md transition-colors">
+            className="w-full md:w-auto md:min-w-[18rem] bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-lg font-semibold px-8 py-4 rounded-lg  transition-colors">
             {busy ? "Odosielam…" : "Zavolajte mi späť ›"}
           </button>
-          <p className="text-sm text-slate-500 leading-relaxed" data-testid="cb-privacy">
+          <p className="text-sm text-muted leading-relaxed" data-testid="cb-privacy">
             Odoslaním potvrdzujete, že ste sa oboznámili s{" "}
             <a href="#/osobne-udaje" target="_blank" rel="noopener" className="text-brand font-semibold underline underline-offset-2">informáciami o spracúvaní osobných údajov</a>.
             Meno a číslo použijeme len na dohodnutie termínu; žiadosť po vybavení vymažeme. Objednať vás môže aj syn, dcéra či sused — s vaším vedomím napíše vaše meno a telefón, na ktorom vás zastihneme.
@@ -265,14 +265,14 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
           {nav.map(([id, lbl]) => (
             <a key={id} href={hereHref()} onClick={goTo(id)} className={`whitespace-nowrap text-sm font-semibold px-3 py-2.5 min-h-[40px] inline-flex items-center rounded-full ${id === "urgent" ? "bg-danger-soft text-danger" : "bg-soft text-brand hover:bg-line"}`} data-testid={`nav-${id}`}>{lbl}</a>
           ))}
-          <a href={hereHref()} onClick={goTo("objednat")} className="whitespace-nowrap text-sm font-bold px-4 py-2.5 min-h-[40px] inline-flex items-center rounded-full bg-brand text-white hover:bg-brand-dark ml-auto" data-testid="nav-objednat">Objednať sa</a>
+          <a href={hereHref()} onClick={goTo("objednat")} className="whitespace-nowrap text-sm font-semibold px-4 py-2.5 min-h-[40px] inline-flex items-center rounded-full bg-brand text-white hover:bg-brand-dark ml-auto" data-testid="nav-objednat">Objednať sa</a>
         </div>
       </nav>
 
       {/* hero: vľavo modrý panel s textom, vpravo svetlý panel s 3D nohou od okraja po okraj */}
       <header id="hero" tabIndex={-1} className="relative overflow-hidden rounded-xl border border-line grid md:grid-cols-[11fr_9fr]">
         <div className="bg-brand-soft text-ink p-6 md:p-10 flex flex-col justify-center md:min-h-[440px]">
-          <p className="text-[11px] md:text-xs font-semibold tracking-wide text-muted uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
+          <p className="text-xs md:text-xs font-semibold tracking-wide text-muted uppercase">Angiologická ambulancia č. 1 · NÚSCH, a.s.</p>
           <h1 data-testid="landing-title" className="text-3xl md:text-[2.75rem] font-semibold leading-tight mt-3 text-brand-dark">Rana na nohe, ktorá sa nehojí? Čas rozhoduje.</h1>
           <p className="text-base md:text-lg text-ink mt-4">Zistíme, či je príčinou <b>zlé prekrvenie</b>, a nasmerujeme vás tam, kde vám pomôžu.</p>
           <ul className="flex flex-wrap gap-2 mt-4" aria-label="Základné informácie">
@@ -301,8 +301,8 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
         {STATS.map((s) => (
           <div key={s.n} className="bg-white rounded-xl border border-line p-4 text-center">
             <p className="text-3xl md:text-4xl font-semibold text-brand">{s.n}</p>
-            <p className="text-sm text-slate-700 mt-1">{s.t}</p>
-            {s.src && <p className="text-[11px] text-slate-500 mt-1">{s.src}</p>}
+            <p className="text-sm text-ink mt-1">{s.t}</p>
+            {s.src && <p className="text-xs text-muted mt-1">{s.src}</p>}
           </div>
         ))}
       </section>
@@ -311,7 +311,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       <section id="co-je-to" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <div className="grid md:grid-cols-2 gap-6 items-center">
-            <div className="space-y-3 text-slate-700">
+            <div className="space-y-3 text-ink">
               <H2>Prečo sa rana nehojí?</H2>
               <p>Tepny v nohách sú ako <b>záhradná hadica</b>. Keď sa na jednom mieste zúžia usadeninami, do chodidla tečie málo krvi. Rana potrebuje na hojenie kyslík a živiny z krvi — bez nich sa <b>nezahojí, nech ju ošetrujete akokoľvek</b>.</p>
               <p>Zúženie rastie <b>roky, potichu a často bez bolesti</b>. Pri cukrovke je citlivosť znížená, takže prvým znamením býva práve rana, ktorá sa nehojí, alebo zmena farby prsta.</p>
@@ -321,7 +321,7 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
               <div className="aspect-square overflow-hidden rounded-lg bg-soft">
                 <Photo name="tepna" rounded={false} alt="Detail: usadenina (plak) zužuje tepnu v stehne, pod ňou je prietok slabý" className="h-full w-full object-cover object-[50%_10%] scale-[1.7] origin-[50%_10%]" fallback={<ArteryIllustration />} />
               </div>
-              <figcaption className="text-xs text-slate-500 mt-2">Usadenina (plak) zužuje tepnu v stehne; pod zúžením je prietok slabý a rana na prste sa nehojí.</figcaption>
+              <figcaption className="text-xs text-muted mt-2">Usadenina (plak) zužuje tepnu v stehne; pod zúžením je prietok slabý a rana na prste sa nehojí.</figcaption>
             </figure>
           </div>
         </Card>
@@ -334,13 +334,13 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       <section id="vysetrenie" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <H2>Ako prebieha vyšetrenie</H2>
-          <p className="text-slate-600 mt-1 mb-4">Päť jednoduchých krokov. Žiadna bolesť, žiadne ihly, žiadna príprava vopred.</p>
+          <p className="text-muted mt-1 mb-4">Päť jednoduchých krokov. Žiadna bolesť, žiadne ihly, žiadna príprava vopred.</p>
           <div className="grid md:grid-cols-2 gap-6 items-start">
           <ol className="space-y-3">
             {stepsFor(needsRef).map((s) => (
               <li key={s.n} className="flex gap-3">
                 <span className="shrink-0 w-9 h-9 rounded-full bg-brand text-white font-semibold flex items-center justify-center">{s.n}</span>
-                <div><p className="font-bold text-brand-dark">{s.title}</p><p className="text-sm text-slate-700">{s.text}</p></div>
+                <div><p className="font-semibold text-brand-dark">{s.title}</p><p className="text-sm text-ink">{s.text}</p></div>
               </li>
             ))}
           </ol>
@@ -353,31 +353,31 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       <section id="nalez" tabIndex={-1} className="scroll-mt-16 outline-none">
         <Card>
           <H2>Čo bude po vyšetrení?</H2>
-          <p className="text-slate-700 mt-2">Vyšetrenie odpovie na jednu otázku: <b>tečie do rany dosť krvi?</b> Podľa odpovede vás nasmerujeme tam, kde vám najviac pomôžu — nikto neodchádza bez odporúčania. Nález zúženej tepny <b>nie je rozsudok</b>; rozhoduje, aby sa to stihlo, kým je rana malá.</p>
+          <p className="text-ink mt-2">Vyšetrenie odpovie na jednu otázku: <b>tečie do rany dosť krvi?</b> Podľa odpovede vás nasmerujeme tam, kde vám najviac pomôžu — nikto neodchádza bez odporúčania. Nález zúženej tepny <b>nie je rozsudok</b>; rozhoduje, aby sa to stihlo, kým je rana malá.</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead><tr className="text-left text-xs text-muted border-b border-line"><th className="py-2 pr-3">Výsledok</th><th className="py-2">Kam ďalej</th></tr></thead>
               <tbody>
                 {FINDINGS.map(([a, b]) => (
-                  <tr key={a} className="border-b border-soft align-top"><td className="py-2 pr-3 font-bold text-brand-dark min-w-[9rem]">{a}</td><td className="py-2 text-slate-700">{b}</td></tr>
+                  <tr key={a} className="border-b border-soft align-top"><td className="py-2 pr-3 font-semibold text-brand-dark min-w-[9rem]">{a}</td><td className="py-2 text-ink">{b}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
           <PhotoFigure name="zakrok" figureClass="mt-5" className="aspect-[16/9]" alt="Tri fázy zákroku cez cievu: tepna zúžená plakom, balónik roztláča zúženie, stent drží tepnu otvorenú" caption="Ako vyzerá zákrok cez cievu: zúžená tepna → balónik roztlačí usadeninu → stent (jemná sieťka) drží tepnu otvorenú. Vstup je malým vpichom, zvyčajne v slabine." />
-          <p className="text-xs text-slate-500 mt-3">O presnom postupe vždy rozhoduje lekár podľa vášho celkového zdravotného stavu.</p>
+          <p className="text-xs text-muted mt-3">O presnom postupe vždy rozhoduje lekár podľa vášho celkového zdravotného stavu.</p>
         </Card>
       </section>
 
       {/* urgent */}
       <section id="urgent" tabIndex={-1} className="scroll-mt-16 outline-none">
         <div className="bg-danger-soft border border-danger/40 rounded-xl p-5 md:p-7" data-testid="landing-urgent">
-          <h2 className="text-2xl md:text-3xl font-semibold text-danger leading-tight">Kedy okamžite volať 155 / 112</h2>
-          <p className="text-slate-700 mt-2">Ak sa objaví čokoľvek z tohto, <b>nečakajte na termín</b>. Pri náhlom uzávere tepny rozhodujú hodiny.</p>
-          <ul className="mt-3 space-y-1 text-slate-800">
-            {URGENT.map((u) => <li key={u} className="flex gap-2"><span className="text-danger font-bold">▸</span><span>{u}</span></li>)}
+          <h2 className="font-serif text-2xl md:text-3xl font-semibold text-danger leading-tight">Kedy okamžite volať 155 / 112</h2>
+          <p className="text-ink mt-2">Ak sa objaví čokoľvek z tohto, <b>nečakajte na termín</b>. Pri náhlom uzávere tepny rozhodujú hodiny.</p>
+          <ul className="mt-3 space-y-1 text-ink">
+            {URGENT.map((u) => <li key={u} className="flex gap-2"><span className="text-danger font-semibold">▸</span><span>{u}</span></li>)}
           </ul>
-          <p className="mt-4 text-sm text-slate-700">Povedzte záchranárom túto vetu: <b>„Mám náhlu bolesť nohy a noha je studená a bledá.“</b></p>
+          <p className="mt-4 text-sm text-ink">Povedzte záchranárom túto vetu: <b>„Mám náhlu bolesť nohy a noha je studená a bledá.“</b></p>
         </div>
       </section>
 
@@ -392,9 +392,9 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
         <Photo name="par" alt="Starší pár na prechádzke v jesennom parku" rounded={false} className="absolute inset-0 h-full w-full object-cover object-[75%_50%]" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-dark/90 via-brand-dark/70 to-brand/30" aria-hidden="true" />
         <div className="relative p-6 md:p-10 max-w-xl">
-          <h2 className="text-2xl md:text-4xl font-semibold leading-tight">15 minút vyšetrenia. Roky chôdze po vlastných.</h2>
+          <h2 className="font-serif text-2xl md:text-4xl font-semibold leading-tight">15 minút vyšetrenia. Roky chôdze po vlastných.</h2>
           <p className="mt-3 text-white/95">Nehojaca sa rana nie je kozmetický problém. Čím skôr zistíme, či do nohy tečie dosť krvi, tým jednoduchšie ju vieme zachrániť.</p>
-          <a href={hereHref()} onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-brand font-bold text-base px-6 py-3 rounded-lg shadow hover:bg-brand-soft">Objednať sa — termín do týždňa ›</a>
+          <a href={hereHref()} onClick={goTo("objednat")} className="inline-block mt-5 bg-white text-brand font-semibold text-base px-6 py-3 rounded-lg  hover:bg-brand-soft">Objednať sa — termín do týždňa ›</a>
         </div>
       </section>
 
@@ -410,9 +410,9 @@ export default function ZachranNohuLanding({ landing, exam, children, requestCal
       )}
 
       {/* pätička */}
-      <footer className="text-xs text-slate-500 border-t border-line pt-4 space-y-2">
+      <footer className="text-xs text-muted border-t border-line pt-4 space-y-2">
         <p>Obsah tejto stránky má informačný charakter a nenahrádza vyšetrenie ani rozhovor s lekárom. Pri zdravotných ťažkostiach sa vždy obráťte na svojho lekára; pri náhlych ťažkostiach volajte 155.</p>
-        <p className="font-semibold text-slate-600">Zdroje</p>
+        <p className="font-semibold text-muted">Zdroje</p>
         <ul className="list-disc pl-5 space-y-0.5">{SOURCES.map((s) => <li key={s}>{s}</li>)}</ul>
         <p>
           <a href="#/podmienky" className="text-brand font-semibold hover:underline">Podmienky online objednávania</a>{" · "}

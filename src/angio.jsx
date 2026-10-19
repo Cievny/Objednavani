@@ -42,7 +42,7 @@ const newAngioId = () => {
   let s = ""; for (let i = 0; i < b.length; i++) s += abc[b[i] % 32];
   return "ANG-" + s;
 };
-const inp = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm focus:ring-2 focus:ring-brand outline-none";
+import { inputSmCls as inp } from "./ui.jsx";
 const statuses = { new: "Nová", confirmed: "Potvrdená", done: "Vykonané", noshow: "Nedostavil sa", rejected: "Zrušená" };
 
 // všetky platné začiatky pre daný deň (súvislé voľné bunky jedného lekára) — pre presun personálom
@@ -193,19 +193,19 @@ function AngioBookingView({ data, landing = null }) {
       else if (/overen/i.test(m)) setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" });
     } finally { setBusy(false); }
   };
-  const ic = (k) => inp + (errs[k] ? " border-red-400 ring-1 ring-red-300" : "");
-  const Err = ({ k }) => errs[k] ? <p className="text-xs text-red-600 mt-1">{errs[k]}</p> : null;
+  const ic = (k) => inp + (errs[k] ? " border-danger/40 ring-1 ring-danger/40" : "");
+  const Err = ({ k }) => errs[k] ? <p className="text-xs text-danger mt-1">{errs[k]}</p> : null;
 
   if (done) {
     return (
       <div className="bg-white rounded-xl border border-line p-6 text-center">
-        <h2 className="text-xl font-bold text-success mb-2">Objednávka je prijatá</h2>
-        <p className="text-slate-700">{done.label}</p>
-        <p className="text-slate-700">Termín: <b>{fmtLong(done.date)} o {done.time}</b></p>
-        <p className="text-slate-700 mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
-        <p className="text-sm text-slate-500 mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
+        <h2 className="text-xl font-semibold text-success mb-2">Objednávka je prijatá</h2>
+        <p className="text-ink">{done.label}</p>
+        <p className="text-ink">Termín: <b>{fmtLong(done.date)} o {done.time}</b></p>
+        <p className="text-ink mb-1">Číslo objednávky: <b className="font-mono">{done.id}</b></p>
+        <p className="text-sm text-muted mt-3">Vyšetrenie je bez poplatku. Potvrdenie sme poslali e-mailom. Príďte, prosím, 10 minút pred termínom{done.needsReferral ? " so žiadankou" : ""}.</p>
         <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2 mt-3 text-left"><b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.</p>
-        <p className="text-xs text-slate-500 mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
+        <p className="text-xs text-muted mt-2">Zmenu alebo zrušenie termínu vybavíte online cez odkaz v e-maili alebo v sekcii „Už máte objednávku?" (najneskôr 24 hodín vopred). Telefón/SMS len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
         <div className="flex flex-wrap justify-center gap-2 mt-5">
           <button type="button" onClick={() => { setDone(null); setStep(1); setExamTypeId(""); setDate(""); setTime(""); setForm({ name: "", birthDate: "", insurance: "25", phone: "", email: "", reason: "" }); setOtp({ stage: "idle", phone: "", code: "", token: "", msg: "", busy: false, demoCode: "" }); setAck(false); setErrs({}); }}
             className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">Nová objednávka</button>
@@ -217,29 +217,29 @@ function AngioBookingView({ data, landing = null }) {
 
   return (
     <div className="bg-white rounded-xl border border-line p-5 md:p-6 space-y-5">
-      <h2 className="text-xl font-bold text-brand">Objednanie na vyšetrenie <span className="text-sm font-normal text-slate-500">(bez poplatku)</span></h2>
+      <h2 className="text-xl font-semibold text-brand">Objednanie na vyšetrenie <span className="text-sm font-normal text-muted">(bez poplatku)</span></h2>
       {step < 3 && data.requestCallback && (
-        <p className="text-sm text-slate-600 -mt-2">Nedarí sa vám objednať online?{" "}
-          <a href="#zavolame" data-testid="booking-callback-link" className="font-bold text-brand underline underline-offset-2 hover:text-brand-dark"
+        <p className="text-sm text-muted -mt-2">Nedarí sa vám objednať online?{" "}
+          <a href="#zavolame" data-testid="booking-callback-link" className="font-semibold text-brand underline underline-offset-2 hover:text-brand-dark"
             onClick={(e) => { const el = document.getElementById("zavolame"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); } }}>
             Nechajte nám číslo, zavoláme vám ›</a></p>
       )}
       {step === 1 && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">Vyberte typ vyšetrenia / návštevy</p>
-          {data.pricelist.length === 0 && <p className="text-sm text-slate-400">Zatiaľ nie sú nastavené žiadne typy vyšetrení.</p>}
+          <p className="text-sm font-semibold text-ink">Vyberte typ vyšetrenia / návštevy</p>
+          {data.pricelist.length === 0 && <p className="text-sm text-muted">Zatiaľ nie sú nastavené žiadne typy vyšetrení.</p>}
           {data.pricelist.map((p) => (
-            <div key={p.id} className={`border-2 rounded-lg transition-colors ${examTypeId === p.id ? "border-brand bg-brand-soft" : "border-slate-200 hover:border-brand/50"}`}>
+            <div key={p.id} className={`border-2 rounded-lg transition-colors ${examTypeId === p.id ? "border-brand bg-brand-soft" : "border-line hover:border-brand/50"}`}>
               <button onClick={() => { setExamTypeId(p.id); setStep(2); setDate(""); setTime(""); }} className="w-full text-left p-3">
-                <span className="font-bold text-slate-800">{p.label}</span>
-                <span className="block text-xs text-slate-500 mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
+                <span className="font-semibold text-ink">{p.label}</span>
+                <span className="block text-xs text-muted mt-1">Trvanie ~{p.durationSlots * 5} min{p.description ? ` · ${p.description}` : ""}{p.requiresReferral === false ? " · bez žiadanky" : ""}</span>
               </button>
               {p.about && (
                 <div className="px-3 pb-2">
                   <button type="button" onClick={() => setAboutOpen((o) => (o === p.id ? "" : p.id))} className="text-xs font-semibold text-brand hover:underline">
                     {aboutOpen === p.id ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
                   </button>
-                  {aboutOpen === p.id && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={p.about} /></div>}
+                  {aboutOpen === p.id && <div data-testid="exam-about" className="mt-2 text-sm text-ink"><FormattedText text={p.about} /></div>}
                 </div>
               )}
             </div>
@@ -252,71 +252,71 @@ function AngioBookingView({ data, landing = null }) {
           {landingExam
             ? (
               <div data-testid="landing-exam" className="border-2 border-brand bg-brand-soft rounded-lg p-3">
-                <p className="font-bold text-slate-800">{examType?.label}</p>
-                <p className="text-xs text-slate-500 mt-1">Trvanie ~{(examType?.durationSlots || 3) * 5} min{examType?.description ? ` · ${examType.description}` : ""}{examType?.requiresReferral === false ? " · bez žiadanky" : ""}</p>
+                <p className="font-semibold text-ink">{examType?.label}</p>
+                <p className="text-xs text-muted mt-1">Trvanie ~{(examType?.durationSlots || 3) * 5} min{examType?.description ? ` · ${examType.description}` : ""}{examType?.requiresReferral === false ? " · bez žiadanky" : ""}</p>
                 {examType?.about && (
                   <>
                     <button type="button" onClick={() => setAboutOpen((o) => (o ? "" : examType.id))} className="text-xs font-semibold text-brand hover:underline mt-1">
                       {aboutOpen ? "▴ Skryť podrobnosti" : "▾ Viac o vyšetrení"}
                     </button>
-                    {aboutOpen && <div data-testid="exam-about" className="mt-2 text-sm text-slate-700"><FormattedText text={examType.about} /></div>}
+                    {aboutOpen && <div data-testid="exam-about" className="mt-2 text-sm text-ink"><FormattedText text={examType.about} /></div>}
                   </>
                 )}
               </div>
             )
             : <button onClick={() => setStep(1)} className="text-sm text-brand hover:underline">← Zmeniť vyšetrenie</button>}
-          {!landingExam && <p className="text-sm text-slate-600">Vybrané: <b>{examType?.label}</b></p>}
+          {!landingExam && <p className="text-sm text-muted">Vybrané: <b>{examType?.label}</b></p>}
           <div className="grid md:grid-cols-2 gap-5">
             <div>
               <MonthCalendar monthDate={monthDate}
                 onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
                 isAvailable={isAvailable} selected={date} onSelect={(iso) => { setDate(iso); setTime(""); }} />
-              <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
+              <p data-testid="lead-note" className="text-xs text-muted mt-2">{PATIENT_LEAD_NOTE}</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${fmtLong(date)}` : "Vyberte deň"}</p>
+              <p className="text-sm font-semibold text-ink mb-2">{date ? `Voľné časy — ${fmtLong(date)}` : "Vyberte deň"}</p>
               {!date && !firstFreeIso && <p className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2" data-testid="no-slots">Momentálne nie sú otvorené žiadne termíny. Skúste to neskôr alebo nám nechajte číslo nižšie — zavoláme vám.</p>}
               <div className="flex flex-wrap gap-2">
                 {date && freeSlotsFor(date).map((s) => (
                   <button key={s.time} onClick={() => setTime(s.time)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${time === s.time ? "bg-brand text-white border-brand" : "bg-white text-brand border-slate-300 hover:border-brand"}`}>
-                    {s.time}{s.doctor ? <span className="block text-[10px] font-normal opacity-70">{s.doctor}</span> : null}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${time === s.time ? "bg-brand text-white border-brand" : "bg-white text-brand border-line hover:border-brand"}`}>
+                    {s.time}{s.doctor ? <span className="block text-xs font-normal opacity-70">{s.doctor}</span> : null}
                   </button>
                 ))}
-                {date && freeSlotsFor(date).length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú voľné termíny.</p>}
+                {date && freeSlotsFor(date).length === 0 && <p className="text-sm text-muted">V tento deň nie sú voľné termíny.</p>}
               </div>
             </div>
           </div>
           <p data-testid="orientacny-termin" className="text-sm text-warn bg-warn-soft border border-warn/30 rounded-lg px-3 py-2">
             <b>Čas termínu je orientačný.</b> Ako pracovisko najvyššieho typu musíme niekedy prednostne ošetriť akútneho pacienta. Ďakujeme za pochopenie.
           </p>
-          {time && <button onClick={() => setStep(3)} className="bg-brand hover:bg-brand-dark text-white font-bold py-3 px-5 rounded-lg">Pokračovať</button>}
+          {time && <button onClick={() => setStep(3)} className="bg-brand hover:bg-brand-dark text-white font-semibold py-3 px-5 rounded-lg">Pokračovať</button>}
         </div>
       )}
 
       {step === 3 && (
         <div className="space-y-3">
           <button onClick={() => setStep(2)} className="text-sm text-brand hover:underline">← Späť na termín</button>
-          <p className="text-sm text-slate-600"><b>{examType?.label}</b> · {fmtLong(date)} o {time}</p>
+          <p className="text-sm text-muted"><b>{examType?.label}</b> · {fmtLong(date)} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Meno a priezvisko *</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Meno a priezvisko *</label>
               <input className={ic("name")} placeholder="Ján Novák" value={form.name} onChange={set("name")} />
               <Err k="name" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Dátum narodenia *</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Dátum narodenia *</label>
               <BirthDateInput className={ic("birthDate")} value={form.birthDate} onChange={(v) => { setForm((f) => ({ ...f, birthDate: v })); clearErr("birthDate"); }} />
               <Err k="birthDate" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Zdravotná poisťovňa</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Zdravotná poisťovňa</label>
               <select className={inp} value={form.insurance} onChange={set("insurance")}>
                 {insuranceOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Telefón *</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Telefón *</label>
               <input className={ic("phone")} placeholder="+421 900 000 000" value={form.phone} onChange={set("phone")} />
               <Err k="phone" />
               {data.smsVerify && (
@@ -325,7 +325,7 @@ function AngioBookingView({ data, landing = null }) {
                     <p className="text-success font-semibold">✓ Číslo overené</p>
                   ) : otp.stage === "sent" && phoneDigits(otp.phone) === phoneDigits(form.phone) ? (
                     <div className="space-y-2">
-                      <p className="text-slate-600">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
+                      <p className="text-muted">Kód sme poslali SMS na <b>{otp.phone}</b>. Platí 10 minút.{otp.demoCode ? ` (demo: kód ${otp.demoCode})` : ""}</p>
                       <div className="flex gap-2">
                         <input className={inp} inputMode="numeric" maxLength={6} placeholder="6-miestny kód" value={otp.code}
                           onChange={(ev) => setOtp((o) => ({ ...o, code: ev.target.value.replace(/\D/g, "").slice(0, 6), msg: "" }))} />
@@ -340,43 +340,43 @@ function AngioBookingView({ data, landing = null }) {
                       {otp.busy ? "Posielam…" : "Poslať overovací SMS kód"}
                     </button>
                   )}
-                  {otp.msg && <p className="text-xs text-red-600 mt-1">{otp.msg}</p>}
+                  {otp.msg && <p className="text-xs text-danger mt-1">{otp.msg}</p>}
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail (na potvrdenie) *</label>
+              <label className="block text-xs font-semibold text-muted mb-1">E-mail (na potvrdenie) *</label>
               <input className={ic("email")} type="email" placeholder="jan.novak@…" value={form.email} onChange={set("email")} />
               <Err k="email" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Dôvod / poznámka</label>
+              <label className="block text-xs font-semibold text-muted mb-1">Dôvod / poznámka</label>
               <input className={inp} placeholder="nepovinné" value={form.reason} onChange={set("reason")} />
             </div>
           </div>
           {/* Nahrávanie žiadanky — povinné podľa typu vyšetrenia */}
-          <div className={errs.files ? "border border-red-300 bg-red-50 rounded-lg p-3" : needsReferral ? "border border-amber-300 bg-amber-50 rounded-lg p-3" : "border border-slate-200 bg-page rounded-lg p-3"}>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
+          <div className={errs.files ? "border border-danger/40 bg-danger-soft rounded-lg p-3" : needsReferral ? "border border-warn/30 bg-warn-soft rounded-lg p-3" : "border border-line bg-page rounded-lg p-3"}>
+            <label className="block text-xs font-semibold text-muted mb-1">
               {needsReferral ? "Žiadanka (výmenný lístok) — odfoťte alebo nahrajte *" : "Žiadanka alebo lekárske správy — nepovinné"}{" "}
-              <span className="font-normal text-slate-400">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span>
+              <span className="font-normal text-muted">(PDF, JPG, PNG — max 3 súbory po 5 MB)</span>
             </label>
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={handleFilePick}
-              className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-soft file:text-brand file:font-semibold hover:file:bg-line" />
+              className="block w-full text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand-soft file:text-brand file:font-semibold hover:file:bg-line" />
             <Err k="files" />
             {files.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {files.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between text-sm bg-page border border-slate-200 rounded-md px-3 py-1.5">
+                  <li key={i} className="flex items-center justify-between text-sm bg-page border border-line rounded-lg px-3 py-1.5">
                     <span className="truncate">{f.name}</span>
-                    <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-xs font-semibold shrink-0 ml-2">✕</button>
+                    <button onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-danger text-xs font-semibold shrink-0 ml-2">✕</button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
           <ConsentAck checked={ack} onChange={(v) => { setAck(v); clearErr("ack"); }} error={errs.ack} testId="angio-ack" />
-          {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
-          <button onClick={submit} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg">
+          {msg && <p className="text-sm text-danger font-semibold">{msg}</p>}
+          <button onClick={submit} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold py-3 px-5 rounded-lg">
             {busy ? "Odosielam…" : "Objednať sa (bez poplatku)"}
           </button>
         </div>
@@ -458,21 +458,21 @@ function AngioOrderLookup({ data, initialId = "" }) {
 
   return (
     <div id="angio-lookup" className="bg-white rounded-xl border border-line p-5 md:p-6 space-y-3">
-      <h3 className="text-lg font-bold text-brand">Už máte objednávku?</h3>
-      <p className="text-sm text-slate-500">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli. Termín tu môžete zmeniť alebo zrušiť (najneskôr 24 hodín vopred).</p>
+      <h3 className="text-lg font-semibold text-brand">Už máte objednávku?</h3>
+      <p className="text-sm text-muted">Zadajte číslo objednávky (ANG-…) a telefón, ktorý ste uviedli. Termín tu môžete zmeniť alebo zrušiť (najneskôr 24 hodín vopred).</p>
       <div className="grid md:grid-cols-2 gap-3">
         <input className={inp} placeholder="Číslo objednávky (ANG-…)" aria-label="Číslo objednávky" value={id} onChange={(e) => { setId(e.target.value); setFound(null); setMsg(""); }} />
         <input className={inp} type="tel" inputMode="tel" autoComplete="tel" placeholder="Telefón zadaný pri objednávke" aria-label="Telefón zadaný pri objednávke" value={phone} onChange={(e) => { setPhone(e.target.value); setFound(null); setMsg(""); }} />
       </div>
-      <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-2.5 px-5 rounded-lg">
+      <button onClick={search} disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold py-2.5 px-5 rounded-lg">
         {busy ? "Hľadám…" : "Vyhľadať"}
       </button>
-      {msg && <p className="text-sm text-red-600 font-semibold" role="alert">{msg}</p>}
+      {msg && <p className="text-sm text-danger font-semibold" role="alert">{msg}</p>}
       {found && (
-        <div className="border border-slate-200 rounded-lg p-4 space-y-1">
+        <div className="border border-line rounded-lg p-4 space-y-1">
           <p className="text-sm"><b>{found.id}</b> — <span className="font-semibold">{statuses[found.status] || found.status}</span></p>
-          {found.exam?.label && <p className="text-sm text-slate-600">{found.exam.label}</p>}
-          <p className="text-sm text-slate-600">Termín: <b>{fmtLong(found.date)} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
+          {found.exam?.label && <p className="text-sm text-muted">{found.exam.label}</p>}
+          <p className="text-sm text-muted">Termín: <b>{fmtLong(found.date)} o {found.time}</b>{found.doctor ? ` · ${found.doctor}` : ""}</p>
           {ok && <p className="text-sm text-success font-semibold" role="status">{ok}</p>}
           {activeFound && !canChange && (
             <p className="text-xs bg-warn-soft border border-warn/30 rounded-lg p-2 text-warn font-semibold" data-testid="too-late">
@@ -484,31 +484,31 @@ function AngioOrderLookup({ data, initialId = "" }) {
               <button onClick={() => { setResched(!resched); setOk(""); setMsg(""); }} disabled={busy} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
                 {resched ? "Zavrieť zmenu termínu" : "Zmeniť termín"}
               </button>
-              <button onClick={cancel} disabled={busy} className="bg-white border border-red-300 text-red-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-50">
+              <button onClick={cancel} disabled={busy} className="bg-white border border-danger/40 text-danger text-sm font-semibold px-4 py-2 rounded-lg hover:bg-danger-soft">
                 Zrušiť objednávku
               </button>
             </div>
           )}
           {resched && canChange && (
-            <div data-testid="patient-resched" className="mt-3 bg-page border border-slate-200 rounded-lg p-3 space-y-3">
-              <p className="text-sm text-slate-600">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom. Telefón/SMS 0949 000 677 len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
+            <div data-testid="patient-resched" className="mt-3 bg-page border border-line rounded-lg p-3 space-y-3">
+              <p className="text-sm text-muted">Ak vám termín nevyhovuje, vyberte si iný z otvorených. Zmena je možná najneskôr 24 hodín pred termínom. Telefón/SMS 0949 000 677 len v naozaj nutných prípadoch – ozveme sa vám späť.</p>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <MonthCalendar monthDate={rMonth}
                     onMonthChange={(delta) => setRMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
                     isAvailable={rAvailable} selected={rDate} onSelect={(iso) => setRDate(iso)} />
-                  <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
+                  <p data-testid="lead-note" className="text-xs text-muted mt-2">{PATIENT_LEAD_NOTE}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-700 mb-2">{rDate ? `Voľné časy — ${fmtLong(rDate)}` : "Vyberte deň"}</p>
+                  <p className="text-sm font-semibold text-ink mb-2">{rDate ? `Voľné časy — ${fmtLong(rDate)}` : "Vyberte deň"}</p>
                   <div className="flex flex-wrap gap-2">
                     {rDate && rStarts(rDate).map((s) => (
                       <button key={s.time} onClick={() => pick(rDate, s.time)} disabled={busy}
-                        className="px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-brand border-slate-300 hover:border-brand">
-                        {s.time}{s.doctor ? <span className="block text-[10px] font-normal opacity-70">{s.doctor}</span> : null}
+                        className="px-3 py-2 rounded-lg text-sm font-semibold border bg-white text-brand border-line hover:border-brand">
+                        {s.time}{s.doctor ? <span className="block text-xs font-normal opacity-70">{s.doctor}</span> : null}
                       </button>
                     ))}
-                    {rDate && rStarts(rDate).length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú voľné termíny.</p>}
+                    {rDate && rStarts(rDate).length === 0 && <p className="text-sm text-muted">V tento deň nie sú voľné termíny.</p>}
                   </div>
                 </div>
               </div>
@@ -545,17 +545,17 @@ function PatientDetails({ order, onCopied }) {
     try { await navigator.clipboard.writeText(text); onCopied?.(true); } catch { onCopied?.(false); }
   };
   return (
-    <div data-testid="patient-details" className="bg-white/70 border border-slate-200 rounded-lg p-3">
+    <div data-testid="patient-details" className="bg-white/70 border border-line rounded-lg p-3">
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dátum narodenia</dt><dd className="font-semibold">{fmtD(order.birthDate)}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Poisťovňa</dt><dd className="font-semibold">{ins}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-brand hover:underline">{order.phone}</a> : "—"}</dd></div>
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-brand hover:underline">{order.email}</a> : "—"}</dd></div>
-        {order.doctor && <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Lekár</dt><dd>{order.doctor}</dd></div>}
-        <div><dt className="text-[11px] uppercase tracking-wide text-slate-400">Objednané</dt><dd>{fmtDT(order.createdAt)}</dd></div>
-        {order.reason && <div className="sm:col-span-2"><dt className="text-[11px] uppercase tracking-wide text-slate-400">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Dátum narodenia</dt><dd className="font-semibold">{fmtD(order.birthDate)}</dd></div>
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Poisťovňa</dt><dd className="font-semibold">{ins}</dd></div>
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-brand hover:underline">{order.phone}</a> : "—"}</dd></div>
+        <div><dt className="text-xs uppercase tracking-wide text-muted">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-brand hover:underline">{order.email}</a> : "—"}</dd></div>
+        {order.doctor && <div><dt className="text-xs uppercase tracking-wide text-muted">Lekár</dt><dd>{order.doctor}</dd></div>}
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Objednané</dt><dd>{fmtDT(order.createdAt)}</dd></div>
+        {order.reason && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
       </dl>
-      <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded">📋 Kopírovať údaje pacienta</button>
+      <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg">📋 Kopírovať údaje pacienta</button>
     </div>
   );
 }
@@ -591,22 +591,22 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
     run(() => data.setStatus(order.id, "rejected", reason));
   };
 
-  const tone = order.status === "rejected" ? "border-l-red-400 bg-red-50"
+  const tone = order.status === "rejected" ? "border-l-danger bg-danger-soft"
     : order.status === "confirmed" ? "border-l-brand bg-brand-soft"
-    : order.status === "done" ? "border-l-emerald-400 bg-emerald-50"
-    : order.status === "noshow" ? "border-l-slate-400 bg-slate-50"
-    : "border-l-amber-400 bg-amber-50";
+    : order.status === "done" ? "border-l-success bg-success-soft"
+    : order.status === "noshow" ? "border-l-line bg-soft"
+    : "border-l-warn bg-warn-soft";
 
   return (
     <div className={`border border-line rounded-lg p-4 border-l-4 ${tone} space-y-2`}>
       {!embedded && (<>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono font-bold text-sm">{order.date} {order.time}</span>
-          <span className="text-xs bg-white border border-slate-200 rounded px-2 py-0.5">{statuses[order.status]}</span>
+          <span className="font-mono font-semibold text-sm">{order.date} {order.time}</span>
+          <span className="text-xs bg-white border border-line rounded-lg px-2 py-0.5">{statuses[order.status]}</span>
           <ArrivedBadge order={order} />
         </div>
-        <span className="text-xs text-slate-500">{order.id}</span>
+        <span className="text-xs text-muted">{order.id}</span>
       </div>
       <p className="text-sm"><b>{order.patientName}</b>{order.exam?.label ? ` · ${order.exam.label}` : ""}{order.durationMin ? ` (${order.durationMin} min)` : ""}</p>
       </>)}
@@ -616,56 +616,56 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
         <div className="flex flex-wrap gap-2">
           {order.attachments.map((a, i) => (
             <button key={i} onClick={() => run(() => data.openAttachment(a))}
-              className="text-xs bg-brand-soft text-brand border border-line rounded px-2 py-1 hover:bg-line">
+              className="text-xs bg-brand-soft text-brand border border-line rounded-lg px-2 py-1 hover:bg-line">
               📎 {a.name || `príloha ${i + 1}`}
             </button>
           ))}
         </div>
       )}
       {order.statusNote && <p className="text-xs text-warn">{order.statusNote}</p>}
-      {msg && <p className="text-xs text-red-600 font-semibold">{msg}</p>}
+      {msg && <p className="text-xs text-danger font-semibold">{msg}</p>}
 
       {canManage && active && (
         <div className="flex flex-wrap gap-2 pt-1" aria-busy={busy}>
-          {order.status === "new" && <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded">{busy ? "Ukladám…" : "Potvrdiť"}</button>}
-          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
-          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "noshow"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Neprišiel</button>
-          <button disabled={busy} onClick={() => setResched(!resched)} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
-          <button disabled={busy} onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded">Zrušiť</button>
+          {order.status === "new" && <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">{busy ? "Ukladám…" : "Potvrdiť"}</button>}
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded-lg">Vykonané</button>
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "noshow"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded-lg">Neprišiel</button>
+          <button disabled={busy} onClick={() => setResched(!resched)} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded-lg">{resched ? "Zavrieť presun" : "Presunúť"}</button>
+          <button disabled={busy} onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-danger/40 text-danger hover:bg-danger-soft disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded-lg">Zrušiť</button>
         </div>
       )}
       {canManage && order.status === "rejected" && (
         <div className="flex flex-wrap items-center gap-2">
-          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
-          <span className="text-xs text-slate-500">Pri zrušení sa prílohy vymazali — po obnovení ich treba od pacienta vyžiadať znova.</span>
+          <button disabled={busy} onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-xs font-semibold px-3 py-1.5 rounded-lg">Obnoviť</button>
+          <span className="text-xs text-muted">Pri zrušení sa prílohy vymazali — po obnovení ich treba od pacienta vyžiadať znova.</span>
         </div>
       )}
       {canManage && isSettled(order) && (
-        <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded" title="Vrátiť medzi aktívne objednávky">Vrátiť medzi aktívne</button>
+        <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded-lg" title="Vrátiť medzi aktívne objednávky">Vrátiť medzi aktívne</button>
       )}
 
       {resched && active && (
-        <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+        <div className="bg-white border border-line rounded-lg p-3 space-y-2">
           <input type="date" className={inp} min={toISODate(new Date())} value={rdate} onChange={(e) => setRdate(e.target.value)} />
           <div className="flex flex-wrap gap-2">
             {starts(rdate).map((s) => (
               <button key={s.time} onClick={() => run(async () => { await data.reschedule(order.id, rdate, s.time); setResched(false); })}
-                className="bg-white border border-slate-300 hover:border-brand text-brand text-xs font-semibold px-3 py-1.5 rounded">{s.time}</button>
+                className="bg-white border border-line hover:border-brand text-brand text-xs font-semibold px-3 py-1.5 rounded-lg">{s.time}</button>
             ))}
-            {starts(rdate).length === 0 && <p className="text-xs text-slate-400">Žiadne voľné časy v tento deň.</p>}
+            {starts(rdate).length === 0 && <p className="text-xs text-muted">Žiadne voľné časy v tento deň.</p>}
           </div>
         </div>
       )}
       {cancelOpen && active && (
-        <div className="bg-white border border-red-200 rounded-lg p-3 space-y-2">
+        <div className="bg-white border border-danger/40 rounded-lg p-3 space-y-2">
           <div className="flex flex-wrap gap-2">
             {["Na žiadosť pacienta", "Prekážka na strane pracoviska", "Duplicitná objednávka"].map((r) => (
-              <button key={r} disabled={busy} onClick={() => doCancel(r)} className="bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded">{r}</button>
+              <button key={r} disabled={busy} onClick={() => doCancel(r)} className="bg-white border border-danger/40 text-danger hover:bg-danger-soft disabled:opacity-50 text-xs font-semibold px-3 py-1.5 rounded-lg">{r}</button>
             ))}
           </div>
           <div className="flex gap-2">
             <input className={inp} placeholder="Vlastný dôvod…" value={cancelText} onChange={(e) => setCancelText(e.target.value)} />
-            <button disabled={busy} onClick={() => doCancel(cancelText.trim() || "Zrušené pracoviskom")} className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded shrink-0">Zrušiť</button>
+            <button disabled={busy} onClick={() => doCancel(cancelText.trim() || "Zrušené pracoviskom")} className="bg-danger hover:bg-danger/90 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0">Zrušiť</button>
           </div>
         </div>
       )}
@@ -715,34 +715,34 @@ function daySegments(openCells, orders) {
 
 // ---------- Kompaktný riadok objednávky (zoznamy v správe) ----------
 // Jeden riadok: čas · pacient · vyšetrenie · stav; rozbalí sa na plnú kartu.
-const statusChip = (s) => s === "confirmed" ? "bg-brand-soft text-brand" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : s === "noshow" ? "bg-slate-200 text-slate-700" : "bg-slate-100 text-slate-600";
+const statusChip = (s) => s === "confirmed" ? "bg-brand-soft text-brand" : s === "new" ? "bg-warn-soft text-warn" : s === "done" ? "bg-success-soft text-success" : s === "rejected" ? "bg-danger-soft text-danger" : s === "noshow" ? "bg-line text-ink" : "bg-soft text-muted";
 function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const [msg, setMsg] = useMsg();
   const confirm = async (e) => { e.stopPropagation(); setMsg(""); try { await data.setStatus(order.id, "confirmed"); } catch (err) { setMsg(err?.message || String(err)); } };
   const endTime = order.durationMin ? addMinutes(order.time, order.durationMin) : "";
   return (
-    <div data-testid="order-row" data-status={order.status} className={`border border-line rounded-lg bg-white ${open ? "shadow-sm" : ""} ${isSettled(order) && !open ? "opacity-70" : ""}`}>
+    <div data-testid="order-row" data-status={order.status} className={`border border-line rounded-lg bg-white ${open ? "" : ""} ${isSettled(order) && !open ? "opacity-70" : ""}`}>
       <div role="button" tabIndex={0} onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}
         className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-page rounded-lg">
-        <div className="shrink-0 w-[4.6rem] text-sm font-mono font-bold text-slate-800 leading-tight">
-          {showDate && <span className="block text-[11px] font-sans font-normal text-slate-500">{fmtD(order.date)}</span>}
-          {order.time}{endTime && <span className="block text-[10px] font-normal text-slate-400">–{endTime}</span>}
+        <div className="shrink-0 w-[4.6rem] text-sm font-mono font-semibold text-ink leading-tight">
+          {showDate && <span className="block text-xs font-sans font-normal text-muted">{fmtD(order.date)}</span>}
+          {order.time}{endTime && <span className="block text-xs font-normal text-muted">–{endTime}</span>}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-semibold text-sm text-slate-800 truncate">{order.patientName}</span>
+            <span className="font-semibold text-sm text-ink truncate">{order.patientName}</span>
             <ArrivedBadge order={order} />
           </div>
-          <div className="text-xs text-slate-500 truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}</div>
+          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}</div>
         </div>
-        <span className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
+        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
         {canManage && order.status === "new" && !open && (
-          <button type="button" onClick={confirm} className="shrink-0 bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>
+          <button type="button" onClick={confirm} className="shrink-0 bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Potvrdiť</button>
         )}
-        <span className="shrink-0 text-slate-400 text-xs" aria-label={open ? "Zbaliť" : "Rozbaliť"}>{open ? "▴" : "▾"}</span>
+        <span className="shrink-0 text-muted text-xs" aria-label={open ? "Zbaliť" : "Rozbaliť"}>{open ? "▴" : "▾"}</span>
       </div>
-      {msg && <p className="px-3 pb-2 text-xs text-red-600 font-semibold">{msg}</p>}
+      {msg && <p className="px-3 pb-2 text-xs text-danger font-semibold">{msg}</p>}
       {open && <div className="px-2 pb-2"><AngioOrderCard order={order} data={data} canManage={canManage} embedded /></div>}
     </div>
   );
@@ -832,7 +832,7 @@ function AngioAdmin({ data, role }) {
   // lekár vidí cez RLS len vlastných pacientov — kalendár obsadenosti by mu klamal, preto ho nemá
   const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
   const filterActive = fRange !== "all" || fStatus !== "all";
-  const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-bold transition-colors";
+  const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors";
 
   return (
     <div className="space-y-5">
@@ -843,34 +843,34 @@ function AngioAdmin({ data, role }) {
         <button type="button" onClick={() => data.reload?.()} title="Načítať aktuálne dáta" className={`${btn} ml-auto bg-white border border-line text-muted hover:text-ink`} data-testid="reload">↻ Obnoviť</button>
       </div>
       {data.loadError && <p className="text-sm font-semibold text-danger" role="alert">Dáta sa nepodarilo načítať ({data.loadError}). Zobrazený stav nemusí byť aktuálny.</p>}
-      {msg && !msg.startsWith("✓") && <p className="text-sm font-semibold text-red-600" role="alert">{msg}</p>}
+      {msg && !msg.startsWith("✓") && <p className="text-sm font-semibold text-danger" role="alert">{msg}</p>}
 
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { n: todayProgram.length, label: "dnešný program", color: "text-brand", go: () => showList("all", "today"), id: "today" },
-              { n: arrivedToday, label: "v čakárni", color: "text-emerald-600", go: () => showList("all", "arrived"), id: "arrived" },
-              { n: pending.length, label: "nové (na potvrdenie)", color: "text-amber-600", go: () => showList("new", "all"), id: "new" },
+              { n: arrivedToday, label: "v čakárni", color: "text-success", go: () => showList("all", "arrived"), id: "arrived" },
+              { n: pending.length, label: "nové (na potvrdenie)", color: "text-warn", go: () => showList("new", "all"), id: "new" },
               { n: next7, label: "objednaní — 7 dní", color: "text-brand", go: () => showList("all", "week"), id: "week" },
             ].map((t) => (
               <button key={t.id} type="button" data-testid={`stat-${t.id}`} onClick={t.go} title="Zobraziť zoznam"
                 className="bg-white rounded-lg p-4 text-center hover:bg-soft hover:bg-page active:bg-brand-soft transition">
                 <div className={`text-2xl font-semibold ${t.color}`}>{t.n}</div>
-                <div className="text-xs text-slate-500">{t.label}</div>
-                <div className="text-[10px] text-brand mt-1">zobraziť ›</div>
+                <div className="text-xs text-muted">{t.label}</div>
+                <div className="text-xs text-brand mt-1">zobraziť ›</div>
               </button>
             ))}
           </div>
           {cbNew > 0 && (
             <button type="button" data-testid="stat-callbacks" onClick={() => setTab("callbacks")}
-              className="w-full text-left bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-4 py-3 text-sm font-semibold hover:bg-amber-100">
+              className="w-full text-left bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-3 text-sm font-semibold hover:bg-warn-soft">
               📞 {cbNew === 1 ? "1 pacient prosí" : `${cbNew} pacienti prosia`} o zavolanie späť — zobraziť ›
             </button>
           )}
           <div className="bg-white rounded-xl border border-line p-5">
-            <h3 className="text-lg font-bold text-brand mb-3">Dnešný program</h3>
-            {todayProgram.length === 0 ? <p className="text-sm text-slate-400">Dnes nie sú objednaní žiadni pacienti.</p>
+            <h3 className="text-lg font-semibold text-brand mb-3">Dnešný program</h3>
+            {todayProgram.length === 0 ? <p className="text-sm text-muted">Dnes nie sú objednaní žiadni pacienti.</p>
               : <div className="space-y-1.5">{todayProgram.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
           </div>
         </div>
@@ -881,9 +881,9 @@ function AngioAdmin({ data, role }) {
           {/* týždeň: 7 dní s obsadenosťou, výber dňa */}
           <div className="bg-white rounded-xl border border-line p-3 md:p-4">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => selectDay(addDays(selDay, -7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">‹ Predchádzajúci týždeň</button>
-              <button type="button" onClick={() => selectDay(todayIso)} className="text-sm font-semibold text-brand px-3 py-1 rounded border border-line hover:bg-brand-soft">Dnes</button>
-              <button type="button" onClick={() => selectDay(addDays(selDay, 7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">Nasledujúci týždeň ›</button>
+              <button type="button" onClick={() => selectDay(addDays(selDay, -7))} className="text-sm font-semibold text-brand px-2 py-1 rounded-lg hover:bg-brand-soft">‹ Predchádzajúci týždeň</button>
+              <button type="button" onClick={() => selectDay(todayIso)} className="text-sm font-semibold text-brand px-3 py-1 rounded-lg border border-line hover:bg-brand-soft">Dnes</button>
+              <button type="button" onClick={() => selectDay(addDays(selDay, 7))} className="text-sm font-semibold text-brand px-2 py-1 rounded-lg hover:bg-brand-soft">Nasledujúci týždeň ›</button>
             </div>
             <div className="grid grid-cols-7 gap-1 md:gap-2">
               {weekDays.map((iso) => {
@@ -891,13 +891,13 @@ function AngioAdmin({ data, role }) {
                 return (
                   <button key={iso} type="button" data-iso={iso} data-testid="week-day" onClick={() => selectDay(iso)}
                     className={`rounded-lg border p-1.5 md:p-2 text-left transition-colors ${sel ? "border-brand bg-brand-soft" : "border-line hover:bg-page"} ${past ? "opacity-60" : ""}`}>
-                    <div className={`text-[11px] md:text-xs font-semibold ${iso === todayIso ? "text-brand" : "text-slate-500"}`}>{DOW_SHORT[d.getDay()]} {d.getDate()}.{d.getMonth() + 1}.{iso === todayIso ? " · dnes" : ""}</div>
+                    <div className={`text-xs md:text-xs font-semibold ${iso === todayIso ? "text-brand" : "text-muted"}`}>{DOW_SHORT[d.getDay()]} {d.getDate()}.{d.getMonth() + 1}.{iso === todayIso ? " · dnes" : ""}</div>
                     {st.open === 0
-                      ? <div className="text-[11px] text-slate-400 mt-1">{st.patients ? `${st.patients} pac.` : "zatvorené"}</div>
+                      ? <div className="text-xs text-muted mt-1">{st.patients ? `${st.patients} pac.` : "zatvorené"}</div>
                       : (<>
-                        <div className="text-sm md:text-base font-semibold text-ink mt-0.5">{st.patients} <span className="text-[11px] font-normal text-slate-500">pac.</span></div>
-                        <div className="h-1.5 rounded bg-line mt-1 overflow-hidden"><div className="h-full bg-brand" style={{ width: `${Math.round(100 * (st.open - st.free) / st.open)}%` }} /></div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{st.free > 0 ? `voľné ${fmtDur(st.free * 5)}` : "plný"}{st.waiting ? ` · 🪑 ${st.waiting}` : ""}</div>
+                        <div className="text-sm md:text-base font-semibold text-ink mt-0.5">{st.patients} <span className="text-xs font-normal text-muted">pac.</span></div>
+                        <div className="h-1.5 rounded-lg bg-line mt-1 overflow-hidden"><div className="h-full bg-brand" style={{ width: `${Math.round(100 * (st.open - st.free) / st.open)}%` }} /></div>
+                        <div className="text-xs text-muted mt-0.5">{st.free > 0 ? `voľné ${fmtDur(st.free * 5)}` : "plný"}{st.waiting ? ` · 🪑 ${st.waiting}` : ""}</div>
                       </>)}
                   </button>
                 );
@@ -909,11 +909,11 @@ function AngioAdmin({ data, role }) {
             {/* deň: čakáreň → nasledujúci + voľné bloky → vybavení */}
             <div className="bg-white rounded-xl border border-line p-4 md:p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-                <h3 className="text-lg font-bold text-brand">{fmtLong(selDay)}</h3>
-                <p className="text-xs text-slate-500">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"}{dayRange ? ` · otvorené ${dayRange}` : ""} · {dayFree.length} voľných buniek{dayFree.length ? ` (${fmtDur(dayFree.length * 5)})` : ""}</p>
+                <h3 className="text-lg font-semibold text-brand">{fmtLong(selDay)}</h3>
+                <p className="text-xs text-muted">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"}{dayRange ? ` · otvorené ${dayRange}` : ""} · {dayFree.length} voľných buniek{dayFree.length ? ` (${fmtDur(dayFree.length * 5)})` : ""}</p>
               </div>
               {dayOrders.length === 0 && dayOpen.length === 0 && (
-                <div className="text-sm text-slate-500 space-y-2">
+                <div className="text-sm text-muted space-y-2">
                   <p>V tento deň nie sú otvorené termíny.</p>
                   {canManage && selDay >= todayIso && (
                     <button onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
@@ -925,24 +925,24 @@ function AngioAdmin({ data, role }) {
               )}
               {waiting.length > 0 && (
                 <div className="mb-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 mb-1">V čakárni ({waiting.length})</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-success mb-1">V čakárni ({waiting.length})</p>
                   <div className="space-y-1.5">{waiting.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>
                 </div>
               )}
               {timeline.length > 0 && (
                 <div>
-                  {waiting.length > 0 && <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Program dňa</p>}
+                  {waiting.length > 0 && <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">Program dňa</p>}
                   <div className="space-y-1.5">
                     {timeline.map((x) => x.order ? (
                       <div key={x.order.id}>
-                        {x.outOfHours && <p className="text-[10px] text-warn pl-1">mimo otvorených hodín</p>}
+                        {x.outOfHours && <p className="text-xs text-warn pl-1">mimo otvorených hodín</p>}
                         <AngioOrderRow order={x.order} data={data} canManage={canManage} />
                       </div>
                     ) : (
                       <div key={`f-${x.start}`} data-testid="free-block" className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-dashed border-success/50 bg-success-soft/40 text-sm">
                         <span className="shrink-0 w-[6.6rem] font-mono text-success font-semibold whitespace-nowrap">{x.start}–{x.end}</span>
-                        <span className="flex-1 text-slate-600 truncate">voľné {fmtDur(x.cells.length * 5)}{x.doctor ? ` · ${x.doctor}` : " · ktorýkoľvek lekár"}</span>
-                        {canManage && <button type="button" disabled={busyAll} title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end} (${fmtDur(x.cells.length * 5)})`)} className="shrink-0 text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-50 px-2 py-1 rounded hover:bg-red-50">Zavrieť</button>}
+                        <span className="flex-1 text-muted truncate">voľné {fmtDur(x.cells.length * 5)}{x.doctor ? ` · ${x.doctor}` : " · ktorýkoľvek lekár"}</span>
+                        {canManage && <button type="button" disabled={busyAll} title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end} (${fmtDur(x.cells.length * 5)})`)} className="shrink-0 text-xs font-semibold text-muted hover:text-danger disabled:opacity-50 px-2 py-1 rounded-lg hover:bg-danger-soft">Zavrieť</button>}
                       </div>
                     ))}
                   </div>
@@ -950,20 +950,20 @@ function AngioAdmin({ data, role }) {
               )}
               {settled.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Vybavené ({settled.length})</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">Vybavené ({settled.length})</p>
                   <div className="space-y-1.5">{settled.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>
                 </div>
               )}
               {canManage && dayFree.length > 0 && (
                 <div className="mt-3">
-                  <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-slate-500 hover:text-brand">
+                  <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-muted hover:text-brand">
                     {freeOpen ? "▴ Skryť voľné bunky" : `▾ Voľné 5-min bunky (${dayFree.length}) — zavrieť jednotlivo`}
                   </button>
                   {freeOpen && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {dayFree.map((c) => (
                         <button key={c.time} onClick={() => run(() => data.closeSlot(selDay, c.time))} title="Zavrieť termín"
-                          className="text-xs bg-success-soft border border-success/40 text-success rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
+                          className="text-xs bg-success-soft border border-success/40 text-success rounded-lg px-2 py-1 hover:bg-danger-soft hover:border-danger/40 hover:text-danger">
                           {c.time} ✕
                         </button>
                       ))}
@@ -980,54 +980,54 @@ function AngioAdmin({ data, role }) {
                   onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
                   isAvailable={isAvailableAdmin} isSelectable={() => true}
                   selected={selDay} onSelect={(iso) => selectDay(iso)} />
-                <p className="text-[11px] text-slate-400 mt-1 text-center">Modré dni majú otvorené termíny.</p>
+                <p className="text-xs text-muted mt-1 text-center">Modré dni majú otvorené termíny.</p>
               </div>
               {canManage && (
                 <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="open-panel">
-                  <h3 className="text-base font-bold text-brand">Otvoriť termíny</h3>
+                  <h3 className="text-base font-semibold text-brand">Otvoriť termíny</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {[["Dopoludnie", "07:30", "12:00"], ["Celý deň", "07:30", "15:30"], ["Popoludnie", "12:00", "15:30"]].map(([l, f, t]) => (
                       <button key={l} type="button" onClick={() => { setWtFrom(f); setWtTo(t); }}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${wtFrom === f && wtTo === t ? "bg-brand text-white border-brand" : "border-line text-slate-600 hover:bg-page"}`}>{l} {f}–{t}</button>
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${wtFrom === f && wtTo === t ? "bg-brand text-white border-brand" : "border-line text-muted hover:bg-page"}`}>{l} {f}–{t}</button>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs text-slate-600">Od dňa<input type="date" className={inp} value={wFrom} onChange={(e) => { setWFrom(e.target.value); if (e.target.value > wTo) setWTo(e.target.value); }} /></label>
-                    <label className="text-xs text-slate-600">Do dňa<input type="date" className={inp} value={wTo} onChange={(e) => setWTo(e.target.value)} /></label>
-                    <label className="text-xs text-slate-600">Od<input type="time" step={300} className={inp} value={wtFrom} onChange={(e) => setWtFrom(e.target.value)} /></label>
-                    <label className="text-xs text-slate-600">Do<input type="time" step={300} className={inp} value={wtTo} onChange={(e) => setWtTo(e.target.value)} /></label>
+                    <label className="text-xs text-muted">Od dňa<input type="date" className={inp} value={wFrom} onChange={(e) => { setWFrom(e.target.value); if (e.target.value > wTo) setWTo(e.target.value); }} /></label>
+                    <label className="text-xs text-muted">Do dňa<input type="date" className={inp} value={wTo} onChange={(e) => setWTo(e.target.value)} /></label>
+                    <label className="text-xs text-muted">Od<input type="time" step={300} className={inp} value={wtFrom} onChange={(e) => setWtFrom(e.target.value)} /></label>
+                    <label className="text-xs text-muted">Do<input type="time" step={300} className={inp} value={wtTo} onChange={(e) => setWtTo(e.target.value)} /></label>
                   </div>
-                  <label className="block text-xs text-slate-600">Lekár
+                  <label className="block text-xs text-muted">Lekár
                     <select className={inp} value={wDoctor} onChange={(e) => setWDoctor(e.target.value)}>
                       <option value="">— ktorýkoľvek —</option>
                       {data.doctors.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
                     </select>
                   </label>
                   {wFrom !== wTo && (
-                    <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={wSkipWeekends} onChange={(e) => setWSkipWeekends(e.target.checked)} className="accent-brand" /> preskočiť soboty a nedele</label>
+                    <label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={wSkipWeekends} onChange={(e) => setWSkipWeekends(e.target.checked)} className="accent-brand" /> preskočiť soboty a nedele</label>
                   )}
                   <button type="button" disabled={busyAll || openPreview.cells === 0}
                     onClick={() => { if (openPreview.days > 10 && !window.confirm(`Otvoriť termíny na ${openPreview.days} dní?`)) return; run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: wFrom !== wTo && wSkipWeekends }), "✓ Termíny otvorené."); }}
                     className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg" data-testid="open-run">
                     {busyAll ? "Ukladám…" : openPreview.past ? "Minulé dni nemožno otvoriť" : openPreview.weekendOnly ? "V rozsahu nie sú pracovné dni" : openPreview.cells === 0 ? "Zadajte platný rozsah" : `Otvoriť ${openPreview.days === 1 ? "deň" : `${openPreview.days} ${openPreview.days < 5 ? "dni" : "dní"}`} · ${fmtDur(openPreview.times * 5)}${openPreview.days > 1 ? " denne" : ""}`}
                   </button>
-                  <p className="text-[11px] text-slate-400">Už otvorené časy sa nemenia (ani lekár); ak treba zmeniť lekára, čas najprv zavrite. Dĺžku vyšetrenia určuje typ v Nastaveniach.</p>
+                  <p className="text-xs text-muted">Už otvorené časy sa nemenia (ani lekár); ak treba zmeniť lekára, čas najprv zavrite. Dĺžku vyšetrenia určuje typ v Nastaveniach.</p>
                 </div>
               )}
               {canManage && dayFree.length > 0 && (
                 <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="close-panel">
-                  <h3 className="text-base font-bold text-slate-700">Zavrieť voľné termíny · {fmtD(selDay)}</h3>
+                  <h3 className="text-base font-semibold text-ink">Zavrieť voľné termíny · {fmtD(selDay)}</h3>
                   <button type="button" disabled={busyAll} onClick={() => closeCells(dayFree.map((c) => c.time), `všetky voľné termíny ${fmtD(selDay)} (${fmtDur(dayFree.length * 5)})`)}
-                    className="w-full bg-white border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 font-semibold px-4 py-2 rounded-lg text-sm" data-testid="close-all-free">
+                    className="w-full bg-white border border-danger/40 text-danger hover:bg-danger-soft disabled:opacity-50 font-semibold px-4 py-2 rounded-lg text-sm" data-testid="close-all-free">
                     Zavrieť všetky voľné ({fmtDur(dayFree.length * 5)})
                   </button>
                   <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                    <label className="text-xs text-slate-600">Od<input type="time" step={300} className={inp} value={cFrom} onChange={(e) => setCFrom(e.target.value)} /></label>
-                    <label className="text-xs text-slate-600">Do<input type="time" step={300} className={inp} value={cTo} onChange={(e) => setCTo(e.target.value)} /></label>
+                    <label className="text-xs text-muted">Od<input type="time" step={300} className={inp} value={cFrom} onChange={(e) => setCFrom(e.target.value)} /></label>
+                    <label className="text-xs text-muted">Do<input type="time" step={300} className={inp} value={cTo} onChange={(e) => setCTo(e.target.value)} /></label>
                     <button type="button" disabled={busyAll || freeInRange.length === 0} onClick={() => closeCells(freeInRange, `voľné termíny ${cFrom}–${cTo} (${fmtDur(freeInRange.length * 5)})`)}
                       className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-sm font-semibold px-3 py-2 rounded-lg" data-testid="close-range">Zavrieť</button>
                   </div>
-                  <p className="text-[11px] text-slate-400">Zatvárajú sa len voľné časy; obsadené termíny pacientov ostávajú.</p>
+                  <p className="text-xs text-muted">Zatvárajú sa len voľné časy; obsadené termíny pacientov ostávajú.</p>
                 </div>
               )}
             </div>
@@ -1050,10 +1050,10 @@ function AngioAdmin({ data, role }) {
               <option value="arrived">V čakárni (dnes)</option>
             </select>
             <input className={inp + " flex-1 min-w-[10rem]"} placeholder="Hľadať meno / číslo / telefón" value={fText} onChange={(e) => setFText(e.target.value)} />
-            <span className="text-xs text-slate-500">{filtered.length} objednávok</span>
+            <span className="text-xs text-muted">{filtered.length} objednávok</span>
             {filterActive && <button type="button" onClick={() => { setFRange("all"); setFStatus("all"); }} className="text-xs font-semibold text-brand hover:underline" data-testid="filter-reset">zrušiť filter ✕</button>}
           </div>
-          {filtered.length === 0 ? <p className="text-sm text-slate-400">Žiadne objednávky.</p>
+          {filtered.length === 0 ? <p className="text-sm text-muted">Žiadne objednávky.</p>
             : <div className="space-y-1.5">{filtered.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} showDate />)}</div>}
         </div>
       )}
@@ -1068,7 +1068,7 @@ function AngioAdmin({ data, role }) {
 // +421 949 123 456 z normalizovaného čísla (len číslice) — zobrazuje sa overené číslo, nie surový vstup pacienta
 const fmtIntlPhone = (n) => (n && /^\d{11,15}$/.test(n) ? `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}` : "");
 const CB_STATUSES = { new: "Nová", called: "Volané", booked: "Objednaný", unreachable: "Nedovolali sme sa", closed: "Uzavreté" };
-const cbChip = (s) => s === "new" ? "bg-amber-100 text-amber-800" : s === "booked" ? "bg-emerald-100 text-emerald-800" : s === "unreachable" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
+const cbChip = (s) => s === "new" ? "bg-warn-soft text-warn" : s === "booked" ? "bg-success-soft text-success" : s === "unreachable" ? "bg-danger-soft text-danger" : "bg-soft text-muted";
 function AngioCallbackRow({ cb, data, canManage }) {
   const [status, setStatus] = useState(cb.status);
   const [note, setNote] = useState(cb.statusNote || "");
@@ -1082,23 +1082,23 @@ function AngioCallbackRow({ cb, data, canManage }) {
   return (
     <div data-testid="callback-row" className="border border-line rounded-lg bg-white p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-slate-800">{cb.patientName}</span>
-        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-bold text-brand hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
-        {prefTxt && <span className="text-xs text-slate-500">volať {prefTxt}</span>}
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
-        <span className="ml-auto text-xs text-slate-400">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>
+        <span className="font-semibold text-ink">{cb.patientName}</span>
+        <a href={`tel:${cb.phoneNorm ? "+" + cb.phoneNorm : cb.phone}`} className="font-mono font-semibold text-brand hover:underline" data-testid="callback-phone">{fmtIntlPhone(cb.phoneNorm) || cb.phone}</a>
+        {prefTxt && <span className="text-xs text-muted">volať {prefTxt}</span>}
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cbChip(cb.status)}`}>{CB_STATUSES[cb.status] || cb.status}</span>
+        <span className="ml-auto text-xs text-muted">{whenTxt}{cb.source === "zachrannohu" ? " · Zachráň nohu" : ""} · {cb.id}</span>
       </div>
       {canManage && (
         <div className="flex flex-wrap gap-2 items-center">
-          <select className="p-2 bg-white border border-slate-300 rounded-md text-sm" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="callback-status">
+          <select className="p-2 bg-white border border-line rounded-lg text-sm" value={status} onChange={(e) => setStatus(e.target.value)} data-testid="callback-status">
             {Object.entries(CB_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <input className="flex-1 min-w-[12rem] p-2 bg-white border border-slate-300 rounded-md text-sm" placeholder="Poznámka (napr. objednaný na 20.10. 9:00, číslo objednávky)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="callback-note" />
-          <button type="button" onClick={save} disabled={!dirty} className="bg-brand hover:bg-brand-dark disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-md">Uložiť</button>
-          {msg && <span className={`text-xs font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</span>}
+          <input className="flex-1 min-w-[12rem] p-2 bg-white border border-line rounded-lg text-sm" placeholder="Poznámka (napr. objednaný na 20.10. 9:00, číslo objednávky)" value={note} onChange={(e) => setNote(e.target.value)} data-testid="callback-note" />
+          <button type="button" onClick={save} disabled={!dirty} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť</button>
+          {msg && <span className={`text-xs font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</span>}
         </div>
       )}
-      {!canManage && cb.statusNote && <p className="text-xs text-slate-600">{cb.statusNote}</p>}
+      {!canManage && cb.statusNote && <p className="text-xs text-muted">{cb.statusNote}</p>}
     </div>
   );
 }
@@ -1108,13 +1108,13 @@ function AngioCallbacks({ data, canManage }) {
   return (
     <div className="bg-white rounded-xl border border-line p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-bold text-brand">Spätné volania</h3>
-        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <h3 className="text-lg font-semibold text-brand">Spätné volania</h3>
+        <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
           <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} data-testid="callbacks-only-open" /> len nevybavené
         </label>
       </div>
-      <p className="text-xs text-slate-400">Pacienti, ktorí nezvládli online objednanie a nechali nám číslo (stránka Zachráň nohu / angio). Sľúbili sme im hovor najneskôr nasledujúci pracovný deň. Po hovore zmeňte stav a objednajte ich cez stránku objednávania.</p>
-      {list.length === 0 ? <p className="text-sm text-slate-400" data-testid="callbacks-empty">{onlyOpen ? "Žiadne nevybavené žiadosti." : "Zatiaľ žiadne žiadosti."}</p>
+      <p className="text-xs text-muted">Pacienti, ktorí nezvládli online objednanie a nechali nám číslo (stránka Zachráň nohu / angio). Sľúbili sme im hovor najneskôr nasledujúci pracovný deň. Po hovore zmeňte stav a objednajte ich cez stránku objednávania.</p>
+      {list.length === 0 ? <p className="text-sm text-muted" data-testid="callbacks-empty">{onlyOpen ? "Žiadne nevybavené žiadosti." : "Zatiaľ žiadne žiadosti."}</p>
         : <div className="space-y-2">{list.map((cb) => <AngioCallbackRow key={cb.id} cb={cb} data={data} canManage={canManage} />)}</div>}
     </div>
   );
@@ -1151,13 +1151,13 @@ function AngioSettings({ data, isSuper }) {
 
   return (
     <div className="space-y-5">
-      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>}
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-        <h3 className="text-lg font-bold text-brand">Typy vyšetrení / návštev</h3>
-        <p className="text-xs text-slate-400">Poradie v zozname je poradie, v akom typy uvidí pacient — šípkami ▲▼ ho zmeníte a uložte.</p>
+        <h3 className="text-lg font-semibold text-brand">Typy vyšetrení / návštev</h3>
+        <p className="text-xs text-muted">Poradie v zozname je poradie, v akom typy uvidí pacient — šípkami ▲▼ ho zmeníte a uložte.</p>
         {exams.map((e, i) => (
-          <div key={e.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
+          <div key={e.id} className="border border-line rounded-lg p-3 space-y-2">
             <div className="flex gap-2">
               <input className={inp} placeholder="Názov vyšetrenia" value={e.label} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, label: ev.target.value } : x))} />
               <label className="text-sm shrink-0">Trvanie<br />
@@ -1166,16 +1166,16 @@ function AngioSettings({ data, isSuper }) {
                 </select>
               </label>
               <div className="flex flex-col shrink-0 self-start pt-1">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Posunúť vyššie" aria-label="Posunúť vyššie" className="text-slate-500 hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-30">▲</button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === exams.length - 1} title="Posunúť nižšie" aria-label="Posunúť nižšie" className="text-slate-500 hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-30">▼</button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Posunúť vyššie" aria-label="Posunúť vyššie" className="text-muted hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-50">▲</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === exams.length - 1} title="Posunúť nižšie" aria-label="Posunúť nižšie" className="text-muted hover:text-brand text-xs leading-none px-1 py-0.5 disabled:opacity-50">▼</button>
               </div>
-              <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2">✕</button>
+              <button onClick={() => setExams((p) => p.filter((_, j) => j !== i))} className="text-danger text-sm shrink-0 self-start pt-2">✕</button>
             </div>
             <input className={inp} placeholder="Krátky popis (jeden riadok) — pacient ho vidí pri výbere vyšetrenia" value={e.description || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, description: ev.target.value } : x))} />
             <textarea className={inp} rows={e.about && e.about.length > 200 ? 8 : 3} placeholder="Popis vyšetrenia — čo to je, pre koho, trvanie, priebeh. Pacient ho vidí na stránke po rozkliknutí ‚Viac o vyšetrení‘ (do e-mailu nejde)" value={e.about || ""} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, about: ev.target.value } : x))} />
             <textarea className={inp} rows={e.instructions && e.instructions.length > 200 ? 8 : 3} placeholder="Pokyny do e-mailu — len praktické veci: Čo priniesť, Príprava… Pacient ich dostane v potvrdzovacom e-maili a v pripomienke" value={e.instructions} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, instructions: ev.target.value } : x))} />
-            <p className="text-[11px] text-slate-400">Formátovanie (popis aj pokyny): riadok končiaci dvojbodkou = tučný nadpis (napr. „Čo priniesť:"), riadky začínajúce „- " = odrážky, prázdny riadok = nový odsek.</p>
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <p className="text-xs text-muted">Formátovanie (popis aj pokyny): riadok končiaci dvojbodkou = tučný nadpis (napr. „Čo priniesť:"), riadky začínajúce „- " = odrážky, prázdny riadok = nový odsek.</p>
+            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
               <input type="checkbox" checked={e.requiresReferral !== false} onChange={(ev) => setExams((p) => p.map((x, j) => j === i ? { ...x, requiresReferral: ev.target.checked } : x))} />
               Vyžaduje žiadanku (výmenný lístok) — pacient ju musí priložiť pri objednaní
             </label>
@@ -1186,17 +1186,17 @@ function AngioSettings({ data, isSuper }) {
       </div>
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-        <h3 className="text-lg font-bold text-brand">Spoločné pokyny pre pacientov</h3>
-        <p className="text-xs text-slate-400">Jeden pokyn na riadok. Pacient ich dostane v potvrdzovacom e-maili, pri zmene termínu a v pripomienke deň vopred — na stránke sa nezobrazujú. Platia pre všetky typy vyšetrení.</p>
+        <h3 className="text-lg font-semibold text-brand">Spoločné pokyny pre pacientov</h3>
+        <p className="text-xs text-muted">Jeden pokyn na riadok. Pacient ich dostane v potvrdzovacom e-maili, pri zmene termínu a v pripomienke deň vopred — na stránke sa nezobrazujú. Platia pre všetky typy vyšetrení.</p>
         {!isSuper && <p className="text-xs text-warn">Spoločné pokyny môže meniť len superadmin.</p>}
         <textarea className={inp} rows={8} placeholder="Napr. Príďte 10 minút pred termínom…" value={notes} onChange={(ev) => setNotes(ev.target.value)} disabled={!isSuper} />
         {isSuper && <div><button onClick={saveNotesClick} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť spoločné pokyny</button></div>}
       </div>
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-        <h3 className="text-lg font-bold text-brand">Overovanie telefónu SMS kódom</h3>
-        <p className="text-xs text-slate-400">Pacient si pred odoslaním objednávky nechá poslať 6-miestny kód SMS a zadá ho — objednávka bez overeného čísla neprejde. Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje spustený angio-005.sql a kľúče SMS brány.)</p>
-        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <h3 className="text-lg font-semibold text-brand">Overovanie telefónu SMS kódom</h3>
+        <p className="text-xs text-muted">Pacient si pred odoslaním objednávky nechá poslať 6-miestny kód SMS a zadá ho — objednávka bez overeného čísla neprejde. Kód platí 10 minút, max. 3 SMS na číslo za 15 minút. Personál overenie nepotrebuje. (Vyžaduje spustený angio-005.sql a kľúče SMS brány.)</p>
+        <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
           <input type="checkbox" data-testid="sms-verify-toggle" checked={smsVerify} onChange={(ev) => setSmsVerify(ev.target.checked)} disabled={!isSuper} />
           Vyžadovať overenie telefónneho čísla SMS kódom pri objednaní
         </label>
@@ -1205,21 +1205,21 @@ function AngioSettings({ data, isSuper }) {
       </div>
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-        <h3 className="text-lg font-bold text-brand">Spätné volania — mobil pre SMS</h3>
-        <p className="text-xs text-slate-400">Keď pacient na stránke nechá číslo („Zavolajte mi späť"), príde SMS na tento mobil a e-mail na kópiu objednávok. Prázdne = SMS sa neposiela, e-mail áno. (Vyžaduje spustený angio-013.sql.)</p>
+        <h3 className="text-lg font-semibold text-brand">Spätné volania — mobil pre SMS</h3>
+        <p className="text-xs text-muted">Keď pacient na stránke nechá číslo („Zavolajte mi späť"), príde SMS na tento mobil a e-mail na kópiu objednávok. Prázdne = SMS sa neposiela, e-mail áno. (Vyžaduje spustený angio-013.sql.)</p>
         <input className={inp} type="tel" placeholder="napr. 0949 000 677" value={cbSmsTo} onChange={(ev) => setCbSmsTo(ev.target.value)} disabled={!isSuper} data-testid="callback-sms-to" />
         {!isSuper && <p className="text-xs text-warn">Mobil môže zmeniť len superadmin.</p>}
         {isSuper && <div><button onClick={saveCbSmsToClick} className="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-lg">Uložiť mobil</button></div>}
       </div>
 
       <div className="bg-white rounded-xl border border-line p-5 space-y-3">
-        <h3 className="text-lg font-bold text-brand">Lekári ambulancie</h3>
+        <h3 className="text-lg font-semibold text-brand">Lekári ambulancie</h3>
         {!isSuper && <p className="text-xs text-warn">Zoznam lekárov môže meniť len superadmin.</p>}
         {docs.map((d, i) => (
-          <div key={i} className="border border-slate-200 rounded-lg p-3 space-y-2">
+          <div key={i} className="border border-line rounded-lg p-3 space-y-2">
             <div className="flex gap-2">
               <input className={inp} placeholder="MUDr. Meno Priezvisko" value={d.name} onChange={(e) => setDocs((p) => p.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} disabled={!isSuper} />
-              <button onClick={() => setDocs((p) => p.filter((_, j) => j !== i))} className="text-red-600 text-sm shrink-0 self-start pt-2" disabled={!isSuper}>✕</button>
+              <button onClick={() => setDocs((p) => p.filter((_, j) => j !== i))} className="text-danger text-sm shrink-0 self-start pt-2" disabled={!isSuper}>✕</button>
             </div>
             <input className={inp} placeholder="Ambulancia / miesto" value={d.location} onChange={(e) => setDocs((p) => p.map((x, j) => j === i ? { ...x, location: e.target.value } : x))} disabled={!isSuper} />
             <div className="flex flex-wrap gap-2">
@@ -1228,11 +1228,11 @@ function AngioSettings({ data, isSuper }) {
                 return (
                   <button key={ex.id} disabled={!isSuper}
                     onClick={() => setDocs((p) => p.map((x, j) => j === i ? { ...x, examTypeIds: on ? x.examTypeIds.filter((t) => t !== ex.id) : [...(x.examTypeIds || []), ex.id] } : x))}
-                    className={`text-xs px-2 py-1 rounded border ${on ? "bg-brand text-white border-brand" : "bg-white text-slate-600 border-slate-300"}`}>{ex.label}</button>
+                    className={`text-xs px-2 py-1 rounded-lg border ${on ? "bg-brand text-white border-brand" : "bg-white text-muted border-line"}`}>{ex.label}</button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-slate-400">Ak nevyberiete žiadne, lekár robí všetky.</p>
+            <p className="text-xs text-muted">Ak nevyberiete žiadne, lekár robí všetky.</p>
           </div>
         ))}
         {isSuper && <button onClick={() => setDocs((p) => [...p, { name: "", email: "", location: "", examTypeIds: [] }])} className="bg-soft text-ink text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať lekára</button>}
@@ -1266,7 +1266,7 @@ export function AngioPatientApp() {
     <div className="space-y-4">
       <div className="relative overflow-hidden rounded-xl bg-brand-dark text-white p-6 md:p-8 border border-line">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-          <p className="text-[11px] md:text-xs font-bold tracking-wide text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
+          <p className="text-xs md:text-xs font-semibold tracking-wide text-white/70 uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
           <a href="#/" className="text-xs font-semibold text-white/90 hover:text-white hover:underline whitespace-nowrap">← Objednávanie na USG</a>
         </div>
         <h1 className="text-2xl md:text-3xl font-semibold leading-tight">{CLINIC_NAME}</h1>

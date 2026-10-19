@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { inputSmCls } from "./ui.jsx";
 import { useMsg } from "./toast.jsx";
 import { PaymentQr } from "./booking.jsx";
 import { paymentReady, PAYMENT_PENDING_TEXT } from "./iban.js";
@@ -51,7 +52,7 @@ export default function AdhocPaymentApp() {
     catch (err) { setMsg(err?.message || String(err)); }
   };
 
-  const input = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm focus:ring-2 focus:ring-brand outline-none";
+  const input = inputSmCls;
 
   return (
     <div className="space-y-5">
@@ -62,34 +63,34 @@ export default function AdhocPaymentApp() {
 
       {!created ? (
         <div className="bg-white rounded-xl border border-line p-5 md:p-6">
-          <h2 className="text-xl font-bold text-brand mb-4">Nová platba za výkon</h2>
+          <h2 className="text-xl font-semibold text-brand mb-4">Nová platba za výkon</h2>
           <form onSubmit={submit} className="space-y-3 max-w-md">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Názov výkonu</label>
+              <label className="block text-sm font-semibold text-ink mb-1">Názov výkonu</label>
               <input className={input} value={item} onChange={(e) => setItem(e.target.value)} placeholder="napr. Konzultácia" autoFocus />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Suma (€)</label>
+              <label className="block text-sm font-semibold text-ink mb-1">Suma (€)</label>
               <input className={input} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="napr. 30" inputMode="decimal" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Meno pacienta <span className="text-slate-400 font-normal">(nepovinné)</span></label>
+              <label className="block text-sm font-semibold text-ink mb-1">Meno pacienta <span className="text-muted font-normal">(nepovinné)</span></label>
               <input className={input} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ján Novák" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail pacienta <span className="text-slate-400 font-normal">(na doručenie faktúry)</span></label>
+              <label className="block text-sm font-semibold text-ink mb-1">E-mail pacienta <span className="text-muted font-normal">(na doručenie faktúry)</span></label>
               <input className={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jan.novak@…" />
             </div>
-            {msg && <p className="text-sm text-red-600 font-semibold">{msg}</p>}
-            <button type="submit" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 px-5 rounded-lg transition-colors">
+            {msg && <p className="text-sm text-danger font-semibold">{msg}</p>}
+            <button type="submit" disabled={busy} className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold py-3 px-5 rounded-lg transition-colors">
               {busy ? "Vytváram…" : "Vytvoriť QR platbu"}
             </button>
           </form>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-line p-5 md:p-6">
-          <h2 className="text-xl font-bold text-brand mb-1">Platba za: {created.itemName}</h2>
-          <p className="text-slate-600 mb-4">Suma <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
+          <h2 className="text-xl font-semibold text-brand mb-1">Platba za: {created.itemName}</h2>
+          <p className="text-muted mb-4">Suma <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
           <div className="flex flex-col md:flex-row gap-5 items-start">
             {paymentReady(settings) ? (
               <PaymentQr
@@ -102,17 +103,17 @@ export default function AdhocPaymentApp() {
                 QR kód sa nezobrazuje — platobné údaje nie sú overené (IBAN v databáze chýba alebo sa nezhoduje s pripnutým). {PAYMENT_PENDING_TEXT}
               </div>
             )}
-            <div className="text-sm text-slate-700 space-y-1">
-              {paymentReady(settings) && <p><span className="text-slate-500">IBAN:</span> <b className="font-mono">{settings.iban}</b></p>}
-              <p><span className="text-slate-500">Suma:</span> <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
-              <p><span className="text-slate-500">Variabilný symbol:</span> <b className="font-mono">{created.variableSymbol}</b></p>
-              <p><span className="text-slate-500">Doklad:</span> {created.id}</p>
-              <p className="text-xs text-slate-500 pt-2 max-w-xs">
+            <div className="text-sm text-ink space-y-1">
+              {paymentReady(settings) && <p><span className="text-muted">IBAN:</span> <b className="font-mono">{settings.iban}</b></p>}
+              <p><span className="text-muted">Suma:</span> <b>{created.amount.toFixed(2).replace(".", ",")} €</b></p>
+              <p><span className="text-muted">Variabilný symbol:</span> <b className="font-mono">{created.variableSymbol}</b></p>
+              <p><span className="text-muted">Doklad:</span> {created.id}</p>
+              <p className="text-xs text-muted pt-2 max-w-xs">
                 {email.trim()
                   ? "Výzva na úhradu odišla pacientovi e-mailom. Po pripísaní platby sa faktúra vystaví a pošle automaticky."
                   : "Po pripísaní platby sa faktúra vystaví automaticky (e-mail sa pošle, ak ho zadáte)."}
               </p>
-              {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-red-600"}`}>{msg}</p>}
+              {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>}
               <div className="flex flex-wrap gap-2 mt-3">
                 {isSupabase && email.trim() && (
                   <button onClick={() => doResend(created.id)} className="bg-brand-soft hover:bg-line text-brand font-semibold px-4 py-2 rounded-lg transition-colors">
@@ -130,10 +131,10 @@ export default function AdhocPaymentApp() {
 
       {/* kniha ad-hoc platieb */}
       <div className="bg-white rounded-xl border border-line p-5 md:p-6">
-        <h3 className="text-lg font-bold text-brand mb-3">Ad-hoc platby</h3>
-        {msg && !created && <p className="text-sm text-red-600 font-semibold mb-2">{msg}</p>}
+        <h3 className="text-lg font-semibold text-brand mb-3">Ad-hoc platby</h3>
+        {msg && !created && <p className="text-sm text-danger font-semibold mb-2">{msg}</p>}
         {payments.length === 0 ? (
-          <p className="text-sm text-slate-400">Zatiaľ žiadne platby.</p>
+          <p className="text-sm text-muted">Zatiaľ žiadne platby.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[520px]">
@@ -153,17 +154,17 @@ export default function AdhocPaymentApp() {
                     <td className="py-2 pr-3">{p.patientName || "—"}</td>
                     <td className="py-2 pr-3">
                       {p.paid
-                        ? <span className="text-xs font-bold text-white bg-brand rounded px-2 py-1">ZAPLATENÉ</span>
-                        : <span className="text-xs font-bold text-warn bg-warn-soft border border-warn/30 rounded px-2 py-1">ČAKÁ</span>}
+                        ? <span className="text-xs font-semibold text-white bg-brand rounded-lg px-2 py-1">ZAPLATENÉ</span>
+                        : <span className="text-xs font-semibold text-warn bg-warn-soft border border-warn/30 rounded-lg px-2 py-1">ČAKÁ</span>}
                     </td>
                     <td className="py-2 text-right space-x-2 whitespace-nowrap">
                       {!p.paid && isSupabase && p.email && (
-                        <button onClick={() => doResend(p.id)} className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                        <button onClick={() => doResend(p.id)} className="bg-brand-soft hover:bg-line text-brand text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                           Poslať e-mail
                         </button>
                       )}
                       {!p.paid && (
-                        <button onClick={() => doMarkPaid(p.id)} className="bg-success hover:bg-success/90 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                        <button onClick={() => doMarkPaid(p.id)} className="bg-success hover:bg-success/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                           Platba prijatá
                         </button>
                       )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { inputCls } from "./ui.jsx";
 import QRCode from "qrcode";
 
 // Dvojfaktorové overenie personálu (TOTP) — audit vlna 8.
@@ -7,8 +8,8 @@ import QRCode from "qrcode";
 // Databáza (mfa_ok) pri settings.mfa_enforce = 'on' bez AAL2 nič nevydá.
 
 const box = "bg-white rounded-xl border border-line p-8 max-w-md mx-auto text-center space-y-3";
-const input = "w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-800 text-center tracking-[0.4em] text-xl font-mono focus:ring-2 focus:ring-brand outline-none";
-const btn = "w-full bg-brand hover:bg-brand-dark disabled:opacity-60 text-white font-bold py-3 rounded-lg transition-colors";
+const input = inputCls + " text-center tracking-[0.4em] text-xl font-mono";
+const btn = "w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors";
 
 const onlyDigits = (s) => String(s || "").replace(/\D/g, "").slice(0, 6);
 
@@ -47,15 +48,15 @@ export const MfaEnroll = ({ auth }) => {
 
   return (
     <div className={box} data-testid="mfa-enroll">
-      <h2 className="text-xl font-bold text-brand">Nastavenie dvojfaktorového overenia</h2>
-      <p className="text-sm text-slate-600">
+      <h2 className="text-xl font-semibold text-brand">Nastavenie dvojfaktorového overenia</h2>
+      <p className="text-sm text-muted">
         Prístup k údajom pacientov vyžaduje druhý faktor. Naskenujte QR kód v aplikácii
         <b> Google Authenticator</b>, <b>Microsoft Authenticator</b> alebo <b>Authy</b> a zadajte 6-miestny kód.
       </p>
-      {!factor && !error && <p className="text-slate-400">Pripravujem…</p>}
-      {qr && <img src={qr} alt="QR kód pre autentifikátor" className="mx-auto rounded" width="220" height="220" />}
+      {!factor && !error && <p className="text-muted">Pripravujem…</p>}
+      {qr && <img src={qr} alt="QR kód pre autentifikátor" className="mx-auto rounded-lg" width="220" height="220" />}
       {factor?.secret && (
-        <p className="text-xs text-slate-500 break-all">
+        <p className="text-xs text-muted break-all">
           Bez kamery zadajte kľúč ručne: <span className="font-mono select-all" data-testid="mfa-secret">{factor.secret}</span>
         </p>
       )}
@@ -65,12 +66,12 @@ export const MfaEnroll = ({ auth }) => {
           onChange={(e) => { setCode(onlyDigits(e.target.value)); setError(""); }}
           className={input} placeholder="000000" data-testid="mfa-code" autoFocus
         />
-        {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
+        {error && <p className="text-sm text-danger font-semibold">{error}</p>}
         <button type="submit" disabled={busy || !factor || code.length !== 6} className={btn}>
           {busy ? "Overujem…" : "Aktivovať a pokračovať"}
         </button>
       </form>
-      <button onClick={auth.signOut} className="text-sm text-slate-500 hover:underline">Odhlásiť sa</button>
+      <button onClick={auth.signOut} className="text-sm text-muted hover:underline">Odhlásiť sa</button>
     </div>
   );
 };
@@ -94,21 +95,21 @@ export const MfaChallenge = ({ auth }) => {
 
   return (
     <div className={box} data-testid="mfa-challenge">
-      <h2 className="text-xl font-bold text-brand">Overovací kód</h2>
-      <p className="text-sm text-slate-600">Zadajte 6-miestny kód z aplikácie autentifikátora.</p>
+      <h2 className="text-xl font-semibold text-brand">Overovací kód</h2>
+      <p className="text-sm text-muted">Zadajte 6-miestny kód z aplikácie autentifikátora.</p>
       <form onSubmit={submit} className="space-y-3">
         <input
           inputMode="numeric" autoComplete="one-time-code" value={code}
           onChange={(e) => { setCode(onlyDigits(e.target.value)); setError(""); }}
           className={input} placeholder="000000" data-testid="mfa-code" autoFocus
         />
-        {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
+        {error && <p className="text-sm text-danger font-semibold">{error}</p>}
         <button type="submit" disabled={busy || code.length !== 6} className={btn}>
           {busy ? "Overujem…" : "Potvrdiť"}
         </button>
       </form>
-      <p className="text-xs text-slate-400">Stratili ste prístup k autentifikátoru? Kontaktujte superadmina — faktor vám zruší v Supabase (Authentication → Users).</p>
-      <button onClick={auth.signOut} className="text-sm text-slate-500 hover:underline">Odhlásiť sa</button>
+      <p className="text-xs text-muted">Stratili ste prístup k autentifikátoru? Kontaktujte superadmina — faktor vám zruší v Supabase (Authentication → Users).</p>
+      <button onClick={auth.signOut} className="text-sm text-muted hover:underline">Odhlásiť sa</button>
     </div>
   );
 };

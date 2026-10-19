@@ -138,11 +138,11 @@ const CheckinView = () => {
         <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand/85 to-transparent" />
         <div className="relative p-5 md:p-7">
           <div className="flex items-center gap-4">
-            <div className="shrink-0 bg-white rounded-lg p-2 shadow-sm">
+            <div className="shrink-0 bg-white rounded-lg p-2 ">
               <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 md:w-12 md:h-12 block" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] md:text-xs font-bold tracking-wide text-white/70 uppercase mb-1">
+              <p className="text-xs md:text-xs font-semibold tracking-wide text-white/70 uppercase mb-1">
                 Národný ústav srdcových a cievnych chorôb, a.s.
               </p>
               <h1 className="text-2xl md:text-3xl font-semibold text-white leading-tight drop-shadow-sm">Som v čakárni</h1>
@@ -155,16 +155,16 @@ const CheckinView = () => {
       </div>
 
       {confirmedAt && (
-        <div className="bg-emerald-50 border border-emerald-300 rounded-lg p-4 text-center space-y-1">
+        <div className="bg-success-soft border border-success/40 rounded-lg p-4 text-center space-y-1">
           <p className="text-3xl" aria-hidden="true">✅</p>
-          <p className="font-bold text-emerald-800">Ďakujeme, personál vie, že ste tu.</p>
-          <p className="text-sm text-emerald-700">Posaďte sa, prosím — budeme vás volať podľa poradia.</p>
-          <p className="text-sm text-emerald-800 pt-1">Kým na vás príde rad, môžete si prečítať:</p>
+          <p className="font-semibold text-success">Ďakujeme, personál vie, že ste tu.</p>
+          <p className="text-sm text-success">Posaďte sa, prosím — budeme vás volať podľa poradia.</p>
+          <p className="text-sm text-success pt-1">Kým na vás príde rad, môžete si prečítať:</p>
           <a
             href="https://cievny.tasklogy.sk/pacienti"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex flex-col items-center gap-1.5 bg-white border border-emerald-300 rounded-lg px-6 py-3 hover:bg-emerald-50 transition-colors shadow-sm"
+            className="inline-flex flex-col items-center gap-1.5 bg-white border border-success/40 rounded-lg px-6 py-3 hover:bg-success-soft transition-colors "
           >
             <img src="logo-cievny.png" alt="cievny.sk" className="h-9" />
             <span className="text-xs font-semibold text-brand">informácie pre pacientov →</span>
@@ -173,7 +173,7 @@ const CheckinView = () => {
       )}
 
       {error && (
-        <div role="alert" className="bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-700">{error}</div>
+        <div role="alert" className="bg-danger-soft border border-danger/40 rounded-lg p-3 text-sm text-danger">{error}</div>
       )}
 
       <div className="space-y-2">
@@ -190,14 +190,14 @@ const CheckinView = () => {
         <button
           onClick={search}
           disabled={busy}
-          className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
+          className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
         >
           {busy && list === null ? "Hľadám…" : "Vyhľadať moju objednávku"}
         </button>
       </div>
 
       {list !== null && list.length === 0 && (
-        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-sm text-amber-800">
+        <div className="bg-warn-soft border border-warn/30 rounded-lg p-4 text-sm text-warn">
           Na dnes sme pre toto číslo nenašli žiadnu objednávku. Skontrolujte, či ste zadali telefón
           z objednávky. Ak si myslíte, že ide o chybu, obráťte sa, prosím, na personál ambulancie.
         </div>
@@ -211,8 +211,8 @@ const CheckinView = () => {
           <div className="space-y-2">
             {list.map((o, i) => (
               <div key={i} className="bg-page border border-line rounded-lg px-4 py-3 flex items-center justify-between gap-2">
-                <span className="text-sm text-slate-600">Dnes o <strong className="text-brand">{o.time}</strong></span>
-                {o.arrivedAt && <span className="text-sm font-bold text-emerald-700">✓ prihlásený o {fmtTime(o.arrivedAt)}</span>}
+                <span className="text-sm text-muted">Dnes o <strong className="text-brand">{o.time}</strong></span>
+                {o.arrivedAt && <span className="text-sm font-semibold text-success">✓ prihlásený o {fmtTime(o.arrivedAt)}</span>}
               </div>
             ))}
           </div>
@@ -220,7 +220,7 @@ const CheckinView = () => {
             <button
               onClick={confirm}
               disabled={busy}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
+              className="w-full bg-success hover:bg-success/90 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               ✓ Som tu — potvrdiť príchod
             </button>
@@ -228,7 +228,7 @@ const CheckinView = () => {
         </div>
       )}
 
-      <p className="text-xs text-slate-400 text-center">
+      <p className="text-xs text-muted text-center">
         Číslo použijeme len na vyhľadanie vašej dnešnej objednávky. Ak sa vám check-in nedarí,
         pokojne sa posaďte — personál vás zavolá podľa poradia.
       </p>
