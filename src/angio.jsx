@@ -749,7 +749,8 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
 }
 
 // ---------- Správa ambulancie ----------
-function AngioAdmin({ data, role }) {
+// Správa ambulancie — zdieľaná aj CT pracoviskom (clinic="ct": bez spätných volaní, vlastné Nastavenia)
+export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioSettings }) {
   const canManage = role === "superadmin" || role === "sestra";
   const isSuper = role === "superadmin";
   const [tab, setTab] = useState("overview");
@@ -830,7 +831,7 @@ function AngioAdmin({ data, role }) {
 
   const cbNew = data.newCallbackCount || 0;
   // lekár vidí cez RLS len vlastných pacientov — kalendár obsadenosti by mu klamal, preto ho nemá
-  const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
+  const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ...(clinic === "angio" ? [["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"]] : []), ...(canManage ? [["settings", "Nastavenia"]] : [])];
   const filterActive = fRange !== "all" || fStatus !== "all";
   const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors";
 
@@ -1058,8 +1059,8 @@ function AngioAdmin({ data, role }) {
         </div>
       )}
 
-      {tab === "callbacks" && <AngioCallbacks data={data} canManage={canManage} />}
-      {tab === "settings" && canManage && <AngioSettings data={data} isSuper={isSuper} />}
+      {tab === "callbacks" && clinic === "angio" && <AngioCallbacks data={data} canManage={canManage} />}
+      {tab === "settings" && canManage && <SettingsView data={data} isSuper={isSuper} />}
     </div>
   );
 }
