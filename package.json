@@ -11,11 +11,11 @@
   "dependencies": {
     "@fontsource/source-sans-3": "^5.3.1",
     "@fontsource/source-serif-4": "^5.3.1",
-    "@supabase/supabase-js": "^2.110.7",
-    "bysquare": "^4.0.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "bysquare": "^4.1.0",
     "qrcode": "^1.5.4",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
