@@ -35,6 +35,10 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] v108: spustiť `supabase/termin-zajtra-001.sql` — pacient sa online objedná
+      (aj presunie termín) najskôr na nasledujúci deň; 5 pacientskych RPC,
+      personál v správe bez zmeny. Frontend to isté (kalendár od zajtra).
+
 - [ ] Spustiť `supabase/doplnkove-hodiny-001.sql` (ak ešte nebol)
 - [ ] V správe nastaviť čas doplatkových termínov (Nastavenia →
       Nastavenia platby → „Termíny so žiadankou najskôr od")

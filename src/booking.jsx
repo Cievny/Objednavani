@@ -291,6 +291,14 @@ export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, 
 // Najskorší objednateľný čas pre daný deň: pri dnešku len budúce časy
 // (aby sa neponúkali termíny, ktoré už uplynuli), inak žiadne obmedzenie.
 // Kombinuje sa s referral_from (doplnkové hodiny) — berie sa neskorší z nich.
+// Pacient sa online objedná najskôr na nasledujúci deň (v108). Personál
+// v správe môže objednať aj na dnes — tam sa tieto pomôcky nepoužívajú.
+export const PATIENT_LEAD_NOTE = "Online sa dá objednať najskôr na nasledujúci deň.";
+export function firstPatientIso() {
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function earliestTimeFor(iso, referralFrom = "") {
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -618,11 +626,11 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
     minTime: earliestTimeFor(isoDate, isReferral ? (settings.referralFrom || "") : ""),
   });
 
-  const todayIso = toISODate(new Date());
-  const isDayAvailable = (iso) => iso >= todayIso && freeSlotsFor(iso).length > 0;
+  const minIso = firstPatientIso();
+  const isDayAvailable = (iso) => iso >= minIso && freeSlotsFor(iso).length > 0;
 
   const firstAvailableIso = useMemo(() => {
-    const d = new Date();
+    const d = new Date(); d.setDate(d.getDate() + 1);
     for (let i = 0; i < 180; i++) {
       const iso = toISODate(d);
       if (isDayAvailable(iso)) return iso;
@@ -826,13 +834,16 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
             </p>
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
-              <MonthCalendar
-                monthDate={monthDate}
-                onMonthChange={shiftMonth}
-                isAvailable={isDayAvailable}
-                selected={form.date}
-                onSelect={(iso) => { setField("date", iso); setField("time", ""); }}
-              />
+              <div>
+                <MonthCalendar
+                  monthDate={monthDate}
+                  onMonthChange={shiftMonth}
+                  isAvailable={isDayAvailable}
+                  selected={form.date}
+                  onSelect={(iso) => { setField("date", iso); setField("time", ""); }}
+                />
+                <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
+              </div>
               <div>
                 {form.date ? (
                   <>
@@ -2904,7 +2915,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
   // ponuka časov pre zmenu termínu — rovnaké pravidlo ako pri objednávaní
   // (najbližšie 3 časy natesno); bunky vlastnej objednávky sa nepočítajú
   const offeredFor = (iso) => {
-    if (!found) return [];
+    if (!found || iso < firstPatientIso()) return [];
     const own = new Set(found.date === iso ? orderCellTimes(found) : []);
     const takenSet = new Set(occupied.filter((o) => o.date === iso && !own.has(o.time)).map((o) => o.time));
     return computeOfferedSlots({
@@ -3027,7 +3038,7 @@ const OrderLookup = ({ onLookup, onCancel, onReschedule, openSlots = {}, occupie
                     <input
                       type="date"
                       value={reschedDate}
-                      min={toISODate(new Date())}
+                      min={firstPatientIso()}
                       onChange={(e) => setReschedDate(e.target.value)}
                       className="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-sm"
                     />

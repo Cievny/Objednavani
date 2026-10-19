@@ -47,7 +47,7 @@
 
 ## D. Priame online objednanie
 
-**16. Výber termínu.** Pacient si sám vyberie deň a čas z voľných termínov v kalendári (ponúkajú sa termíny z blokov, ktoré ambulancia otvorila). Objednávka vzniká ihneď so stavom „Nová" a pacient hneď dostane potvrdenie e-mailom a SMS. Personál ju môže následne potvrdiť (stav „Potvrdená", pacient dostane ďalšiu správu), presunúť alebo zrušiť. Stránka aj správy upozorňujú, že čas termínu je orientačný, lebo ambulancia musí niekedy prednostne ošetriť akútneho pacienta.
+**16. Výber termínu.** Pacient si sám vyberie deň a čas z voľných termínov v kalendári (ponúkajú sa termíny z blokov, ktoré ambulancia otvorila). Online sa dá objednať **najskôr na nasledujúci deň** (dnešok kalendár neponúka a server ho odmietne; **[LEN BETA]**, v ostrej prevádzke zatiaľ len budúce časy dňa). Objednávka vzniká ihneď so stavom „Nová" a pacient hneď dostane potvrdenie e-mailom a SMS. Personál ju môže následne potvrdiť (stav „Potvrdená", pacient dostane ďalšiu správu), presunúť alebo zrušiť. Stránka aj správy upozorňujú, že čas termínu je orientačný, lebo ambulancia musí niekedy prednostne ošetriť akútneho pacienta.
 
 **17. Údaje v objednávke.**
 

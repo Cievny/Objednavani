@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMsg } from "./toast.jsx";
 import {
-  MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots,
+  MonthCalendar, toISODate, earliestTimeFor, genSlots, computeOfferedSlots, firstPatientIso, PATIENT_LEAD_NOTE,
   normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
   insuranceOptions, validateBirthNumber, normalizePhone, ArrivedBadge, BirthDateInput,
 } from "./booking.jsx";
@@ -77,7 +77,8 @@ function CtBookingView({ data }) {
     doctors: data.doctors, examTypeId, durationMin, iso, minTime: earliestTimeFor(iso, ""),
   });
   const todayIso = toISODate(new Date());
-  const isAvailable = (iso) => iso >= todayIso && freeSlotsFor(iso).length > 0;
+  const minIso = firstPatientIso();
+  const isAvailable = (iso) => iso >= minIso && freeSlotsFor(iso).length > 0;
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); clearErr(k); };
 
@@ -139,9 +140,12 @@ function CtBookingView({ data }) {
           <button onClick={() => setStep(1)} className="text-sm text-brand hover:underline">← Zmeniť vyšetrenie</button>
           <p className="text-sm text-slate-600">Vybrané: <b>{examType?.label}</b></p>
           <div className="grid md:grid-cols-2 gap-5">
-            <MonthCalendar monthDate={monthDate}
-              onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
-              isAvailable={isAvailable} selected={date} onSelect={(iso) => { setDate(iso); setTime(""); }} />
+            <div>
+              <MonthCalendar monthDate={monthDate}
+                onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
+                isAvailable={isAvailable} selected={date} onSelect={(iso) => { setDate(iso); setTime(""); }} />
+              <p data-testid="lead-note" className="text-xs text-slate-500 mt-2">{PATIENT_LEAD_NOTE}</p>
+            </div>
             <div>
               <p className="text-sm font-semibold text-slate-700 mb-2">{date ? `Voľné časy — ${date}` : "Vyberte deň"}</p>
               <div className="flex flex-wrap gap-2">
