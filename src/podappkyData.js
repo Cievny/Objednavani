@@ -316,6 +316,21 @@ function useClinicData(cfg, isStaff) {
     await reload();
   };
 
+  // zavrieť viac voľných buniek naraz (blok / celý deň / rozsah)
+  const closeSlots = async (date, times) => {
+    const list = [...new Set(times || [])];
+    if (list.length === 0) return;
+    if (!supabase) {
+      const next = { ...loadJson(K.slots, {}) };
+      const rm = new Set(list);
+      next[date] = (next[date] || []).filter((s) => !rm.has(s.time));
+      localStorage.setItem(K.slots, JSON.stringify(next)); setOpenSlots(next); return;
+    }
+    const { error } = await supabase.from(T.slots).delete().eq("slot_date", date).in("slot_time", list);
+    if (error) throw new Error(error.message);
+    await reload();
+  };
+
   const readAsDataUrl = (file) => new Promise((resolve, reject) => {
     const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("Súbor sa nepodarilo načítať.")); r.readAsDataURL(file);
   });
@@ -519,7 +534,7 @@ function useClinicData(cfg, isStaff) {
 
   return {
     isSupabase: isSupabaseConfigured, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
-    openWindow, closeSlot, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
+    openWindow, closeSlot, closeSlots, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
     // spätné volania len pre ambulancie s tabuľkou (angio); CT/USG dostanú null
     callbacks, newCallbackCount, callbackSmsTo,

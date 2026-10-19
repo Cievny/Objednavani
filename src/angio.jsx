@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, firstPatientIso, PATIENT_LEAD_NOTE,
-  normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN,
+  normalizeDoctors, doctorDoesExam, addMinutes, BASE_SLOT_MIN, genSlots,
   insuranceOptions, normalizePhone, ArrivedBadge, BirthDateInput,
 } from "./booking.jsx";
 import { useAngioData } from "./podappkyData.js";
@@ -558,6 +558,8 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
 
   const tone = order.status === "rejected" ? "border-l-red-400 bg-red-50"
     : order.status === "confirmed" ? "border-l-brand bg-brand-soft"
+    : order.status === "done" ? "border-l-emerald-400 bg-emerald-50"
+    : order.status === "noshow" ? "border-l-slate-400 bg-slate-50"
     : "border-l-amber-400 bg-amber-50";
 
   return (
@@ -592,12 +594,16 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
         <div className="flex flex-wrap gap-2 pt-1">
           {order.status === "new" && <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-brand text-white text-xs font-semibold px-3 py-1.5 rounded">Potvrdiť</button>}
           <button onClick={() => run(() => data.setStatus(order.id, "done"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Vykonané</button>
+          <button onClick={() => run(() => data.setStatus(order.id, "noshow"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Neprišiel</button>
           <button onClick={() => setResched(!resched)} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">{resched ? "Zavrieť presun" : "Presunúť"}</button>
           <button onClick={() => setCancelOpen(!cancelOpen)} className="bg-white border border-red-300 text-red-600 text-xs font-semibold px-3 py-1.5 rounded">Zrušiť</button>
         </div>
       )}
       {canManage && order.status === "rejected" && (
         <button onClick={() => run(() => data.setStatus(order.id, "new"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded">Obnoviť</button>
+      )}
+      {canManage && isSettled(order) && (
+        <button onClick={() => run(() => data.setStatus(order.id, "confirmed"))} className="bg-soft text-ink text-xs font-semibold px-3 py-1.5 rounded" title="Vrátiť medzi aktívne objednávky">Vrátiť medzi aktívne</button>
       )}
 
       {resched && active && (
@@ -629,16 +635,53 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
   );
 }
 
+// ---------- Pomôcky kalendára správy (v109) ----------
+const DOW_LONG = ["Nedeľa", "Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota"];
+const DOW_SHORT = ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"];
+const isoDate = (iso) => new Date(`${iso}T12:00:00`);
+const fmtLong = (iso) => { const d = isoDate(iso); return `${DOW_LONG[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`; };
+const addDays = (iso, n) => { const d = isoDate(iso); d.setDate(d.getDate() + n); return toISODate(d); };
+const mondayOf = (iso) => addDays(iso, -((isoDate(iso).getDay() + 6) % 7));
+const fmtDur = (min) => min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}` : `${min} min`;
+const isSettled = (o) => o.status === "done" || o.status === "noshow";
+// poradie v zoznamoch: najprv pacienti v čakárni, potom nasledujúci podľa času, vybavení (vykonané / neprišiel) nakoniec
+const orderRank = (o) => isSettled(o) ? 2 : (o.arrivedAt ? 0 : 1);
+const byPriority = (a, b) => a.date.localeCompare(b.date) || orderRank(a) - orderRank(b) || a.time.localeCompare(b.time);
+const cellsOf = (o) => {
+  const [h, m] = (o.time || "00:00").split(":").map(Number);
+  const n = Math.max(1, Math.round((o.durationMin || 15) / 5));
+  return Array.from({ length: n }, (_, i) => { const t = h * 60 + m + i * 5; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; });
+};
+// Deň ako bloky: súvislé bunky jednej objednávky alebo súvislé voľno jedného lekára.
+// Objednávky mimo otvorených buniek sa pridajú s príznakom outOfHours.
+function daySegments(openCells, orders) {
+  const byTime = new Map();
+  orders.forEach((o) => cellsOf(o).forEach((t) => { if (!byTime.has(t)) byTime.set(t, o); }));
+  const segs = []; const seen = new Set();
+  openCells.forEach((c) => {
+    const o = byTime.get(c.time) || null;
+    const last = segs[segs.length - 1];
+    const cont = last && addMinutes(last.end, 0) === c.time && ((o && last.order && last.order.id === o.id) || (!o && !last.order && last.doctor === (c.doctor || "")));
+    if (cont) { last.end = addMinutes(c.time, 5); last.cells.push(c.time); }
+    else segs.push({ start: c.time, end: addMinutes(c.time, 5), cells: [c.time], order: o, doctor: o ? (o.doctor || "") : (c.doctor || ""), outOfHours: false });
+    if (o) seen.add(o.id);
+  });
+  orders.filter((o) => !seen.has(o.id)).forEach((o) => segs.push({ start: o.time, end: addMinutes(o.time, o.durationMin || 15), cells: [], order: o, doctor: o.doctor || "", outOfHours: true }));
+  segs.sort((a, b) => a.start.localeCompare(b.start));
+  const free = segs.filter((x) => !x.order).reduce((n, x) => n + x.cells.length, 0);
+  return { segs, free };
+}
+
 // ---------- Kompaktný riadok objednávky (zoznamy v správe) ----------
 // Jeden riadok: čas · pacient · vyšetrenie · stav; rozbalí sa na plnú kartu.
-const statusChip = (s) => s === "confirmed" ? "bg-brand-soft text-brand" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600";
+const statusChip = (s) => s === "confirmed" ? "bg-brand-soft text-brand" : s === "new" ? "bg-amber-100 text-amber-800" : s === "done" ? "bg-emerald-100 text-emerald-800" : s === "rejected" ? "bg-red-100 text-red-700" : s === "noshow" ? "bg-slate-200 text-slate-700" : "bg-slate-100 text-slate-600";
 function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   const [msg, setMsg] = useMsg();
   const confirm = async (e) => { e.stopPropagation(); setMsg(""); try { await data.setStatus(order.id, "confirmed"); } catch (err) { setMsg(err?.message || String(err)); } };
   const endTime = order.durationMin ? addMinutes(order.time, order.durationMin) : "";
   return (
-    <div data-testid="order-row" className={`border border-line rounded-lg bg-white ${open ? "shadow-sm" : ""}`}>
+    <div data-testid="order-row" data-status={order.status} className={`border border-line rounded-lg bg-white ${open ? "shadow-sm" : ""} ${isSettled(order) && !open ? "opacity-70" : ""}`}>
       <div role="button" tabIndex={0} onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((o) => !o); } }}
         className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-page rounded-lg">
         <div className="shrink-0 w-[4.6rem] text-sm font-mono font-bold text-slate-800 leading-tight">
@@ -682,7 +725,7 @@ function AngioAdmin({ data, role }) {
 
   const active = data.orders.filter((o) => o.status !== "rejected");
   const pending = data.orders.filter((o) => o.status === "new");
-  const todayProgram = active.filter((o) => o.date === todayIso).sort((a, b) => a.time.localeCompare(b.time));
+  const todayProgram = active.filter((o) => o.date === todayIso).sort(byPriority);
   const arrivedToday = todayProgram.filter((o) => o.arrivedAt && (o.status === "new" || o.status === "confirmed")).length;
   const in7Iso = (() => { const e = new Date(); e.setDate(e.getDate() + 7); return toISODate(e); })();
   const next7 = active.filter((o) => o.date >= todayIso && o.date <= in7Iso).length;
@@ -693,10 +736,33 @@ function AngioAdmin({ data, role }) {
   const takenSet = (iso) => new Set(data.occupied.filter((o) => o.date === iso).map((o) => o.time));
   const dayOpen = (data.openSlots[selDay] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
   const dayFree = dayOpen.filter((s) => !takenSet(selDay).has(s.time));
-  const [winOpen, setWinOpen] = useState(false);   // formulár „Otvoriť termíny" zbalený
-  const [freeOpen, setFreeOpen] = useState(false); // zoznam voľných buniek zbalený
-  const dayOrders = active.filter((o) => o.date === selDay).sort((a, b) => a.time.localeCompare(b.time));
+  const [freeOpen, setFreeOpen] = useState(false); // zoznam voľných 5-min buniek zbalený
+  const [wSkipWeekends, setWSkipWeekends] = useState(true);
+  const [cFrom, setCFrom] = useState("07:30"), [cTo, setCTo] = useState("14:30"); // zatvorenie rozsahu
+  const dayOrders = active.filter((o) => o.date === selDay).sort(byPriority);
   const isAvailableAdmin = (iso) => (data.openSlots[iso] || []).length > 0;
+  // deň ako bloky (objednávky + voľno), pacienti v čakárni hore, vybavení dole
+  const day = daySegments(dayOpen, dayOrders);
+  const waiting = dayOrders.filter((o) => !isSettled(o) && o.arrivedAt);
+  const settled = dayOrders.filter(isSettled);
+  const timeline = day.segs.filter((x) => !x.order || (!isSettled(x.order) && !x.order.arrivedAt));
+  const dayRange = dayOpen.length ? `${dayOpen[0].time}–${addMinutes(dayOpen[dayOpen.length - 1].time, 5)}` : "";
+  // náhľad otvorenia
+  const openPreview = (() => {
+    const times = genSlots(wtFrom, wtTo, 5).length;
+    let days = 0; if (wFrom && wTo && wFrom <= wTo) { let d = wFrom; let guard = 0; while (d <= wTo && guard++ < 370) { const dow = isoDate(d).getDay(); if (!wSkipWeekends || (dow !== 0 && dow !== 6) || wFrom === wTo) days++; d = addDays(d, 1); } }
+    return { days, times, cells: days * times };
+  })();
+  const weekStart = mondayOf(selDay);
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const dayStats = (iso) => {
+    const open = (data.openSlots[iso] || []);
+    const ords = active.filter((o) => o.date === iso);
+    const taken = takenSet(iso);
+    return { open: open.length, free: open.filter((c) => !taken.has(c.time)).length, patients: ords.length, waiting: ords.filter((o) => !isSettled(o) && o.arrivedAt).length };
+  };
+  const closeCells = (times, label) => { if (!times.length) return; if (!window.confirm(`Zavrieť ${label}?`)) return; run(() => data.closeSlots(selDay, times), "✓ Termíny zavreté."); };
+  const freeInRange = dayFree.filter((c) => c.time >= cFrom && c.time < cTo).map((c) => c.time);
 
   const filtered = data.orders
     .filter((o) => fStatus === "all" ? o.status !== "rejected" : o.status === fStatus)
@@ -705,7 +771,7 @@ function AngioAdmin({ data, role }) {
       : fRange === "arrived" ? (o.date === todayIso && o.arrivedAt && (o.status === "new" || o.status === "confirmed"))
       : true)
     .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || o.phone.includes(q); })
-    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+    .sort(byPriority);
 
   const cbNew = data.newCallbackCount || 0;
   const tabs = [["overview", "Prehľad"], ["calendar", "Kalendár"], ["orders", "Objednávky"], ["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"], ...(canManage ? [["settings", "Nastavenia"]] : [])];
@@ -753,51 +819,82 @@ function AngioAdmin({ data, role }) {
 
       {tab === "calendar" && (
         <div className="space-y-4">
-          {canManage && (
-            <div className="bg-white rounded-xl border border-line p-5">
-              <button type="button" onClick={() => setWinOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
-                <h3 className="text-lg font-bold text-brand">Otvoriť termíny</h3>
-                <span className="text-sm text-slate-500">{winOpen ? "▴ Skryť" : "▾ Rozbaliť"}</span>
-              </button>
-              {winOpen && (<>
-              <div className="flex flex-wrap gap-2 items-end mt-3">
-                <label className="text-sm">Od dňa<br /><input type="date" className={inp} value={wFrom} onChange={(e) => setWFrom(e.target.value)} /></label>
-                <label className="text-sm">Do dňa<br /><input type="date" className={inp} value={wTo} onChange={(e) => setWTo(e.target.value)} /></label>
-                <label className="text-sm">Od<br /><input type="time" className={inp} value={wtFrom} onChange={(e) => setWtFrom(e.target.value)} /></label>
-                <label className="text-sm">Do<br /><input type="time" className={inp} value={wtTo} onChange={(e) => setWtTo(e.target.value)} /></label>
-                <label className="text-sm">Lekár<br />
-                  <select className={inp} value={wDoctor} onChange={(e) => setWDoctor(e.target.value)}>
-                    <option value="">— (ktokoľvek) —</option>
-                    {data.doctors.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
-                  </select>
-                </label>
-                <button onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor }), "✓ Termíny otvorené.")} className="bg-brand text-white font-semibold px-4 py-2 rounded-lg">Otvoriť termíny</button>
-              </div>
-              <p className="text-xs text-slate-400 mt-2">Termíny sa otvárajú v 5-min mriežke; dĺžku určuje typ vyšetrenia v Nastaveniach. Tip: kliknite na deň v kalendári a otvorte ho jedným tlačidlom.</p>
-              </>)}
+          {/* týždeň: 7 dní s obsadenosťou, výber dňa */}
+          <div className="bg-white rounded-xl border border-line p-3 md:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" onClick={() => setSelDay(addDays(selDay, -7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">‹ Predchádzajúci týždeň</button>
+              <button type="button" onClick={() => setSelDay(todayIso)} className="text-sm font-semibold text-brand px-3 py-1 rounded border border-line hover:bg-brand-soft">Dnes</button>
+              <button type="button" onClick={() => setSelDay(addDays(selDay, 7))} className="text-sm font-semibold text-brand px-2 py-1 rounded hover:bg-brand-soft">Nasledujúci týždeň ›</button>
             </div>
-          )}
-          <div className="bg-white rounded-xl border border-line p-5 grid md:grid-cols-2 gap-5">
-            <MonthCalendar monthDate={monthDate}
-              onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
-              isAvailable={isAvailableAdmin} isSelectable={(iso) => iso >= todayIso}
-              selected={selDay} onSelect={(iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); }} />
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-slate-700">{fmtD(selDay)}</p>
-                <p className="text-xs text-slate-500">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"} · {dayFree.length} voľných buniek</p>
+            <div className="grid grid-cols-7 gap-1 md:gap-2">
+              {weekDays.map((iso) => {
+                const st = dayStats(iso); const d = isoDate(iso); const sel = iso === selDay; const past = iso < todayIso;
+                return (
+                  <button key={iso} type="button" data-iso={iso} data-testid="week-day" onClick={() => { setSelDay(iso); setWFrom(iso); setWTo(iso); }}
+                    className={`rounded-lg border p-1.5 md:p-2 text-left transition-colors ${sel ? "border-brand bg-brand-soft" : "border-line hover:bg-page"} ${past ? "opacity-60" : ""}`}>
+                    <div className={`text-[11px] md:text-xs font-semibold ${iso === todayIso ? "text-brand" : "text-slate-500"}`}>{DOW_SHORT[d.getDay()]} {d.getDate()}.{d.getMonth() + 1}.{iso === todayIso ? " · dnes" : ""}</div>
+                    {st.open === 0
+                      ? <div className="text-[11px] text-slate-400 mt-1">{st.patients ? `${st.patients} pac.` : "zatvorené"}</div>
+                      : (<>
+                        <div className="text-sm md:text-base font-semibold text-ink mt-0.5">{st.patients} <span className="text-[11px] font-normal text-slate-500">pac.</span></div>
+                        <div className="h-1.5 rounded bg-line mt-1 overflow-hidden"><div className="h-full bg-brand" style={{ width: `${Math.round(100 * (st.open - st.free) / st.open)}%` }} /></div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{st.free > 0 ? `voľné ${fmtDur(st.free * 5)}` : "plný"}{st.waiting ? ` · 🪑 ${st.waiting}` : ""}</div>
+                      </>)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-[3fr_2fr] gap-4 items-start">
+            {/* deň: čakáreň → nasledujúci + voľné bloky → vybavení */}
+            <div className="bg-white rounded-xl border border-line p-4 md:p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                <h3 className="text-lg font-bold text-brand">{fmtLong(selDay)}</h3>
+                <p className="text-xs text-slate-500">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"}{dayRange ? ` · otvorené ${dayRange}` : ""} · {dayFree.length} voľných buniek{dayFree.length ? ` (${fmtDur(dayFree.length * 5)})` : ""}</p>
               </div>
-              {dayOrders.length === 0 && dayOpen.length === 0 && <p className="text-sm text-slate-400">V tento deň nie sú otvorené termíny.</p>}
-              {canManage && dayOpen.length === 0 && (
-                <button
-                  onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
-                  className="mt-2 bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
-                  Otvoriť termíny v tento deň ({wtFrom}–{wtTo}{wDoctor ? ` · ${wDoctor}` : ""})
-                </button>
+              {dayOrders.length === 0 && dayOpen.length === 0 && (
+                <div className="text-sm text-slate-500 space-y-2">
+                  <p>V tento deň nie sú otvorené termíny.</p>
+                  {canManage && selDay >= todayIso && (
+                    <button onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
+                      className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
+                      Otvoriť {wtFrom}–{wtTo}{wDoctor ? ` · ${wDoctor}` : ""}
+                    </button>
+                  )}
+                </div>
               )}
-              <div className="space-y-1.5">
-                {dayOrders.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}
-              </div>
+              {waiting.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 mb-1">V čakárni ({waiting.length})</p>
+                  <div className="space-y-1.5">{waiting.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>
+                </div>
+              )}
+              {timeline.length > 0 && (
+                <div>
+                  {waiting.length > 0 && <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Program dňa</p>}
+                  <div className="space-y-1.5">
+                    {timeline.map((x) => x.order ? (
+                      <div key={x.order.id}>
+                        {x.outOfHours && <p className="text-[10px] text-warn pl-1">mimo otvorených hodín</p>}
+                        <AngioOrderRow order={x.order} data={data} canManage={canManage} />
+                      </div>
+                    ) : (
+                      <div key={`f-${x.start}`} data-testid="free-block" className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-dashed border-success/50 bg-success-soft/40 text-sm">
+                        <span className="shrink-0 w-[6.6rem] font-mono text-success font-semibold whitespace-nowrap">{x.start}–{x.end}</span>
+                        <span className="flex-1 text-slate-600 truncate">voľné {fmtDur(x.cells.length * 5)}{x.doctor ? ` · ${x.doctor}` : " · ktorýkoľvek lekár"}</span>
+                        {canManage && <button type="button" title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end}`)} className="shrink-0 text-xs font-semibold text-slate-500 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">Zavrieť</button>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {settled.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Vybavené ({settled.length})</p>
+                  <div className="space-y-1.5">{settled.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>
+                </div>
+              )}
               {canManage && dayFree.length > 0 && (
                 <div className="mt-3">
                   <button type="button" onClick={() => setFreeOpen((o) => !o)} className="text-xs text-slate-500 hover:text-brand">
@@ -805,14 +902,73 @@ function AngioAdmin({ data, role }) {
                   </button>
                   {freeOpen && (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {dayFree.map((s) => (
-                        <button key={s.time} onClick={() => run(() => data.closeSlot(selDay, s.time))} title="Zavrieť termín"
+                      {dayFree.map((c) => (
+                        <button key={c.time} onClick={() => run(() => data.closeSlot(selDay, c.time))} title="Zavrieť termín"
                           className="text-xs bg-success-soft border border-success/40 text-success rounded px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600">
-                          {s.time} ✕
+                          {c.time} ✕
                         </button>
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* pravý stĺpec: mesiac, otvoriť, zatvoriť */}
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border border-line p-3">
+                <MonthCalendar monthDate={monthDate}
+                  onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
+                  isAvailable={isAvailableAdmin} isSelectable={() => true}
+                  selected={selDay} onSelect={(iso) => { setSelDay(iso); setWFrom(iso); setWTo(iso); }} />
+                <p className="text-[11px] text-slate-400 mt-1 text-center">Modré dni majú otvorené termíny.</p>
+              </div>
+              {canManage && (
+                <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="open-panel">
+                  <h3 className="text-base font-bold text-brand">Otvoriť termíny</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[["Dopoludnie", "07:30", "12:00"], ["Celý deň", "07:30", "14:30"], ["Popoludnie", "12:00", "15:30"]].map(([l, f, t]) => (
+                      <button key={l} type="button" onClick={() => { setWtFrom(f); setWtTo(t); }}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${wtFrom === f && wtTo === t ? "bg-brand text-white border-brand" : "border-line text-slate-600 hover:bg-page"}`}>{l} {f}–{t}</button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs text-slate-600">Od dňa<input type="date" className={inp} value={wFrom} onChange={(e) => { setWFrom(e.target.value); if (e.target.value > wTo) setWTo(e.target.value); }} /></label>
+                    <label className="text-xs text-slate-600">Do dňa<input type="date" className={inp} value={wTo} onChange={(e) => setWTo(e.target.value)} /></label>
+                    <label className="text-xs text-slate-600">Od<input type="time" step={300} className={inp} value={wtFrom} onChange={(e) => setWtFrom(e.target.value)} /></label>
+                    <label className="text-xs text-slate-600">Do<input type="time" step={300} className={inp} value={wtTo} onChange={(e) => setWtTo(e.target.value)} /></label>
+                  </div>
+                  <label className="block text-xs text-slate-600">Lekár
+                    <select className={inp} value={wDoctor} onChange={(e) => setWDoctor(e.target.value)}>
+                      <option value="">— ktorýkoľvek —</option>
+                      {data.doctors.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </label>
+                  {wFrom !== wTo && (
+                    <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={wSkipWeekends} onChange={(e) => setWSkipWeekends(e.target.checked)} className="accent-brand" /> preskočiť soboty a nedele</label>
+                  )}
+                  <button type="button" disabled={openPreview.cells === 0}
+                    onClick={() => run(() => data.openWindow({ dateFrom: wFrom, dateTo: wTo, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: wFrom !== wTo && wSkipWeekends }), "✓ Termíny otvorené.")}
+                    className="w-full bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg" data-testid="open-run">
+                    {openPreview.cells === 0 ? "Zadajte platný rozsah" : `Otvoriť ${openPreview.days === 1 ? "deň" : `${openPreview.days} ${openPreview.days < 5 ? "dni" : "dní"}`} · ${fmtDur(openPreview.times * 5)}${openPreview.days > 1 ? " denne" : ""}`}
+                  </button>
+                  <p className="text-[11px] text-slate-400">Už otvorené časy sa nemenia (ani lekár); ak treba zmeniť lekára, čas najprv zavrite. Dĺžku vyšetrenia určuje typ v Nastaveniach.</p>
+                </div>
+              )}
+              {canManage && dayFree.length > 0 && (
+                <div className="bg-white rounded-xl border border-line p-4 space-y-3" data-testid="close-panel">
+                  <h3 className="text-base font-bold text-slate-700">Zavrieť voľné termíny · {fmtD(selDay)}</h3>
+                  <button type="button" onClick={() => closeCells(dayFree.map((c) => c.time), `všetky voľné termíny ${fmtD(selDay)} (${dayFree.length} buniek)`)}
+                    className="w-full bg-white border border-red-300 text-red-600 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg text-sm" data-testid="close-all-free">
+                    Zavrieť všetky voľné ({fmtDur(dayFree.length * 5)})
+                  </button>
+                  <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                    <label className="text-xs text-slate-600">Od<input type="time" step={300} className={inp} value={cFrom} onChange={(e) => setCFrom(e.target.value)} /></label>
+                    <label className="text-xs text-slate-600">Do<input type="time" step={300} className={inp} value={cTo} onChange={(e) => setCTo(e.target.value)} /></label>
+                    <button type="button" disabled={freeInRange.length === 0} onClick={() => closeCells(freeInRange, `voľné termíny ${cFrom}–${cTo} (${freeInRange.length} buniek)`)}
+                      className="bg-soft hover:bg-line disabled:opacity-50 text-ink text-sm font-semibold px-3 py-2 rounded-lg" data-testid="close-range">Zavrieť</button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Zatvárajú sa len voľné časy; obsadené termíny pacientov ostávajú.</p>
                 </div>
               )}
             </div>
@@ -826,7 +982,7 @@ function AngioAdmin({ data, role }) {
             <select className={inp + " w-auto"} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
               <option value="all">Aktívne</option>
               <option value="new">Nové</option><option value="confirmed">Potvrdené</option>
-              <option value="done">Vykonané</option><option value="rejected">Kôš (zrušené)</option>
+              <option value="done">Vykonané</option><option value="noshow">Neprišiel</option><option value="rejected">Kôš (zrušené)</option>
             </select>
             <select className={inp + " w-auto"} value={fRange} onChange={(e) => setFRange(e.target.value)} data-testid="range-filter">
               <option value="all">Všetky dni</option>
