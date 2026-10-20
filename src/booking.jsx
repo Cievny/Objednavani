@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useMsg } from "./toast.jsx";
 import { STATUS_TONES, inputCls as sharedInputCls } from "./ui.jsx";
 import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
-import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
+import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 
@@ -680,7 +680,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
   const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
   const [hp, setHp] = useState(""); // skryté pole proti botom
   const formStarted = useRef(0);
-  useEffect(() => { if (step === 3 && !formStarted.current) formStarted.current = Date.now(); }, [step]);
+  useEffect(() => { if (step === 3) { if (!formStarted.current) formStarted.current = Date.now(); if (smsVerify) prewarmHumanPass(); } }, [step, smsVerify]);
   const sendOtp = async () => {
     if (phoneDigits(form.phone).length < 9) { setError("Zadajte platné telefónne číslo (aspoň 9 číslic)."); return; }
     setError(""); setOtp((o) => ({ ...o, busy: true, msg: "" }));

@@ -8,7 +8,7 @@ import {
 import { useAngioData } from "./podappkyData.js";
 import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
 import { ConsentAck } from "./legal.jsx";
-import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
+import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -107,7 +107,7 @@ function AngioBookingView({ data, landing = null }) {
   const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
   const [hp, setHp] = useState(""); // skryté pole proti botom
   const formStarted = useRef(0);
-  useEffect(() => { if (step === 3 && !formStarted.current) formStarted.current = Date.now(); }, [step]);
+  useEffect(() => { if (step === 3) { if (!formStarted.current) formStarted.current = Date.now(); if (data.smsVerify) prewarmHumanPass(); } }, [step, data.smsVerify]);
   const sendOtp = async () => {
     if (phoneDigits(form.phone).length < 9) { setErrs((x) => ({ ...x, phone: "Neplatné telefónne číslo (aspoň 9 číslic)." })); return; }
     setOtp((o) => ({ ...o, busy: true, msg: "" }));

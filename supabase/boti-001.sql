@@ -77,7 +77,7 @@ create or replace function bot_guard(p_scope text)
 returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  h json; v_mode text; v_ts text; v_hp text; v_ms int; v_pass text; v_ok int; v_why text := '';
+  h json; v_mode text; v_ts text; v_tsh text; v_hp text; v_ms int; v_pass text; v_ok int; v_why text := '';
 begin
   begin h := nullif(current_setting('request.headers', true), '')::json; exception when others then h := null; end;
   if h is null then return; end if; -- SQL editor, cron
@@ -90,6 +90,12 @@ begin
   if v_hp <> '' then v_why := 'vyplnené skryté pole'; end if;
   if v_ms is null then v_why := v_why || case when v_why = '' then '' else ', ' end || 'chýba čas formulára';
   elsif v_ms < 2500 then v_why := v_why || case when v_why = '' then '' else ', ' end || 'odoslané za ' || v_ms || ' ms'; end if;
+
+  -- stav overenia Turnstile v prehliadači (v115): ok / pending / err:<kód> / timeout / script …
+  v_tsh := left(coalesce(h ->> 'x-nusch-ts', ''), 60);
+  if v_tsh not in ('', 'idle') then
+    perform health_event('turnstile:' || p_scope, v_tsh = 'ok', v_tsh);
+  end if;
 
   if v_why <> '' and v_mode in ('log', 'on') then
     perform health_event('bot-guard:' || p_scope, false, v_why);

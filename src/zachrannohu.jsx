@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
+import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 
 // „Zachráň nohu" — dlhá informačná stránka (#/angio1/zachrannohu) v dizajne
 // objednávania: lišta s kotvami → hero → čísla → čo je to → samotest →
@@ -236,7 +236,7 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
           <p className="mt-3 text-sm text-muted">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
         </div>
       ) : (
-        <form onSubmit={submit} className="mt-6 space-y-5 relative" noValidate>
+        <form onSubmit={submit} onFocus={prewarmHumanPass} className="mt-6 space-y-5 relative" noValidate>
           <input {...honeypotProps} value={hp} onChange={(e) => setHp(e.target.value)} />
           <label className="block">
             <span className="block text-sm font-semibold text-ink mb-1">Meno a priezvisko</span>
