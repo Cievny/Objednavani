@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
 
 // „Zachráň nohu" — dlhá informačná stránka (#/angio1/zachrannohu) v dizajne
 // objednávania: lišta s kotvami → hero → čísla → čo je to → samotest →
@@ -84,7 +85,7 @@ const goTo = (id) => (e) => {
 };
 const hereHref = () => window.location.hash || "#/angio1/zachrannohu";
 // známe (slovenské) hlášky zo servera; čokoľvek iné (výpadok siete, nespustený skript) → všeobecná veta
-const friendlyError = (msg) => (/^(Zadajte|Príliš veľa|Vašu žiadosť)/.test(msg || "") ? msg : "Nepodarilo sa odoslať. Skúste to prosím znova o chvíľu.");
+const friendlyError = (msg) => (/^(Zadajte|Príliš veľa|Vašu žiadosť|Overenie|Žiadosť sa nepodarilo)/.test(msg || "") ? msg : "Nepodarilo sa odoslať. Skúste to prosím znova o chvíľu.");
 
 // fotografie v public/zachrannohu/*.webp (base podľa buildu: / alebo /beta/)
 const IMG = (name) => `${import.meta.env.BASE_URL}zachrannohu/${name}.webp`;
@@ -205,14 +206,21 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const [err, setErr] = useState("");
+  const [hp, setHp] = useState(""); // skryté pole proti botom
+  const startedAt = useRef(Date.now());
   const submit = async (e) => {
     e.preventDefault(); setErr("");
     // rovnaké pravidlá ako server (angio-013) — bez zbytočného kola na server
     const nm = name.trim();
     if (nm.length < 3 || !/[A-Za-zÀ-ž]{2,}/.test(nm)) { setErr("Zadajte prosím meno a priezvisko."); return; }
     if (phone.replace(/\D/g, "").length < 9) { setErr("Zadajte platné telefónne číslo (napr. 0949 123 456)."); return; }
+    if (hp) { setDone({ ok: true }); return; } // bot vyplnil skryté pole — tváriť sa ako úspech, nič neposlať
     setBusy(true);
-    try { const r = await onRequest({ name: nm, phone: phone.trim(), pref: "", source }); setDone(r || { ok: true }); }
+    try {
+      guardFor({ hp, startedAt: startedAt.current });
+      await ensureHumanPass();
+      const r = await onRequest({ name: nm, phone: phone.trim(), pref: "", source }); setDone(r || { ok: true });
+    }
     catch (ex) { setErr(friendlyError(ex?.message || String(ex))); }
     finally { setBusy(false); }
   };
@@ -228,7 +236,8 @@ export function CallbackCard({ onRequest, source = "angio1" }) {
           <p className="mt-3 text-sm text-muted">Ak sa stav nohy medzitým náhle zhorší (silná bolesť, bledá alebo studená noha), nečakajte na náš hovor a volajte 155.</p>
         </div>
       ) : (
-        <form onSubmit={submit} className="mt-6 space-y-5" noValidate>
+        <form onSubmit={submit} className="mt-6 space-y-5 relative" noValidate>
+          <input {...honeypotProps} value={hp} onChange={(e) => setHp(e.target.value)} />
           <label className="block">
             <span className="block text-sm font-semibold text-ink mb-1">Meno a priezvisko</span>
             <input className={field} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="napr. Mária Nováková" data-testid="cb-name" required />

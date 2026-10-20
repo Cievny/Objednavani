@@ -22,9 +22,12 @@ const cspPin = () => ({
     let host = ''
     try { host = url ? new URL(url).host : '' } catch { host = '' }
     const connect = host ? `'self' https://${host} wss://${host}` : `'self'`
+    // Cloudflare Turnstile (ochrana pred botmi, v113) — len ak je nastavený kľúč stránky
+    const ts = process.env.VITE_TURNSTILE_SITE_KEY ? 'https://challenges.cloudflare.com' : ''
     return html
       .replace("connect-src 'self' https://*.supabase.co wss://*.supabase.co", `connect-src ${connect}`)
-      .replace("base-uri 'self'", "base-uri 'self'; frame-src 'none'; form-action 'self'")
+      .replace("script-src 'self'", ts ? `script-src 'self' ${ts}` : "script-src 'self'")
+      .replace("base-uri 'self'", `base-uri 'self'; frame-src ${ts || "'none'"}; form-action 'self'`)
   },
 })
 

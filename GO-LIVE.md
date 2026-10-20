@@ -35,6 +35,22 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] v113 (ochrana pred botmi): spustiť `supabase/boti-001.sql` — kontrola
+      botov (režim `log` = len zapisuje do health_events), denný strop 300
+      overovacích SMS + e-mail personálu pri 80 % a pri strope, 15-min stropy
+      30, upozornenie pri 40 spätných volaniach za 24 h, mazanie health_events.
+      Po ~1 týždni skontrolovať `select * from health_events where source like
+      'bot-guard%'` a ak skutoční pacienti nepadajú, prepnúť
+      `update settings set value='on' where key='bot_guard';`
+- [ ] Cloudflare Turnstile (voliteľné): 1) dash.cloudflare.com → Turnstile →
+      Add site, doména objednanie.cievny.sk, režim Managed; 2) Site key do
+      GitHub → Settings → Secrets and variables → Actions → Variables ako
+      `TURNSTILE_SITE_KEY`; 3) Secret key do Supabase → Edge Functions →
+      Secrets ako `TURNSTILE_SECRET`; 4) nasadiť Edge Function
+      `supabase/functions/turnstile-pass` (verify_jwt = false); 5) nové
+      nasadenie stránky; 6) po overení `update settings set value='on' where
+      key='turnstile_enforce';` 7) v Informáciách o osobných údajoch odstrániť
+      [OVERIŤ] pri Cloudflare.
 - [x] v110 (audit UX 1): spustiť `supabase/angio-015.sql` (aplikované 20.10.2026) — zrušenie pacientom
       len ≥ 24 h vopred, notifikácia „potvrdené" len z nová → potvrdená (Vrátiť
       medzi aktívne už nepíše pacientovi), angio/ct_close_free_slots (hromadné

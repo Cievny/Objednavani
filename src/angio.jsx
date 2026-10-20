@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMsg } from "./toast.jsx";
 import {
   MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, firstPatientIso, PATIENT_LEAD_NOTE,
@@ -8,6 +8,7 @@ import {
 import { useAngioData } from "./podappkyData.js";
 import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
 import { ConsentAck } from "./legal.jsx";
+import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -104,10 +105,15 @@ function AngioBookingView({ data, landing = null }) {
   const [aboutOpen, setAboutOpen] = useState(""); // rozbalený popis typu vyšetrenia („Viac o vyšetrení")
   const phoneDigits = (p) => (p || "").replace(/\D/g, "");
   const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
+  const [hp, setHp] = useState(""); // skryté pole proti botom
+  const formStarted = useRef(0);
+  useEffect(() => { if (step === 3 && !formStarted.current) formStarted.current = Date.now(); }, [step]);
   const sendOtp = async () => {
     if (phoneDigits(form.phone).length < 9) { setErrs((x) => ({ ...x, phone: "Neplatné telefónne číslo (aspoň 9 číslic)." })); return; }
     setOtp((o) => ({ ...o, busy: true, msg: "" }));
     try {
+      guardFor({ hp, startedAt: formStarted.current });
+      await ensureHumanPass();
       const r = await data.sendOtp(normalizePhone(form.phone));
       setOtp({ stage: "sent", phone: form.phone, code: "", token: "", msg: "", busy: false, demoCode: r?.demoCode || "" });
       clearErr("phone");
@@ -295,7 +301,8 @@ function AngioBookingView({ data, landing = null }) {
       )}
 
       {step === 3 && (
-        <div className="space-y-3">
+        <div className="space-y-3 relative">
+          <input {...honeypotProps} value={hp} onChange={(e) => setHp(e.target.value)} />
           <button onClick={() => setStep(2)} className="text-sm text-brand hover:underline">← Späť na termín</button>
           <p className="text-sm text-muted"><b>{examType?.label}</b> · {fmtLong(date)} o {time}</p>
           <div className="grid md:grid-cols-2 gap-3">

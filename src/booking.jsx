@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useMsg } from "./toast.jsx";
 import { STATUS_TONES, inputCls as sharedInputCls } from "./ui.jsx";
 import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
+import { guardFor, ensureHumanPass, honeypotProps } from "./botguard.js";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 
@@ -677,10 +678,15 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
   const [otp, setOtp] = useState({ stage: "idle", phone: "", code: "", msg: "", busy: false, demoCode: "" });
   const phoneDigits = (p) => (p || "").replace(/\D/g, "");
   const phoneVerified = otp.stage === "verified" && phoneDigits(otp.phone) === phoneDigits(form.phone);
+  const [hp, setHp] = useState(""); // skryté pole proti botom
+  const formStarted = useRef(0);
+  useEffect(() => { if (step === 3 && !formStarted.current) formStarted.current = Date.now(); }, [step]);
   const sendOtp = async () => {
     if (phoneDigits(form.phone).length < 9) { setError("Zadajte platné telefónne číslo (aspoň 9 číslic)."); return; }
     setError(""); setOtp((o) => ({ ...o, busy: true, msg: "" }));
     try {
+      guardFor({ hp, startedAt: formStarted.current });
+      await ensureHumanPass();
       const r = await onSendOtp(normalizePhone(form.phone));
       setOtp({ stage: "sent", phone: form.phone, code: "", msg: "", busy: false, demoCode: r?.demoCode || "" });
     } catch (err) { setOtp((o) => ({ ...o, busy: false, msg: err?.message || String(err) })); }
@@ -914,7 +920,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
 
       {/* KROK 3 — ÚDAJE */}
       {step === 3 && (
-        <form id="patient-details-form" onSubmit={handleSubmit} className="space-y-4">
+        <form id="patient-details-form" onSubmit={handleSubmit} className="space-y-4 relative">
+          <input {...honeypotProps} value={hp} onChange={(e) => setHp(e.target.value)} />
           <h3 className="text-lg font-semibold text-brand">Vaše údaje</h3>
           <div className="bg-brand-soft border border-line rounded-lg p-3 text-sm text-ink">
             <strong>{examType?.label}</strong> — {formatDateHuman(form.date)} o {form.time} ·{" "}
