@@ -349,8 +349,10 @@ export default function App() {
           <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
         </p>
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
-        {!data.isSupabase && <>Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači. · </>}
-        {APP_VERSION}
+        {data.isSupabase
+          ? "Dáta sú uložené v zabezpečenej databáze v EÚ."
+          : "Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači."}{" "}
+        · {APP_VERSION}
       </footer>
       <Toaster />
     </div>
