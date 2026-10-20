@@ -11,7 +11,7 @@ import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v115";
+const APP_VERSION = "v116";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -349,10 +349,8 @@ export default function App() {
           <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Ochrana osobných údajov</a>
         </p>
         NÚSCH, a.s. · Pod Krásnou hôrkou 1, Bratislava ·{" "}
-        {data.isSupabase
-          ? "Dáta sú uložené v zabezpečenej databáze v EÚ (Supabase)."
-          : "Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači."}{" "}
-        · {APP_VERSION}
+        {!data.isSupabase && <>Prototyp — dáta sú zatiaľ uložené len v tomto prehliadači. · </>}
+        {APP_VERSION}
       </footer>
       <Toaster />
     </div>
