@@ -113,9 +113,10 @@ begin
     where p.pronamespace = 'public'::regnamespace and p.proname in ('angio_reschedule', 'ct_reschedule') loop
     if r.prosrc like '%arrived_at = case%' then continue; end if;
     v_def := pg_get_functiondef(r.oid);
+    -- pozor: v E'' reťazci je \\1 spätný odkaz a \n skutočný nový riadok (\\n by vložilo text „\n" a funkcia by sa nedala vytvoriť)
     v_new := regexp_replace(v_def,
-      E'(update (angio|ct)_orders set slot_date = p_slot_date, slot_time = p_slot_time,)',
-      E'\\1\\n    arrived_at = case when v_order.slot_date = p_slot_date then arrived_at else null end,');
+      '(update (angio|ct)_orders set slot_date = p_slot_date, slot_time = p_slot_time,)',
+      E'\\1\n    arrived_at = case when v_order.slot_date = p_slot_date then arrived_at else null end,');
     if v_new = v_def then raise warning 'ANGIO-015: % — update sa nenašiel, arrived_at neupravené.', r.sig; continue; end if;
     execute v_new;
     raise notice 'ANGIO-015: % — arrived_at sa pri zmene dňa nuluje.', r.sig;
