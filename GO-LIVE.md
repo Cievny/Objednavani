@@ -35,7 +35,7 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v110 (audit UX 1): spustiť `supabase/angio-015.sql` — zrušenie pacientom
+- [x] v110 (audit UX 1): spustiť `supabase/angio-015.sql` (aplikované 20.10.2026) — zrušenie pacientom
       len ≥ 24 h vopred, notifikácia „potvrdené" len z nová → potvrdená (Vrátiť
       medzi aktívne už nepíše pacientovi), angio/ct_close_free_slots (hromadné
       zatváranie len voľných buniek), arrived_at sa pri presune na iný deň nuluje,
