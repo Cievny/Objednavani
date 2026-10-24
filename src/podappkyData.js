@@ -150,7 +150,8 @@ const CT_CFG = {
   keys: { slots: "ctOpenSlots_v1", orders: CT_ORDERS_KEY, pricelist: "ctPricelist_v1", doctors: "ctDoctors_v1" },
   tables: { slots: "ct_open_slots", orders: "ct_orders", pricelist: "ct_pricelist" },
   rpc: { doctors: "public_ct_doctors", booked: "ct_get_booked_slots", create: "ct_create_order",
-    reschedule: "ct_reschedule", lookup: "ct_lookup_order", cancel: "ct_cancel_order", closeFree: "ct_close_free_slots" },
+    reschedule: "ct_reschedule", lookup: "ct_lookup_order", cancel: "ct_cancel_order", closeFree: "ct_close_free_slots",
+    staffCreate: "ct_staff_create_order" },
   doctorsKey: "ct_doctors",
   defaultPricelist: defaultCtPricelist,
 };
@@ -161,7 +162,7 @@ const ANGIO_CFG = {
   rpc: { doctors: "public_angio_doctors", booked: "angio_get_booked_slots", create: "angio_create_order",
     reschedule: "angio_reschedule", lookup: "angio_lookup_order", cancel: "angio_cancel_order", closeFree: "angio_close_free_slots",
     sendOtp: "angio_send_otp", verifyOtp: "angio_verify_otp", patientReschedule: "angio_patient_reschedule",
-    requestCallback: "angio_request_callback" },
+    requestCallback: "angio_request_callback", staffCreate: "angio_staff_create_order" },
   callbackSmsKey: "angio_callback_sms_to", // mobil pracoviska pre SMS o žiadosti o spätné volanie (angio-013), číta len personál
   smsVerifyKey: "angio_sms_verify", // overenie telefónu SMS kódom (angio-005), 'on'/'off', verejne čitateľné
   doctorsKey: "angio_doctors",
@@ -246,6 +247,8 @@ function useClinicData(cfg, isStaff) {
         rejectedAt: r.rejected_at || "",
         arrivedAt: r.arrived_at || "",
         createdAt: r.created_at || "",
+        createdBy: r.created_by || "", // rucne-001: kto objednávku zadal ručne (prázdne = pacient online)
+        notifyPatient: r.notify_patient !== false,
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
       if (T.callbacks) {
@@ -416,6 +419,37 @@ function useClinicData(cfg, isStaff) {
     return order.id;
   };
 
+  // ručné pridanie pacienta personálom (rucne-001): bez SMS overenia a žiadanky, hneď potvrdené
+  const createStaffOrder = async (o) => {
+    if (!supabase) {
+      const item = (loadJson(K.pricelist, cfg.defaultPricelist)).find((p) => p.id === o.examTypeId);
+      const durationMin = Math.max(1, item?.durationSlots || 3) * 5;
+      const cells = expandCells({ date: o.date, time: o.time, durationMin }).map((c) => c.time);
+      const list = loadJson(K.orders, []);
+      const clash = list.some((x) => x.status !== "rejected" && x.date === o.date && expandCells(x).some((c) => cells.includes(c.time)));
+      if (clash) throw new Error("V tomto čase je už objednaný iný pacient. Vyberte iný čas.");
+      const cellDoctor = (loadJson(K.slots, {})[o.date] || []).find((c) => c.time === o.time)?.doctor || "";
+      const id = `${T.orders === "ct_orders" ? "CT" : "ANG"}-${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+      const rec = { id, patientName: o.patientName, birthDate: o.birthDate, insurance: o.insurance || "", phone: o.phone, email: o.email || "",
+        reason: o.reason || "", examTypeId: o.examTypeId, exam: { typeId: o.examTypeId, label: item?.label || "" }, date: o.date, time: o.time,
+        doctor: o.doctor || cellDoctor, status: "confirmed", statusNote: "", durationMin, attachments: [], createdAt: new Date().toISOString(),
+        createdBy: "personál (demo)", notifyPatient: o.notify !== false };
+      const next = [...list, rec];
+      localStorage.setItem(K.orders, JSON.stringify(next)); setOrders(next); return id;
+    }
+    const { data, error } = await supabase.rpc(R.staffCreate, {
+      p_exam_type_id: o.examTypeId, p_patient_name: o.patientName, p_birth_date: o.birthDate || null, p_insurance: o.insurance || "",
+      p_phone: o.phone, p_email: o.email || "", p_reason: o.reason || "", p_slot_date: o.date, p_slot_time: o.time,
+      p_doctor: o.doctor || "", p_notify: o.notify !== false,
+    });
+    if (error) {
+      if (error.code === "PGRST202") throw new Error("Ručné pridávanie ešte nie je zapnuté v databáze (spustite supabase/rucne-001.sql).");
+      throw new Error(error.message);
+    }
+    await reload();
+    return data;
+  };
+
   const openAttachment = async (att) => {
     if (att?.dataUrl) { const a = document.createElement("a"); a.href = att.dataUrl; a.download = att.name || "priloha"; a.click(); return; }
     if (att?.path && supabase) {
@@ -578,7 +612,7 @@ function useClinicData(cfg, isStaff) {
 
   return {
     isSupabase: isSupabaseConfigured, loading, loadError, openSlots, orders, occupied, pricelist, doctors, notes, smsVerify, pendingCount,
-    openWindow, closeSlot, closeSlots, createOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
+    openWindow, closeSlot, closeSlots, createOrder, createStaffOrder, setStatus, reschedule, savePricelist, saveDoctors, saveNotes,
     saveSmsVerify, sendOtp, verifyOtp, patientReschedule,
     // spätné volania len pre ambulancie s tabuľkou (angio); CT/USG dostanú null
     callbacks, newCallbackCount, callbackSmsTo,

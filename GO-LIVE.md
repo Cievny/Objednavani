@@ -35,7 +35,13 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v113 (ochrana pred botmi): spustiť `supabase/boti-001.sql` — kontrola
+- [ ] v117 (ručné pridanie pacienta personálom): spustiť `supabase/rucne-001.sql`
+      — stĺpce `created_by` / `notify_patient`, RPC `usg_/angio_/ct_staff_create_order`
+      (lekár, sestra, superadmin; bez SMS overenia a povinnej žiadanky, aj na dnes
+      a mimo otvorených termínov), notifikácie pacientovi sa dajú vypnúť, e-mail
+      personálu „Nová objednávka" sa pri ručne zadanej neposiela. Skript je
+      spätne kompatibilný so staršou verziou frontendu (dá sa spustiť pred nasadením).
+- [x] v113 (ochrana pred botmi): spustiť `supabase/boti-001.sql` — kontrola
       botov (režim `log` = len zapisuje do health_events), denný strop 300
       overovacích SMS + e-mail personálu pri 80 % a pri strope, 15-min stropy
       30, upozornenie pri 40 spätných volaniach za 24 h, mazanie health_events.

@@ -48,6 +48,8 @@ const orderFromRow = (r) => ({
   rejectedAt: r.rejected_at || "",
   paidAt: r.paid_at || "",
   arrivedAt: r.arrived_at || "",
+  createdBy: r.created_by || "", // rucne-001: kto objednávku zadal ručne (prázdne = pacient online)
+  notifyPatient: r.notify_patient !== false,
 });
 
 const lookupFromJson = (j) => j && ({
@@ -412,6 +414,41 @@ export function useBookingData(isStaff, enabled = true) {
     // symbol. Stará verzia (pred migráciou fio-parovanie-002) vracia číslo
     // objednávky USG-… — to VS nie je, vtedy ostáva klientský číselný VS.
     return typeof data === "string" && /^\d{1,10}$/.test(data) ? data : order.variableSymbol;
+  };
+
+  // ručné pridanie pacienta personálom (rucne-001): bez SMS overenia a žiadanky;
+  // platba „free" = kontrola bez platby (hneď potvrdená), „referral"/„self" = podľa cenníka
+  const addStaffOrder = async (o) => {
+    if (!supabase) {
+      const item = pricelist.find((p) => p.id === o.examTypeId);
+      if (!item) throw new Error("Vyberte vyšetrenie.");
+      const price = o.payment === "referral" ? item.priceReferral : o.payment === "self" ? item.priceSelf : 0;
+      const durationMin = Math.max(2, item.durationSlots || 2) * 5;
+      const cells = expandOrderCells({ date: o.date, time: o.time, durationMin }).map((c) => c.time);
+      if (orders.some((x) => isSlotOccupying(x) && x.date === o.date && expandOrderCells(x).some((c) => cells.includes(c.time)))) {
+        throw new Error("V tomto čase je už objednaný iný pacient. Vyberte iný čas.");
+      }
+      const cellDoctor = (openSlots[o.date] || []).find((c) => c.time === o.time)?.doctor || "";
+      const id = `USG-${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+      setOrders((prev) => [...prev, {
+        id, createdAt: new Date().toISOString(), status: price > 0 ? "new" : "confirmed", statusNote: "",
+        hasReferral: o.payment === "referral",
+        exam: { typeId: item.id, label: item.label, reason: o.reason || "", referrerName: "", referrerFacility: "" },
+        price, patient: { name: o.patientName, birthDate: o.birthDate, insurance: o.insurance || "", phone: o.phone, email: o.email || "" },
+        date: o.date, time: o.time, variableSymbol: price > 0 ? String(Date.now()).slice(-8) : "", doctor: o.doctor || cellDoctor,
+        paid: false, attachments: [], durationMin, createdBy: "personál (demo)", notifyPatient: o.notify !== false,
+      }]);
+      return { id };
+    }
+    const { data, error } = await supabase.rpc("usg_staff_create_order", {
+      p_exam_type_id: o.examTypeId, p_payment: o.payment || "free", p_patient_name: o.patientName, p_birth_date: o.birthDate || null,
+      p_insurance: o.insurance || "", p_phone: o.phone, p_email: o.email || "", p_reason: o.reason || "",
+      p_slot_date: o.date, p_slot_time: o.time, p_doctor: o.doctor || "", p_notify: o.notify !== false,
+    });
+    if (error && error.code === "PGRST202") throw new Error("Ručné pridávanie ešte nie je zapnuté v databáze (spustite supabase/rucne-001.sql).");
+    throwIf(error);
+    await reload();
+    return data;
   };
 
   const openAttachment = async (attachment) => {
@@ -780,7 +817,7 @@ export function useBookingData(isStaff, enabled = true) {
   return {
     isSupabase: isSupabaseConfigured, loading, loadError, reload, sendOtp, verifyOtp,
     orders, occupied, openSlots, settings, pricelist, pendingCount,
-    addOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeSlots, closeDay,
+    addOrder, addStaffOrder, setStatus, setPaid, reschedule, changeDoctor, openWindow, closeSlot, closeSlots, closeDay,
     saveSettings, savePricelist, savePricelistOrder, getMonthlyStats,
     listStaff, setStaffRole, removeStaffRole, checkPayments,
     lookupOrder, cancelOrder, patientReschedule, openAttachment,

@@ -5,6 +5,7 @@ import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
+import { StaffAddOrder } from "./staffAdd.jsx";
 
 // --- 1. KONFIGURÁCIA ---
 
@@ -1222,8 +1223,8 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
           <span className="text-muted text-sm ml-2">{formatBirth(order.patient)}</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${order.hasReferral ? "bg-success-soft text-success" : "bg-brand-soft text-brand"}`}>
-            {order.hasReferral ? "ŽIADANKA" : "SAMOPLATCA"}
+          <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${order.hasReferral ? "bg-success-soft text-success" : order.price === 0 ? "bg-soft text-muted" : "bg-brand-soft text-brand"}`}>
+            {order.hasReferral ? "ŽIADANKA" : order.price === 0 ? "BEZ PLATBY" : "SAMOPLATCA"}
           </span>
           <PaidBadge order={order} />
           <ArrivedBadge order={order} />
@@ -1235,7 +1236,7 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       </div>
       <p className="text-sm">
         <strong className="text-brand">{order.exam.label}</strong> — {formatDateHuman(order.date)} o {order.time}
-        {order.price != null && (
+        {order.price != null && order.price > 0 && (
           <span className="text-brand font-semibold ml-2">
             {formatPrice(order.price)}{order.hasReferral ? " (doplatok)" : ""}
           </span>
@@ -1251,7 +1252,9 @@ const UsgOrderCard = ({ order, onSetStatus, onSetPaid, onReschedule, freeSlotsFo
       <p className="text-xs text-muted">
         Tel. {order.patient.phone}{order.patient.email && ` · ${order.patient.email}`}
         {order.variableSymbol && ` · VS ${order.variableSymbol}`} · objednávka {order.id}
+        {order.createdBy && ` · zadal(a) ručne ${order.createdBy}`}
       </p>
+      {order.notifyPatient === false && <p className="text-xs text-warn font-semibold">Notifikácie vypnuté — pacient nedostáva SMS ani e-maily.</p>}
       {order.statusNote && <p className="text-xs text-warn">Poznámka: {order.statusNote}</p>}
       {Array.isArray(order.attachments) && order.attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -2069,9 +2072,14 @@ const InvoicesTab = ({ onList, onIssueMissing }) => {
   );
 };
 
-const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseSlots, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, onListInvoices, onIssueMissingInvoices, isSupabase = false, onOpenAttachment, role = "superadmin" }) => {
+const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onCloseSlot, onCloseSlots, onCloseDay, onSetStatus, onSetPaid, onReschedule, onChangeDoctor, onSaveSettings, onSavePricelist, onSavePricelistOrder, onGetMonthlyStats, onListStaff, onSetStaffRole, onRemoveStaffRole, onCheckPayments, onListInvoices, onIssueMissingInvoices, isSupabase = false, onOpenAttachment, role = "superadmin", doctorName = "", onAddStaffOrder }) => {
   const todayIso = toISODate(new Date());
   const [tab, setTab] = useState("overview");
+  // ručné pridanie pacienta (rucne-001) — všetky roly vrátane lekára; null = formulár zatvorený
+  const [addOpen, setAddOpen] = useState(null);
+  const addRef = useRef(null);
+  const openAdd = (init = {}) => { setAddOpen({ ...init, k: Date.now() }); setTimeout(() => addRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); };
+  const occupiedAll = useMemo(() => orders.filter(isSlotOccupying).flatMap((o) => orderCellTimes(o).map((t) => ({ date: o.date, time: t }))), [orders]);
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [dayDetailId, setDayDetailId] = useState(null);
   // klik na termín v týždennom prehľade / dennom rozpise presunie
@@ -2353,7 +2361,19 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           </button>
         ))}
         {actionBusy && <span className="self-center text-xs text-muted">ukladám…</span>}
+        {onAddStaffOrder && (
+          <button type="button" onClick={() => (addOpen ? setAddOpen(null) : openAdd(view === "calendar" ? { date: selectedDate } : {}))}
+            className="shrink-0 whitespace-nowrap md:ml-auto px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-brand text-brand hover:bg-brand-soft" data-testid="staff-add-open">+ Pridať pacienta</button>
+        )}
       </div>
+      {addOpen && onAddStaffOrder && (
+        <div ref={addRef} className="scroll-mt-20">
+          <StaffAddOrder key={addOpen.k} kind="usg" pricelist={pricelist} doctors={doctors} openSlots={openSlots} occupied={occupiedAll}
+            defaultDoctor={role === "lekar" ? doctorName : ""} initial={addOpen}
+            onSubmit={async (o) => { const res = await onAddStaffOrder(o); setSelectedDate(o.date); return res; }}
+            onClose={() => setAddOpen(null)} />
+        </div>
+      )}
       {actionError && (
         <div className="bg-red-900/70 border border-danger/40 text-white text-sm font-semibold p-3 rounded-lg">
           ⚠ Akcia zlyhala: {actionError}
@@ -2626,7 +2646,14 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               </div>
             </div>
             {daySeg.segments.length === 0
-              ? <p className="text-muted bg-white border border-line p-4 rounded-lg">V tento deň nie sú otvorené žiadne termíny.</p>
+              ? (
+                <div className="text-muted bg-white border border-line p-4 rounded-lg space-y-2">
+                  <p>V tento deň nie sú otvorené žiadne termíny.</p>
+                  {onAddStaffOrder && selectedDate >= todayIso && (
+                    <button type="button" onClick={() => openAdd({ date: selectedDate })} className="bg-white border border-brand text-brand hover:bg-brand-soft text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať pacienta na tento deň</button>
+                  )}
+                </div>
+              )
               : (
                 <div className="space-y-1.5">
                   <p className="text-xs text-muted">{daySeg.booked}/{daySeg.open} obsadené · obsadené bloky otvoríte kliknutím, voľné bloky zavriete krížikom</p>
@@ -2659,6 +2686,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
                       <div key={seg.start} className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 rounded-lg border border-dashed border-success/60 bg-success-soft">
                         <span className="font-mono font-semibold text-sm text-success shrink-0 whitespace-nowrap">{seg.start}–{seg.end}</span>
                         <span className="flex-1 min-w-0 basis-32 text-sm text-success truncate">voľné{seg.doctor ? ` · ${seg.doctor}` : ""}</span>
+                        {onAddStaffOrder && (
+                          <button type="button" onClick={() => openAdd({ date: selectedDate, time: seg.start, doctor: seg.doctor || "" })} title="Pridať pacienta do tohto času"
+                            className="text-brand text-xs font-semibold shrink-0 py-1 px-2 rounded-lg hover:bg-brand-soft" data-testid="free-add">+ Pacient</button>
+                        )}
                         <button
                           onClick={() => doCloseSegment(selectedDate, seg.cells)}
                           title="Zavrieť termín"

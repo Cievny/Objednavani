@@ -11,7 +11,7 @@ import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v116";
+const APP_VERSION = "v117";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -212,6 +212,8 @@ export default function App() {
         isSupabase={data.isSupabase}
         onOpenAttachment={data.openAttachment}
         role={auth.role || "none"}
+        doctorName={auth.doctorName || ""}
+        onAddStaffOrder={data.addStaffOrder}
       />
     </div>
   );
@@ -311,10 +313,10 @@ export default function App() {
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
           : isCheckinRoute ? <CheckinView />
           : isAngioRoute ? (isAngioAdmin
-              ? renderGated(<AngioAdminApp role={auth.isSupabase ? (auth.role || "none") : "superadmin"} backHref={APP_MODE === "combined" ? "#/sprava" : "#/"} />)
+              ? renderGated(<AngioAdminApp role={auth.isSupabase ? (auth.role || "none") : "superadmin"} doctorName={auth.doctorName || ""} backHref={APP_MODE === "combined" ? "#/sprava" : "#/"} />)
               : <AngioPatientApp />)
           : isPayRoute ? renderGated(<AdhocPaymentApp />)
-          : isCtRoute ? renderGated(<CtApp isStaff={isStaff} role={auth.isSupabase ? (auth.role || "none") : "superadmin"} />)
+          : isCtRoute ? renderGated(<CtApp isStaff={isStaff} role={auth.isSupabase ? (auth.role || "none") : "superadmin"} doctorName={auth.doctorName || ""} />)
           : isAdminRoute ? renderAdmin() : (
           <>
             <UsgHero />

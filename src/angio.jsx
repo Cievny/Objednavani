@@ -9,6 +9,7 @@ import { useAngioData } from "./podappkyData.js";
 import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
 import { ConsentAck } from "./legal.jsx";
 import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
+import { StaffAddOrder } from "./staffAdd.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -546,6 +547,7 @@ function PatientDetails({ order, onCopied }) {
     ["Dôvod / poznámka", order.reason || "—"],
     ["Číslo objednávky", order.id],
     ["Objednané", fmtDT(order.createdAt)],
+    ...(order.createdBy ? [["Zadal(a) ručne", order.createdBy]] : []),
   ];
   const copy = async () => {
     const text = rows.map(([k, v]) => `${k}: ${v}`).join("\n");
@@ -559,7 +561,8 @@ function PatientDetails({ order, onCopied }) {
         <div><dt className="text-xs uppercase tracking-wide text-muted">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-brand hover:underline">{order.phone}</a> : "—"}</dd></div>
         <div><dt className="text-xs uppercase tracking-wide text-muted">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-brand hover:underline">{order.email}</a> : "—"}</dd></div>
         {order.doctor && <div><dt className="text-xs uppercase tracking-wide text-muted">Lekár</dt><dd>{order.doctor}</dd></div>}
-        <div><dt className="text-xs uppercase tracking-wide text-muted">Objednané</dt><dd>{fmtDT(order.createdAt)}</dd></div>
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Objednané</dt><dd>{fmtDT(order.createdAt)}{order.createdBy ? ` · zadal(a) ${order.createdBy}` : " · pacient online"}</dd></div>
+        {order.notifyPatient === false && <div><dt className="text-xs uppercase tracking-wide text-muted">Notifikácie</dt><dd className="text-warn font-semibold">vypnuté — pacient nedostáva SMS ani e-maily</dd></div>}
         {order.reason && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
       </dl>
       <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg">📋 Kopírovať údaje pacienta</button>
@@ -741,7 +744,7 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
             <span className="font-semibold text-sm text-ink truncate">{order.patientName}</span>
             <ArrivedBadge order={order} />
           </div>
-          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}</div>
+          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}</div>
         </div>
         <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
         {canManage && order.status === "new" && !open && (
@@ -757,8 +760,12 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
 
 // ---------- Správa ambulancie ----------
 // Správa ambulancie — zdieľaná aj CT pracoviskom (clinic="ct": bez spätných volaní, vlastné Nastavenia)
-export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioSettings }) {
+export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioSettings, doctorName = "" }) {
   const canManage = role === "superadmin" || role === "sestra";
+  // ručné pridanie pacienta (rucne-001) — všetky roly vrátane lekára; null = formulár zatvorený
+  const [addOpen, setAddOpen] = useState(null);
+  const addRef = useRef(null);
+  const openAdd = (init = {}) => { setAddOpen({ ...init, k: Date.now() }); setTimeout(() => addRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); };
   const isSuper = role === "superadmin";
   const [tab, setTab] = useState("overview");
   const todayIso = toISODate(new Date());
@@ -848,8 +855,19 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
         {tabs.map(([id, label]) => (
           <button key={id} type="button" onClick={() => { setTab(id); if (id === "orders" && tab !== "orders") { setFRange("all"); setFStatus("all"); } }} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
         ))}
-        <button type="button" onClick={() => data.reload?.()} title="Načítať aktuálne dáta" className={`${btn} ml-auto bg-white border border-line text-muted hover:text-ink`} data-testid="reload">↻ Obnoviť</button>
+        {data.createStaffOrder && (
+          <button type="button" onClick={() => (addOpen ? setAddOpen(null) : openAdd(tab === "calendar" ? { date: selDay } : {}))} className={`${btn} ml-auto bg-white border border-brand text-brand hover:bg-brand-soft`} data-testid="staff-add-open">+ Pridať pacienta</button>
+        )}
+        <button type="button" onClick={() => data.reload?.()} title="Načítať aktuálne dáta" className={`${btn} ${data.createStaffOrder ? "" : "ml-auto "}bg-white border border-line text-muted hover:text-ink`} data-testid="reload">↻ Obnoviť</button>
       </div>
+      {addOpen && (
+        <div ref={addRef} className="scroll-mt-20">
+          <StaffAddOrder key={addOpen.k} kind="clinic" pricelist={data.pricelist} doctors={data.doctors} openSlots={data.openSlots} occupied={data.occupied}
+            defaultDoctor={role === "lekar" ? doctorName : ""} initial={addOpen}
+            onSubmit={async (o) => { const id = await data.createStaffOrder(o); if (canManage) selectDay(o.date); return id; }}
+            onClose={() => setAddOpen(null)} />
+        </div>
+      )}
       {data.loadError && <p className="text-sm font-semibold text-danger" role="alert">Dáta sa nepodarilo načítať ({data.loadError}). Zobrazený stav nemusí byť aktuálny.</p>}
       {msg && !msg.startsWith("✓") && <p className="text-sm font-semibold text-danger" role="alert">{msg}</p>}
 
@@ -923,6 +941,9 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
               {dayOrders.length === 0 && dayOpen.length === 0 && (
                 <div className="text-sm text-muted space-y-2">
                   <p>V tento deň nie sú otvorené termíny.</p>
+                  {data.createStaffOrder && selDay >= todayIso && (
+                    <button type="button" onClick={() => openAdd({ date: selDay })} className="mr-2 bg-white border border-brand text-brand hover:bg-brand-soft text-sm font-semibold px-4 py-2 rounded-lg">+ Pridať pacienta na tento deň</button>
+                  )}
                   {canManage && selDay >= todayIso && (
                     <button onClick={() => run(() => data.openWindow({ dateFrom: selDay, dateTo: selDay, timeFrom: wtFrom, timeTo: wtTo, doctor: wDoctor, skipWeekends: false }), "✓ Termíny otvorené.")}
                       className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg">
@@ -950,6 +971,7 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
                       <div key={`f-${x.start}`} data-testid="free-block" className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-dashed border-success/50 bg-success-soft/40 text-sm">
                         <span className="shrink-0 w-[6.6rem] font-mono text-success font-semibold whitespace-nowrap">{x.start}–{x.end}</span>
                         <span className="flex-1 text-muted truncate">voľné {fmtDur(x.cells.length * 5)}{x.doctor ? ` · ${x.doctor}` : " · ktorýkoľvek lekár"}</span>
+                        {data.createStaffOrder && <button type="button" title="Pridať pacienta do tohto času" data-testid="free-add" onClick={() => openAdd({ date: selDay, time: x.start, doctor: x.doctor })} className="shrink-0 text-xs font-semibold text-brand px-2 py-1 rounded-lg hover:bg-brand-soft">+ Pacient</button>}
                         {canManage && <button type="button" disabled={busyAll} title="Zavrieť blok" onClick={() => closeCells(x.cells, `voľný blok ${x.start}–${x.end} (${fmtDur(x.cells.length * 5)})`)} className="shrink-0 text-xs font-semibold text-muted hover:text-danger disabled:opacity-50 px-2 py-1 rounded-lg hover:bg-danger-soft">Zavrieť</button>}
                       </div>
                     ))}
@@ -1291,7 +1313,7 @@ export function AngioPatientApp() {
 }
 
 // Správa ambulancie (za prihlásením personálu)
-export function AngioAdminApp({ role = "superadmin", backHref = "#/sprava" }) {
+export function AngioAdminApp({ role = "superadmin", backHref = "#/sprava", doctorName = "" }) {
   const data = useAngioData(true);
   return (
     <div className="space-y-4">
@@ -1299,7 +1321,7 @@ export function AngioAdminApp({ role = "superadmin", backHref = "#/sprava" }) {
         <span>{CLINIC_NAME} — správa objednávok{data.pendingCount > 0 ? ` · nové na potvrdenie: ${data.pendingCount}` : ""}</span>
         <a href={backHref} className="hover:underline">← Späť do správy USG</a>
       </div>
-      <AngioAdmin data={data} role={role} />
+      <AngioAdmin data={data} role={role} doctorName={doctorName} />
     </div>
   );
 }

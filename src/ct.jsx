@@ -365,7 +365,7 @@ function CtSettings({ data, isSuper }) {
   );
 }
 
-export default function CtApp({ isStaff, role = "superadmin" }) {
+export default function CtApp({ isStaff, role = "superadmin", doctorName = "" }) {
   const [view, setView] = useState("admin");
   const data = useCtData(isStaff);
   const btn = "px-4 py-2 rounded-lg text-sm font-semibold transition-colors";
@@ -380,7 +380,7 @@ export default function CtApp({ isStaff, role = "superadmin" }) {
         <button onClick={() => setView("book")} className={`${btn} ${view === "book" ? "bg-brand text-white" : "bg-soft text-ink"}`}>Objednať sa (náhľad)</button>
         <button onClick={() => setView("lookup")} className={`${btn} ${view === "lookup" ? "bg-brand text-white" : "bg-soft text-ink"}`}>Overiť objednávku</button>
       </div>
-      {view === "admin" ? <AngioAdmin data={data} role={role} clinic="ct" SettingsView={CtSettings} />
+      {view === "admin" ? <AngioAdmin data={data} role={role} clinic="ct" SettingsView={CtSettings} doctorName={doctorName} />
         : view === "lookup" ? <CtOrderLookup data={data} />
         : <><CtBookingView data={data} /><CtOrderLookup data={data} /></>}
     </div>
