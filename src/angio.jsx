@@ -774,7 +774,8 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
   const [wtFrom, setWtFrom] = useState("07:30"), [wtTo, setWtTo] = useState("14:30"), [wDoctor, setWDoctor] = useState("");
   const [selDay, setSelDay] = useState(todayIso);
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
-  const [fStatus, setFStatus] = useState("all"), [fText, setFText] = useState("");
+  // predvolene len objednávky na vybavenie (nové + potvrdené); vykonané, neprišiel a kôš na vyžiadanie
+  const [fStatus, setFStatus] = useState("open"), [fText, setFText] = useState("");
   const [msg, setMsg] = useMsg();
 
   const [busyAll, setBusyAll] = useState(false);
@@ -834,26 +835,32 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
   const closeCells = (times, label) => { if (!times.length) return; if (!window.confirm(`Zavrieť ${label}?\nObjednaní pacienti ostávajú, zatvoria sa len voľné časy.`)) return; run(() => data.closeSlots(selDay, times), "✓ Termíny zavreté."); };
   const freeInRange = dayFree.filter((c) => c.time >= cFrom && c.time < cTo).map((c) => c.time);
 
+  const statusOk = (o) => fStatus === "open" ? (o.status === "new" || o.status === "confirmed")
+    : fStatus === "all" ? o.status !== "rejected" : o.status === fStatus;
   const filtered = data.orders
-    .filter((o) => fStatus === "all" ? o.status !== "rejected" : o.status === fStatus)
+    .filter(statusOk)
     .filter((o) => fRange === "today" ? o.date === todayIso
       : fRange === "week" ? (o.date >= todayIso && o.date <= in7Iso)
       : fRange === "arrived" ? (o.date === todayIso && o.arrivedAt && (o.status === "new" || o.status === "confirmed"))
       : true)
     .filter((o) => { const q = fText.trim().toLowerCase(); if (!q) return true; const qd = q.replace(/\s/g, ""); return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || (o.phone || "").replace(/\s/g, "").includes(qd); })
     .sort(byPriority);
+  // koľko vybavených (vykonané / neprišiel) skrýva filter „Na vybavenie" — pri rovnakom dni a hľadaní
+  const hiddenSettled = fStatus !== "open" ? 0 : data.orders.filter((o) => isSettled(o)
+    && (fRange === "today" ? o.date === todayIso : fRange === "week" ? (o.date >= todayIso && o.date <= in7Iso) : fRange === "arrived" ? false : true)
+    && (() => { const q = fText.trim().toLowerCase(); if (!q) return true; const qd = q.replace(/\s/g, ""); return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || (o.phone || "").replace(/\s/g, "").includes(qd); })()).length;
 
   const cbNew = data.newCallbackCount || 0;
   // lekár vidí cez RLS len vlastných pacientov — kalendár obsadenosti by mu klamal, preto ho nemá
   const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ...(clinic === "angio" ? [["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"]] : []), ...(canManage ? [["settings", "Nastavenia"]] : [])];
-  const filterActive = fRange !== "all" || fStatus !== "all";
+  const filterActive = fRange !== "all" || fStatus !== "open";
   const btn = "shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors";
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         {tabs.map(([id, label]) => (
-          <button key={id} type="button" onClick={() => { setTab(id); if (id === "orders" && tab !== "orders") { setFRange("all"); setFStatus("all"); } }} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
+          <button key={id} type="button" onClick={() => { setTab(id); if (id === "orders" && tab !== "orders") { setFRange("all"); setFStatus("open"); } }} className={`${btn} ${tab === id ? "bg-brand text-white" : "bg-soft text-ink"}`}>{label}</button>
         ))}
         {data.createStaffOrder && (
           <button type="button" onClick={() => (addOpen ? setAddOpen(null) : openAdd(tab === "calendar" ? { date: selDay } : {}))} className={`${btn} ml-auto bg-white border border-brand text-brand hover:bg-brand-soft`} data-testid="staff-add-open">+ Pridať pacienta</button>
@@ -1068,8 +1075,9 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
       {tab === "orders" && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-line p-4 flex flex-wrap gap-2 items-center">
-            <select className={inp + " w-auto"} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-              <option value="all">Aktívne</option>
+            <select className={inp + " w-auto"} value={fStatus} onChange={(e) => setFStatus(e.target.value)} data-testid="status-filter">
+              <option value="open">Na vybavenie (nové a potvrdené)</option>
+              <option value="all">Všetky aktívne (aj vybavené)</option>
               <option value="new">Nové</option><option value="confirmed">Potvrdené</option>
               <option value="done">Vykonané</option><option value="noshow">Neprišiel</option><option value="rejected">Kôš (zrušené)</option>
             </select>
@@ -1081,10 +1089,15 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
             </select>
             <input className={inp + " flex-1 min-w-[10rem]"} placeholder="Hľadať meno / číslo / telefón" value={fText} onChange={(e) => setFText(e.target.value)} />
             <span className="text-xs text-muted">{filtered.length} objednávok</span>
-            {filterActive && <button type="button" onClick={() => { setFRange("all"); setFStatus("all"); }} className="text-xs font-semibold text-brand hover:underline" data-testid="filter-reset">zrušiť filter ✕</button>}
+            {filterActive && <button type="button" onClick={() => { setFRange("all"); setFStatus("open"); }} className="text-xs font-semibold text-brand hover:underline" data-testid="filter-reset">zrušiť filter ✕</button>}
           </div>
-          {filtered.length === 0 ? <p className="text-sm text-muted">Žiadne objednávky.</p>
+          {filtered.length === 0 ? <p className="text-sm text-muted">{fStatus === "open" ? "Nič nečaká na vybavenie." : "Žiadne objednávky."}</p>
             : <div className="space-y-1.5">{filtered.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} showDate />)}</div>}
+          {hiddenSettled > 0 && (
+            <button type="button" onClick={() => setFStatus("all")} className="text-sm font-semibold text-brand hover:underline" data-testid="show-settled">
+              Zobraziť aj vybavené ({hiddenSettled} — vykonané / neprišiel) ›
+            </button>
+          )}
         </div>
       )}
 

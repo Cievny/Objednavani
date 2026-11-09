@@ -2099,7 +2099,8 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const [winTimeTo, setWinTimeTo] = useState("14:30");
   const [winDoctor, setWinDoctor] = useState("");
   const [winSkipWeekends, setWinSkipWeekends] = useState(true);
-  const [fStatus, setFStatus] = useState("all");
+  // predvolene len objednávky na vybavenie (nové + potvrdené); vykonané, neprišiel a kôš na vyžiadanie
+  const [fStatus, setFStatus] = useState("open");
   const [fPaid, setFPaid] = useState("all");
   const [fText, setFText] = useState("");
   const [fDate, setFDate] = useState("");
@@ -2223,7 +2224,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
   const paidCount = textDateFiltered.filter((o) => o.paid).length;
   const byCreated = sortMode === "objednane_desc";
   const filteredOrders = textDateFiltered
-    .filter((o) => fStatus === "all" || o.status === fStatus)
+    .filter((o) => fStatus === "all" || (fStatus === "open" ? (o.status === "new" || o.status === "confirmed") : o.status === fStatus))
     .filter((o) => fPaid === "all" || (fPaid === "paid" ? o.paid : !o.paid))
     .sort((a, b) => {
       if (sortMode === "objednane_desc") return (b.createdAt || "").localeCompare(a.createdAt || "");
@@ -2729,6 +2730,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
             {fDate && <button onClick={() => setFDate("")} className="text-xs text-muted hover:text-ink">✕ dátum</button>}
           </div>
           <div className="flex flex-wrap gap-1.5 items-center">
+            <FilterChip active={fStatus === "open"} onClick={() => setFStatus("open")} label={`Na vybavenie (${(statusCounts.new || 0) + (statusCounts.confirmed || 0)})`} />
             <FilterChip active={fStatus === "all"} onClick={() => setFStatus("all")} label={`Všetky (${textDateFiltered.length})`} />
             {Object.entries(usgStatuses).map(([key, st]) => (
               <FilterChip key={key} active={fStatus === key} onClick={() => setFStatus(key)} label={`${key === "rejected" ? "Kôš" : st.label} (${statusCounts[key] || 0})`} />
@@ -2754,8 +2756,13 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
               </button>
             </div>
           </div>
+          {fStatus === "open" && (statusCounts.done || 0) > 0 && (
+            <button type="button" onClick={() => setFStatus("done")} className="text-xs font-semibold text-brand hover:underline" data-testid="show-settled">
+              Vykonané sú skryté ({statusCounts.done}) — zobraziť ›
+            </button>
+          )}
           {filteredOrders.length === 0
-            ? <p className="text-muted bg-white border border-line p-4 rounded-lg">Žiadne objednávky nezodpovedajú filtrom.</p>
+            ? <p className="text-muted bg-white border border-line p-4 rounded-lg">{fStatus === "open" ? "Nič nečaká na vybavenie." : "Žiadne objednávky nezodpovedajú filtrom."}</p>
             : (
               <div className="space-y-4">
                 {ordersByDay.map((day) => (
