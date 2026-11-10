@@ -6,13 +6,14 @@ import { useAuth, useBookingData } from "./data.js";
 import AdhocPaymentApp from "./adhoc.jsx";
 import CtApp from "./ct.jsx";
 import CtDoctorApp from "./ctDoctor.jsx";
+import AdminHub from "./adminHub.jsx";
 import CheckinView from "./checkin.jsx";
 import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./angio.jsx";
 import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v119";
+const APP_VERSION = "v120";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -179,16 +180,10 @@ export default function App() {
   }, [legalPage, isCheckinRoute, isAngioRoute, isAngioAdmin, isCtRoute, isCtDoctorRoute, isPayRoute, isAdminRoute]);
 
   const adminContent = (
+    <>
+    {/* rozcestník: všetky správy a stránky pre pacientov a lekárov */}
+    <AdminHub usgHref={APP_MODE === "combined" ? "#/sprava" : "#/"} angioAdminHref={angioAdminHref} />
     <div className="bg-white rounded-xl p-5 md:p-6 border border-line">
-      {/* Diskrétne odkazy na skryté testovacie pod-appky (len pre personál) */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
-        <span className="text-warn bg-warn-soft border border-warn/30 rounded-lg px-2 py-0.5 font-semibold">Testovacie</span>
-        <a href="#/platba" className="text-brand font-semibold hover:underline">Ad-hoc platba za výkon</a>
-        <span className="text-line">·</span>
-        <a href="#/ct" className="text-brand font-semibold hover:underline">CT objednávanie (bez poplatku)</a>
-        <span className="text-line">·</span>
-        <a href={angioAdminHref} className="text-brand font-semibold hover:underline">{ANGIO_NAME} — správa</a>
-      </div>
       <AdminView
         orders={data.orders}
         openSlots={data.openSlots}
@@ -219,6 +214,7 @@ export default function App() {
         onAddStaffOrder={data.addStaffOrder}
       />
     </div>
+    </>
   );
 
   // Spoločná brána personálu (audit vlna 8): prihlásenie → rola → MFA.
