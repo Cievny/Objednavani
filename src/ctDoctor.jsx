@@ -164,6 +164,7 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   const [monthDate, setMonthDate] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [showCal, setShowCal] = useState(false); // kalendár len na vyžiadanie — predvolene 3 najbližšie termíny
   const [pat, setPat] = useState(emptyPatient);
   const [cl, setCl] = useState(emptyClinical);
   const [files, setFiles] = useState([]);
@@ -189,6 +190,17 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   const offered = (iso) => !exam ? [] : computeOfferedSlots({ openSlots: data.openSlots, takenSet: takenByDate.get(iso) || new Set(),
     doctors: data.doctors, examTypeId, durationMin, iso, minTime: earliestTimeFor(iso, ""), limit: Infinity });
   const isAvailable = (iso) => iso >= todayIso && offered(iso).length > 0;
+  // tri najbližšie voľné termíny vybraného vyšetrenia (naprieč dňami)
+  const nearest = useMemo(() => {
+    if (!exam) return [];
+    const out = [];
+    for (const d of Object.keys(data.openSlots).filter((x) => x >= todayIso).sort()) {
+      for (const s of offered(d)) { out.push({ date: d, time: s.time, doctor: s.doctor }); if (out.length === 3) return out; }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examTypeId, data.openSlots, takenByDate]);
+  const pickedNearest = nearest.some((n) => n.date === date && n.time === time);
   // kalendár otvoriť na mesiaci prvého voľného dňa vybraného vyšetrenia
   useEffect(() => {
     if (!exam) return;
@@ -250,7 +262,7 @@ function NewRequest({ data, token, onExpired, onShowList }) {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setDone(null); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
+  const reset = () => { setDone(null); setShowCal(false); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
   const bad = (k) => (errs[k] ? " border-danger ring-1 ring-danger/40" : "");
   const Err = ({ k }) => (errs[k] ? <p className="text-xs text-danger mt-1" role="alert">{errs[k]}</p> : null);
   const choice = (on, err) => `text-sm font-semibold px-3 py-1.5 rounded-lg border transition-colors ${on ? "bg-brand text-white border-brand" : `bg-white text-ink hover:border-brand ${err ? "border-danger" : "border-line"}`}`;
@@ -302,24 +314,53 @@ function NewRequest({ data, token, onExpired, onShowList }) {
         </div>
         <Err k="exam" />
         {exam && (
-          <div className="grid md:grid-cols-2 gap-5 mt-4">
-            <div>
-              <MonthCalendar monthDate={monthDate} onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
-                isAvailable={isAvailable} selected={date} onSelect={(iso) => { setDate(iso); setTime(""); clear("slot"); }} />
-              <p className="text-xs text-muted mt-2">Modré dni majú voľné otvorené CT termíny.</p>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink mb-2">{date ? `Voľné časy — ${fmtDay(date)}` : "Vyberte deň v kalendári"}</p>
-              <div className="flex flex-wrap gap-2">
-                {date && offered(date).map((s) => (
-                  <button key={s.time} type="button" aria-pressed={time === s.time} data-testid="ctdoc-time" onClick={() => { setTime(s.time); clear("slot"); }}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${time === s.time ? "bg-brand text-white border-brand" : "bg-white text-brand border-line hover:border-brand"}`}>
-                    {s.time}{s.doctor ? <span className="block text-xs font-normal opacity-70">{s.doctor}</span> : null}
-                  </button>
-                ))}
-                {date && offered(date).length === 0 && <p className="text-sm text-muted">V tento deň už nie sú voľné časy.</p>}
+          <div className="mt-4 space-y-3">
+            <p className="text-sm font-semibold text-ink">Najbližšie voľné termíny</p>
+            {nearest.length === 0
+              ? <p className="text-sm text-muted" data-testid="ctdoc-no-slots">Na toto vyšetrenie momentálne nie sú voľné CT termíny. Kontaktujte CT pracovisko.</p>
+              : (
+                <div className="grid sm:grid-cols-3 gap-2">
+                  {nearest.map((n) => {
+                    const on = n.date === date && n.time === time;
+                    return (
+                      <button key={`${n.date}-${n.time}`} type="button" aria-pressed={on} data-testid="ctdoc-nearest"
+                        onClick={() => { setDate(n.date); setTime(n.time); clear("slot"); }}
+                        className={`text-left px-4 py-3 rounded-lg border-2 transition-colors ${on ? "bg-brand text-white border-brand" : `bg-white text-ink hover:border-brand ${errs.slot ? "border-danger" : "border-line"}`}`}>
+                        <span className="block text-sm font-semibold">{fmtDay(n.date)}</span>
+                        <span className="block text-xl font-semibold font-mono">{n.time}</span>
+                        {n.doctor && <span className={`block text-xs ${on ? "opacity-80" : "text-muted"}`}>{n.doctor}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            {nearest.length > 0 && (
+              <button type="button" onClick={() => setShowCal((v) => !v)} className="text-sm font-semibold text-brand hover:underline" data-testid="ctdoc-other">
+                {showCal ? "▴ Skryť kalendár" : "Iný termín — vybrať v kalendári ▾"}
+              </button>
+            )}
+            {date && time && !pickedNearest && <p className="text-sm text-ink">Vybraný termín: <b>{fmtDay(date)} o {time}</b></p>}
+            {showCal && (
+              <div className="grid md:grid-cols-2 gap-5 pt-1">
+                <div>
+                  <MonthCalendar monthDate={monthDate} onMonthChange={(delta) => setMonthDate((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))}
+                    isAvailable={isAvailable} selected={date} onSelect={(iso) => { setDate(iso); setTime(""); clear("slot"); }} />
+                  <p className="text-xs text-muted mt-2">Modré dni majú voľné otvorené CT termíny.</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink mb-2">{date ? `Voľné časy — ${fmtDay(date)}` : "Vyberte deň v kalendári"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {date && offered(date).map((s2) => (
+                      <button key={s2.time} type="button" aria-pressed={time === s2.time} data-testid="ctdoc-time" onClick={() => { setTime(s2.time); clear("slot"); }}
+                        className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${time === s2.time ? "bg-brand text-white border-brand" : "bg-white text-brand border-line hover:border-brand"}`}>
+                        {s2.time}{s2.doctor ? <span className="block text-xs font-normal opacity-70">{s2.doctor}</span> : null}
+                      </button>
+                    ))}
+                    {date && offered(date).length === 0 && <p className="text-sm text-muted">V tento deň už nie sú voľné časy.</p>}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
         <Err k="slot" />
