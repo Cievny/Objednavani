@@ -219,7 +219,8 @@ begin
   insert into ct_doctor_auth (id, pw_hash, updated_at, updated_by)
   values (1, crypt(p_password, gen_salt('bf')), now(), staff_display_name())
   on conflict (id) do update set pw_hash = excluded.pw_hash, updated_at = excluded.updated_at, updated_by = excluded.updated_by;
-  delete from ct_doctor_sessions;
+  -- odhlásiť všetkých lekárov (Supabase nepustí DELETE bez WHERE)
+  delete from ct_doctor_sessions where token is not null;
 end $$;
 revoke all on function ct_set_doctor_password(text) from public, anon;
 grant execute on function ct_set_doctor_password(text) to authenticated;
