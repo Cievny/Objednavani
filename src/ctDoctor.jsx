@@ -190,17 +190,19 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   const offered = (iso) => !exam ? [] : computeOfferedSlots({ openSlots: data.openSlots, takenSet: takenByDate.get(iso) || new Set(),
     doctors: data.doctors, examTypeId, durationMin, iso, minTime: earliestTimeFor(iso, ""), limit: Infinity });
   const isAvailable = (iso) => iso >= todayIso && offered(iso).length > 0;
-  // tri najbližšie voľné termíny vybraného vyšetrenia (naprieč dňami)
-  const nearest = useMemo(() => {
+  // tri najbližšie dni s voľnými termínmi vybraného vyšetrenia, každý so všetkými voľnými časmi
+  const nearestDays = useMemo(() => {
     if (!exam) return [];
     const out = [];
     for (const d of Object.keys(data.openSlots).filter((x) => x >= todayIso).sort()) {
-      for (const s of offered(d)) { out.push({ date: d, time: s.time, doctor: s.doctor }); if (out.length === 3) return out; }
+      const times = offered(d);
+      if (times.length) out.push({ date: d, times });
+      if (out.length === 3) break;
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examTypeId, data.openSlots, takenByDate]);
-  const pickedNearest = nearest.some((n) => n.date === date && n.time === time);
+  const pickedNearest = nearestDays.some((n) => n.date === date && n.times.some((t) => t.time === time));
   // kalendár otvoriť na mesiaci prvého voľného dňa vybraného vyšetrenia
   useEffect(() => {
     if (!exam) return;
@@ -315,26 +317,34 @@ function NewRequest({ data, token, onExpired, onShowList }) {
         <Err k="exam" />
         {exam && (
           <div className="mt-4 space-y-3">
-            <p className="text-sm font-semibold text-ink">Najbližšie voľné termíny</p>
-            {nearest.length === 0
+            <p className="text-sm font-semibold text-ink">Najbližšie dni s voľnými termínmi</p>
+            {nearestDays.length === 0
               ? <p className="text-sm text-muted" data-testid="ctdoc-no-slots">Na toto vyšetrenie momentálne nie sú voľné CT termíny. Kontaktujte CT pracovisko.</p>
               : (
-                <div className="grid sm:grid-cols-3 gap-2">
-                  {nearest.map((n) => {
-                    const on = n.date === date && n.time === time;
-                    return (
-                      <button key={`${n.date}-${n.time}`} type="button" aria-pressed={on} data-testid="ctdoc-nearest"
-                        onClick={() => { setDate(n.date); setTime(n.time); clear("slot"); }}
-                        className={`text-left px-4 py-3 rounded-lg border-2 transition-colors ${on ? "bg-brand text-white border-brand" : `bg-white text-ink hover:border-brand ${errs.slot ? "border-danger" : "border-line"}`}`}>
-                        <span className="block text-sm font-semibold">{fmtDay(n.date)}</span>
-                        <span className="block text-xl font-semibold font-mono">{n.time}</span>
-                        {n.doctor && <span className={`block text-xs ${on ? "opacity-80" : "text-muted"}`}>{n.doctor}</span>}
-                      </button>
-                    );
-                  })}
+                <div className="grid md:grid-cols-3 gap-3">
+                  {nearestDays.map((n) => (
+                    <div key={n.date} data-testid="ctdoc-day" className={`rounded-lg border-2 p-3 ${n.date === date && time ? "border-brand bg-brand-soft" : errs.slot ? "border-danger" : "border-line"}`}>
+                      <p className="text-sm font-semibold text-ink mb-2">{fmtDay(n.date)}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {n.times.map((t) => {
+                          const on = n.date === date && t.time === time;
+                          return (
+                            <button key={t.time} type="button" aria-pressed={on} data-testid="ctdoc-day-time" title={t.doctor || undefined}
+                              onClick={() => { setDate(n.date); setTime(t.time); clear("slot"); }}
+                              className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold font-mono border transition-colors ${on ? "bg-brand text-white border-brand" : "bg-white text-brand border-line hover:border-brand"}`}>
+                              {t.time}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {[...new Set(n.times.map((t) => t.doctor).filter(Boolean))].length > 0 && (
+                        <p className="text-xs text-muted mt-2">{[...new Set(n.times.map((t) => t.doctor).filter(Boolean))].join(", ")}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
-            {nearest.length > 0 && (
+            {nearestDays.length > 0 && (
               <button type="button" onClick={() => setShowCal((v) => !v)} className="text-sm font-semibold text-brand hover:underline" data-testid="ctdoc-other">
                 {showCal ? "▴ Skryť kalendár" : "Iný termín — vybrať v kalendári ▾"}
               </button>
