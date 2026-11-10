@@ -249,6 +249,8 @@ function useClinicData(cfg, isStaff) {
         createdAt: r.created_at || "",
         createdBy: r.created_by || "", // rucne-001: kto objednávku zadal ručne (prázdne = pacient online)
         notifyPatient: r.notify_patient !== false,
+        requestedBy: r.requested_by || "", // ct-lekari-001: žiadosť lekára NÚSCH (meno, klapka)
+        clinical: r.clinical && typeof r.clinical === "object" ? r.clinical : {},
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
       })));
       if (T.callbacks) {

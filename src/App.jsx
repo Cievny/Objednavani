@@ -5,13 +5,14 @@ import { VopPage, PrivacyPage } from "./legal.jsx";
 import { useAuth, useBookingData } from "./data.js";
 import AdhocPaymentApp from "./adhoc.jsx";
 import CtApp from "./ct.jsx";
+import CtDoctorApp from "./ctDoctor.jsx";
 import CheckinView from "./checkin.jsx";
 import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./angio.jsx";
 import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v118";
+const APP_VERSION = "v119";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -153,7 +154,9 @@ export default function App() {
   // Testovacie pod-appky nie sú súčasťou pacientskej stránky — v patient
   // builde nesmú byť dosiahnuteľné ani cez hash (audit vlna 6)
   const isPayRoute = APP_MODE !== "patient" && hash.startsWith("#/platba");
-  const isCtRoute = APP_MODE !== "patient" && hash.startsWith("#/ct");
+  // CT pre lekárov NÚSCH (spoločné heslo) — vo všetkých verziách, mimo prihlásenia personálu
+  const isCtDoctorRoute = hash.startsWith("#/ct-lekar");
+  const isCtRoute = APP_MODE !== "patient" && hash.startsWith("#/ct") && !isCtDoctorRoute;
   // QR check-in v čakárni — verejná stránka (pacient ju otvára z QR na stojane)
   const isCheckinRoute = hash.startsWith("#/som-tu");
   // Angiologická ambulancia č. 1 (#/angio1) — verejné objednávanie bez poplatku;
@@ -164,16 +167,16 @@ export default function App() {
   const angioAdminHref = APP_MODE === "combined" ? "#/angio1/sprava" : "#/angio1";
   const isStaff = auth.isSupabase ? Boolean(auth.session) : codeUnlocked;
   // USG dáta len tam, kde sa používajú (USG pacient, USG správa, check-in nie — má vlastné RPC)
-  const usgActive = !isAngioRoute && !isCtRoute && !isPayRoute && !isCheckinRoute && !legalPage;
+  const usgActive = !isAngioRoute && !isCtRoute && !isCtDoctorRoute && !isPayRoute && !isCheckinRoute && !legalPage;
   const data = useBookingData(isStaff, usgActive);
 
   // titulok okna podľa stránky
   useEffect(() => {
     const t = legalPage === "vop" ? "Podmienky online objednávania" : legalPage === "privacy" ? "Ochrana osobných údajov"
       : isCheckinRoute ? "Som tu — príchod do čakárne" : isAngioRoute ? (isAngioAdmin ? `${ANGIO_NAME} — správa` : ANGIO_NAME)
-      : isCtRoute ? "CT objednávanie" : isPayRoute ? "Ad-hoc platba" : isAdminRoute ? "Správa objednávok — USG" : "Objednávanie na USG vyšetrenia";
+      : isCtDoctorRoute ? "CT objednávanie pre lekárov" : isCtRoute ? "CT objednávanie" : isPayRoute ? "Ad-hoc platba" : isAdminRoute ? "Správa objednávok — USG" : "Objednávanie na USG vyšetrenia";
     document.title = `${t} · NÚSCH`;
-  }, [legalPage, isCheckinRoute, isAngioRoute, isAngioAdmin, isCtRoute, isPayRoute, isAdminRoute]);
+  }, [legalPage, isCheckinRoute, isAngioRoute, isAngioAdmin, isCtRoute, isCtDoctorRoute, isPayRoute, isAdminRoute]);
 
   const adminContent = (
     <div className="bg-white rounded-xl p-5 md:p-6 border border-line">
@@ -271,7 +274,7 @@ export default function App() {
           <img src="logo-nusch.png" alt="Logo NÚSCH" className="w-10 h-10 shrink-0" />
           <div>
             <p className="font-semibold text-brand leading-tight text-sm md:text-base">Národný ústav srdcových a cievnych chorôb, a.s.</p>
-            <p className="text-xs text-muted">{isAngioRoute ? ANGIO_NAME : APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
+            <p className="text-xs text-muted">{isAngioRoute ? ANGIO_NAME : isCtDoctorRoute ? "CT objednávanie pre lekárov NÚSCH" : APP_MODE === "admin" ? "Interný systém — objednávky na USG" : "Objednávanie na USG vyšetrenia"}</p>
           </div>
           {IS_BETA && (
             <span className="ml-auto shrink-0 bg-warn-soft border border-warn/30 text-warn text-xs font-semibold px-3 py-1.5 rounded-lg">
@@ -309,9 +312,10 @@ export default function App() {
       </nav>
       )}
 
-      <main className={`${isAdminRoute || isPayRoute || isCtRoute || (isAngioRoute && isAngioAdmin) ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
+      <main className={`${isAdminRoute || isPayRoute || isCtRoute || isCtDoctorRoute || (isAngioRoute && isAngioAdmin) ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
           : isCheckinRoute ? <CheckinView />
+          : isCtDoctorRoute ? <CtDoctorApp />
           : isAngioRoute ? (isAngioAdmin
               ? renderGated(<AngioAdminApp role={auth.isSupabase ? (auth.role || "none") : "superadmin"} doctorName={auth.doctorName || ""} backHref={APP_MODE === "combined" ? "#/sprava" : "#/"} />)
               : <AngioPatientApp />)

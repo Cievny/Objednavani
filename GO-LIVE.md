@@ -35,7 +35,13 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v117 (ručné pridanie pacienta personálom): spustiť `supabase/rucne-001.sql`
+- [ ] v119 (CT pre lekárov NÚSCH): spustiť `supabase/ct-lekari-001.sql` (po rucne-001)
+      — stránka `objednanie.cievny.sk/#/ct-lekar` so spoločným heslom; lekár pošle
+      žiadosť do voľného CT termínu (klinická otázka, kontrast, žiadanka), CT
+      pracovisko ju potvrdí v správe CT; pacient dostane SMS / e-mail až po
+      potvrdení. Potom: Správa → CT → Nastavenia → „Prístup pre lekárov NÚSCH"
+      nastaviť heslo (len superadmin). Heslo meniť pri odchode lekára.
+- [x] v117 (ručné pridanie pacienta personálom): spustiť `supabase/rucne-001.sql`
       — stĺpce `created_by` / `notify_patient`, RPC `usg_/angio_/ct_staff_create_order`
       (lekár, sestra, superadmin; bez SMS overenia a povinnej žiadanky, aj na dnes
       a mimo otvorených termínov), notifikácie pacientovi sa dajú vypnúť, e-mail

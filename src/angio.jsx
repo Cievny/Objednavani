@@ -533,8 +533,19 @@ function AngioOrderLookup({ data, initialId = "" }) {
 // Všetky údaje pacienta pre personál (na zaevidovanie do nemocničného systému) + kopírovanie
 const fmtD = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join(".") : "—");
 const fmtDT = (iso) => { if (!iso) return "—"; try { return new Date(iso).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return String(iso).slice(0, 16); } };
+// údaje o kontraste zo žiadosti lekára o CT (ct-lekari-001)
+export function contrastText(c) {
+  if (!c || typeof c.contrast !== "boolean") return "";
+  if (!c.contrast) return "bez kontrastu";
+  const n = (v) => String(v).replace(".", ",");
+  return ["s kontrastom", c.creatinine ? `kreatinín ${n(c.creatinine)} µmol/l` : "", c.egfr ? `eGFR ${n(c.egfr)}` : "",
+    c.labDate ? `odber ${fmtD(c.labDate)}` : "", `alergia na jódový kontrast: ${c.allergy === "ano" ? "ÁNO" : c.allergy === "nevie" ? "nevie sa" : "nie"}`,
+    `metformín: ${c.metformin ? "ÁNO" : "nie"}`].filter(Boolean).join(" · ");
+}
 function PatientDetails({ order, onCopied }) {
   const ins = insuranceOptions.find((o) => o.id === order.insurance)?.label || order.insurance || "—";
+  const contrast = contrastText(order.clinical);
+  const reasonLabel = order.requestedBy ? "Klinická otázka" : "Dôvod / poznámka";
   const rows = [
     ["Meno a priezvisko", order.patientName],
     ["Dátum narodenia", fmtD(order.birthDate)],
@@ -544,7 +555,9 @@ function PatientDetails({ order, onCopied }) {
     ["Vyšetrenie", order.exam?.label || "—"],
     ["Termín", `${fmtD(order.date)} ${order.time}${order.durationMin ? ` (${order.durationMin} min)` : ""}`],
     ["Lekár", order.doctor || "—"],
-    ["Dôvod / poznámka", order.reason || "—"],
+    [reasonLabel, order.reason || "—"],
+    ...(order.requestedBy ? [["Objednal (lekár)", order.requestedBy]] : []),
+    ...(contrast ? [["Kontrastná látka", contrast]] : []),
     ["Číslo objednávky", order.id],
     ["Objednané", fmtDT(order.createdAt)],
     ...(order.createdBy ? [["Zadal(a) ručne", order.createdBy]] : []),
@@ -561,9 +574,11 @@ function PatientDetails({ order, onCopied }) {
         <div><dt className="text-xs uppercase tracking-wide text-muted">Telefón</dt><dd className="font-semibold">{order.phone ? <a href={`tel:${order.phone.replace(/\s/g, "")}`} className="text-brand hover:underline">{order.phone}</a> : "—"}</dd></div>
         <div><dt className="text-xs uppercase tracking-wide text-muted">E-mail</dt><dd className="font-semibold break-all">{order.email ? <a href={`mailto:${order.email}`} className="text-brand hover:underline">{order.email}</a> : "—"}</dd></div>
         {order.doctor && <div><dt className="text-xs uppercase tracking-wide text-muted">Lekár</dt><dd>{order.doctor}</dd></div>}
-        <div><dt className="text-xs uppercase tracking-wide text-muted">Objednané</dt><dd>{fmtDT(order.createdAt)}{order.createdBy ? ` · zadal(a) ${order.createdBy}` : " · pacient online"}</dd></div>
+        <div><dt className="text-xs uppercase tracking-wide text-muted">Objednané</dt><dd>{fmtDT(order.createdAt)}{order.createdBy ? ` · zadal(a) ${order.createdBy}` : order.requestedBy ? " · žiadosť lekára" : " · pacient online"}</dd></div>
         {order.notifyPatient === false && <div><dt className="text-xs uppercase tracking-wide text-muted">Notifikácie</dt><dd className="text-warn font-semibold">vypnuté — pacient nedostáva SMS ani e-maily</dd></div>}
-        {order.reason && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Dôvod / poznámka</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
+        {order.requestedBy && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Objednal (lekár)</dt><dd className="font-semibold" data-testid="requested-by">{order.requestedBy}</dd></div>}
+        {order.reason && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">{reasonLabel}</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
+        {contrast && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Kontrastná látka</dt><dd className={order.clinical?.allergy === "ano" || order.clinical?.metformin ? "text-danger font-semibold" : ""} data-testid="contrast-info">{contrast}</dd></div>}
       </dl>
       <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg">📋 Kopírovať údaje pacienta</button>
     </div>
@@ -744,7 +759,7 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
             <span className="font-semibold text-sm text-ink truncate">{order.patientName}</span>
             <ArrivedBadge order={order} />
           </div>
-          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}</div>
+          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}{order.requestedBy ? ` · žiadosť: ${order.requestedBy}` : ""}</div>
         </div>
         <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
         {canManage && order.status === "new" && !open && (

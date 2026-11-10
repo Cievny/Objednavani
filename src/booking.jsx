@@ -263,7 +263,7 @@ export function newOrderId() {
 }
 // minTime: doplatkové termíny (so žiadankou) sa ponúkajú až od času
 // nastaveného pracoviskom (doplnkové ordinačné hodiny); prázdne = bez obmedzenia
-export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso, minTime = "" }) {
+export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, durationMin, iso, minTime = "", limit = OFFERED_PER_DAY }) {
   const open = (openSlots[iso] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
   const durMin = Math.max(10, durationMin || 10);
 
@@ -295,7 +295,7 @@ export function computeOfferedSlots({ openSlots, takenSet, doctors, examTypeId, 
     }
   });
   candidates.sort((a, b) => a.time.localeCompare(b.time));
-  return candidates.slice(0, OFFERED_PER_DAY);
+  return candidates.slice(0, limit);
 }
 
 // Najskorší objednateľný čas pre daný deň: pri dnešku len budúce časy
