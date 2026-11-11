@@ -759,6 +759,10 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-semibold text-sm text-ink truncate">{order.patientName}</span>
             <ArrivedBadge order={order} />
+            {/* presun čakajúci na potvrdenie (lekár cez CT stránku, pacient zmenou termínu) */}
+            {order.status === "new" && /^(Žiadosť o presun|Termín zmenil pacient)/.test(order.statusNote || "") && (
+              <span className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-warn-soft text-warn border border-warn/30" title={order.statusNote} data-testid="row-moved">↻ presun</span>
+            )}
           </div>
           <div className="text-xs text-muted truncate">{order.phone && <a href={`tel:${order.phone.replace(/\s/g, "")}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-brand hover:underline" data-testid="row-phone">📞 {fmtPhone(order.phone)}</a>}{order.phone ? " · " : ""}{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}{order.requestedBy ? ` · žiadosť: ${order.requestedBy}` : ""}</div>
         </div>

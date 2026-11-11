@@ -59,6 +59,7 @@ export function parseZiadanka(items) {
   const join = (arr) => arr.map((it) => it.s).join(" ").replace(/\s+/g, " ").trim();
 
   const lName = label(/^priezvisko a meno/), lBirth = label(/^datum narodenia/), lRc = label(/^rodne cislo/);
+  const lPoist = label(/^cislo poistenca/), lPayType = label(/^druh uhrady/);
   const lIns = label(/^cis\.? poistovne/), lPhone = label(/^telefon/), lEmail = label(/^email/), lResched = label(/^preplanovane/);
   const lSender = label(/^odosielatel/), lOrdered = label(/^objednal:?$/), lPlanned = label(/^objednane na/);
   const lDg = label(/^kod diagnozy/), lExams = label(/^pozadovane vysetrenia/), lQuestion = label(/^otazka, ktora/);
@@ -69,6 +70,10 @@ export function parseZiadanka(items) {
   const out = {};
   out.patientName = join(below(lName, lBirth));
   out.birthDate = isoFromSk(join(below(lBirth, lRc)));
+  // rodné číslo: pod „Rodné číslo", inak „Číslo poistenca" (u poistencov v SR je to r.č.)
+  const rcOf = (s) => { const m = /(?:^|\D)(\d{6})\s*\/?\s*(\d{3,4})(?!\d)/.exec(s || ""); return m ? `${m[1]}/${m[2]}` : ""; };
+  out.birthNumber = rcOf(join(lRc ? items.filter((it) => it.y < lRc.y - 3 && it.y >= lRc.y - 25 && it.x >= lRc.x - 10) : []))
+    || rcOf(join(below(lPoist, lPayType)));
   const ins = join(rightOf(lIns));
   const insCode = /^(\d{2})\b/.exec(ins)?.[1] || "";
   out.insurance = ["24", "25", "27"].includes(insCode) ? insCode : ins ? "other" : "";

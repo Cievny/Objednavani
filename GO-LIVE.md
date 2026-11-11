@@ -35,6 +35,15 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] v125 (CT pre lekárov — žiadosť o presun termínu viazaná na rodné číslo):
+      spustiť `supabase/ct-lekari-004.sql` (po ct-lekari-002) — môže sa spustiť
+      hneď, súčasná ostrá verzia s ním funguje ďalej. Lekár pri žiadosti zadá
+      r.č. (zo žiadanky sa vyplní samo); databáza ukladá len odtlačok r.č.
+      s tajným kľúčom, nie samotné číslo. V záložke „Presun termínu" lekár po
+      zadaní r.č. vidí len termíny tohto pacienta a vyberie nový; termín sa
+      rezervuje, objednávka je opäť „nová" a CT pracovisko ju potvrdí (e-mail
+      „Žiadosť lekára o presun termínu"). Ak by sa neskôr znova spustil
+      ct-lekari-001/002, treba potom znova spustiť aj 004.
 - [ ] v124 (CT pre lekárov — len objednanie, bez prehľadu objednaných): spustiť
       `supabase/ct-lekari-003.sql` AŽ po nasadení v124 na ostrú — zmaže funkciu
       `ct_doctor_list`, aby sa zoznam pacientov nedal získať ani priamo cez API
