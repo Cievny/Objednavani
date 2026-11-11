@@ -35,7 +35,11 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v119 (CT pre lekárov NÚSCH): spustiť `supabase/ct-lekari-001.sql` (po rucne-001)
+- [ ] v122 (CT pre lekárov — „pacient prinesie čerstvý kreatinín"): spustiť
+      `supabase/ct-lekari-002.sql` (po ct-lekari-001) — server prijme žiadosť
+      s kontrastom bez kreatinínu, ak lekár označí, že ho pacient prinesie;
+      pacient dostane pripomenutie v SMS pri potvrdení a deň vopred.
+- [x] v119 (CT pre lekárov NÚSCH): spustiť `supabase/ct-lekari-001.sql` (po rucne-001)
       — stránka `objednanie.cievny.sk/#/ct-lekar` so spoločným heslom; lekár pošle
       žiadosť do voľného CT termínu (klinická otázka, kontrast, žiadanka), CT
       pracovisko ju potvrdí v správe CT; pacient dostane SMS / e-mail až po

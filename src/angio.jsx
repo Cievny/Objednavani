@@ -538,7 +538,7 @@ export function contrastText(c) {
   if (!c || typeof c.contrast !== "boolean") return "";
   if (!c.contrast) return "bez kontrastu";
   const n = (v) => String(v).replace(".", ",");
-  return ["s kontrastom", c.creatinine ? `kreatinín ${n(c.creatinine)} µmol/l` : "", c.egfr ? `eGFR ${n(c.egfr)}` : "",
+  return ["s kontrastom", c.labLater ? "KREATINÍN: pacient prinesie čerstvý výsledok" : "", c.creatinine ? `kreatinín ${n(c.creatinine)} µmol/l` : "", c.egfr ? `eGFR ${n(c.egfr)}` : "",
     c.labDate ? `odber ${fmtD(c.labDate)}` : "", `alergia na jódový kontrast: ${c.allergy === "ano" ? "ÁNO" : c.allergy === "nevie" ? "nevie sa" : "nie"}`,
     `metformín: ${c.metformin ? "ÁNO" : "nie"}`].filter(Boolean).join(" · ");
 }
@@ -578,7 +578,7 @@ function PatientDetails({ order, onCopied }) {
         {order.notifyPatient === false && <div><dt className="text-xs uppercase tracking-wide text-muted">Notifikácie</dt><dd className="text-warn font-semibold">vypnuté — pacient nedostáva SMS ani e-maily</dd></div>}
         {order.requestedBy && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Objednal (lekár)</dt><dd className="font-semibold" data-testid="requested-by">{order.requestedBy}</dd></div>}
         {order.reason && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">{reasonLabel}</dt><dd className="whitespace-pre-wrap">{order.reason}</dd></div>}
-        {contrast && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Kontrastná látka</dt><dd className={order.clinical?.allergy === "ano" || order.clinical?.metformin ? "text-danger font-semibold" : ""} data-testid="contrast-info">{contrast}</dd></div>}
+        {contrast && <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-muted">Kontrastná látka</dt><dd className={order.clinical?.allergy === "ano" || order.clinical?.metformin || order.clinical?.labLater ? "text-danger font-semibold" : ""} data-testid="contrast-info">{contrast}</dd></div>}
       </dl>
       <button type="button" onClick={copy} className="mt-2 text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg">📋 Kopírovať údaje pacienta</button>
     </div>
