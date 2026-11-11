@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import { MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, insuranceOptions, normalizePhone, BirthDateInput } from "./booking.jsx";
 import { useCtData, CT_ORDERS_KEY } from "./podappkyData.js";
-import { inputCls, labelCls, Btn, Card, Callout, StatusChip } from "./ui.jsx";
+import { inputCls, labelCls, Btn, Card, Callout } from "./ui.jsx";
 import { readZiadankaPdf, parseZiadanka, matchCtExam } from "./ziadanka.js";
 
 // CT objednávanie pre lekárov NÚSCH (ct-lekari-001).
+// Stránka slúži len na objednanie pacienta (bez prehľadu objednaných).
 // CT nie je verejné: lekári sa prihlásia spoločným heslom (nastavuje superadmin
 // v správe CT → Nastavenia), vyberú voľný otvorený termín a pošlú žiadosť za
 // pacienta s klinickou otázkou, údajmi o kontraste a žiadankou. Žiadosť potvrdí
@@ -87,19 +88,6 @@ export const ctDoctorApi = {
     return id;
   },
 
-  async list(token) {
-    if (!supabase) {
-      const from = toISODate(new Date(Date.now() - 7 * 864e5));
-      return loadJson(CT_ORDERS_KEY, []).filter((o) => o.date >= from)
-        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
-        .map((o) => ({ id: o.id, date: o.date, time: o.time, durationMin: o.durationMin, exam: o.exam?.label || "", patient: o.patientName,
-          birthYear: o.birthDate ? Number(String(o.birthDate).slice(0, 4)) : null, status: o.status, note: o.statusNote || "", requestedBy: o.requestedBy || "" }));
-    }
-    const { data, error } = await supabase.rpc("ct_doctor_list", { p_token: token });
-    if (error) throw new Error(error.message);
-    return Array.isArray(data) ? data : [];
-  },
-
   // personál (správa CT → Nastavenia)
   async passwordInfo() {
     if (!supabase) return { set: Boolean(localStorage.getItem(DEMO_PW_KEY)), updatedAt: localStorage.getItem(DEMO_PW_KEY + "_at") || "", updatedBy: "demo", activeSessions: 0 };
@@ -158,7 +146,7 @@ function DoctorLogin({ onLogin, notice }) {
 const emptyPatient = { name: "", birthDate: "", insurance: "25", phone: "", email: "" };
 const emptyClinical = { indication: "", contrast: null, creatinine: "", egfr: "", labDate: "", labLater: false, allergy: "", metformin: null };
 
-function NewRequest({ data, token, onExpired, onShowList }) {
+function NewRequest({ data, token, onExpired }) {
   const todayIso = toISODate(new Date());
   const [req, setReq] = useState(() => loadJson(REQUESTER_KEY, { name: "", contact: "" }));
   const [examTypeId, setExamTypeId] = useState("");
@@ -338,9 +326,9 @@ function NewRequest({ data, token, onExpired, onShowList }) {
         <p className="text-ink"><b>{done.patient}</b> · {done.label}</p>
         <p className="text-ink">Termín: <b>{fmtDay(done.date)} o {done.time}</b> — rezervovaný, čaká na potvrdenie CT pracoviskom.</p>
         <p className="text-sm text-muted">Číslo žiadosti: <span className="font-mono">{done.id}</span>. {notify ? "Pacient dostane SMS (a e-mail) až po potvrdení." : "Pacientovi systém nič neposiela — termín mu oznámte sami."}</p>
+        <p className="text-sm text-muted">Presun alebo zrušenie termínu vybaví CT pracovisko.</p>
         <div className="flex flex-wrap justify-center gap-2 pt-3">
           <Btn onClick={reset} data-testid="ctdoc-new">Nová žiadosť</Btn>
-          <Btn variant="secondary" onClick={onShowList}>Objednaní pacienti</Btn>
         </div>
       </Card>
     );
@@ -582,75 +570,22 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   );
 }
 
-// ---------- Objednaní pacienti ----------
-const LIST_STATUS = { new: "Čaká na potvrdenie", confirmed: "Potvrdené", done: "Vykonané", noshow: "Nedostavil sa", rejected: "Zrušené" };
-function OrderList({ token, onExpired }) {
-  const [rows, setRows] = useState(null);
-  const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
-  const load = async () => {
-    setErr("");
-    try { setRows(await ctDoctorApi.list(token)); }
-    catch (e) { const m = e?.message || String(e); if (/vypršalo/i.test(m)) onExpired(m); else setErr(m); }
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [token]);
-  const list = (rows || []).filter((r) => { const s = q.trim().toLowerCase(); return !s || `${r.patient} ${r.requestedBy} ${r.exam} ${r.id}`.toLowerCase().includes(s); });
-  return (
-    <Card data-testid="ctdoc-list">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h2 className="text-lg font-semibold text-brand">Objednaní pacienti na CT</h2>
-        <Btn variant="secondary" size="sm" onClick={load}>↻ Obnoviť</Btn>
-      </div>
-      <input className={inputCls + " mb-3"} placeholder="Hľadať pacienta, lekára, vyšetrenie…" value={q} onChange={(e) => setQ(e.target.value)} />
-      {err && <Callout tone="danger" role="alert">{err}</Callout>}
-      {rows === null ? <p className="text-sm text-muted">Načítavam…</p>
-        : list.length === 0 ? <p className="text-sm text-muted">Žiadne CT objednávky.</p>
-        : (
-          <div className="divide-y divide-line">
-            {list.map((r) => (
-              <div key={r.id} className="py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="ctdoc-row">
-                <div className="w-40 shrink-0 text-sm"><b className="text-ink">{fmtDay(r.date)}</b><span className="block font-mono text-muted">{r.time}</span></div>
-                <div className="flex-1 min-w-[12rem]">
-                  <p className="font-semibold text-ink">{r.patient}{r.birthYear ? <span className="font-normal text-muted"> · nar. {r.birthYear}</span> : null}</p>
-                  <p className="text-xs text-muted">{r.exam}{r.requestedBy ? ` · objednal ${r.requestedBy}` : ""}</p>
-                  {r.status === "rejected" && r.note && <p className="text-xs text-danger">Dôvod: {r.note}</p>}
-                </div>
-                <StatusChip status={r.status} label={LIST_STATUS[r.status] || r.status} />
-              </div>
-            ))}
-          </div>
-        )}
-      <p className="text-xs text-muted mt-3">Zobrazujú sa CT termíny od 7 dní dozadu. Presun alebo zrušenie termínu vybaví CT pracovisko.</p>
-    </Card>
-  );
-}
-
 // ---------- Stránka ----------
 export default function CtDoctorApp() {
   const [session, setSession] = useState(() => { const s = loadJson(TOKEN_KEY, null, sessionStorage); return s && s.exp > Date.now() ? s : null; });
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState("new");
   const data = useCtData(false);
   const login = (s) => { try { sessionStorage.setItem(TOKEN_KEY, JSON.stringify(s)); } catch { /* */ } setNotice(""); setSession(s); };
   const logout = (why = "") => { try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* */ } setSession(null); setNotice(typeof why === "string" ? why : ""); };
   if (!session) return <DoctorLogin onLogin={login} notice={notice} />;
-  const tabBtn = (id, label) => (
-    <button type="button" onClick={() => setTab(id)} data-testid={`ctdoc-tab-${id}`}
-      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === id ? "bg-brand text-white" : "bg-soft text-ink hover:bg-line"}`}>{label}</button>
-  );
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold text-brand mr-auto">CT objednávanie pre lekárov NÚSCH</h1>
-        {tabBtn("new", "Nová žiadosť")}
-        {tabBtn("list", "Objednaní pacienti")}
         <Btn variant="secondary" onClick={() => logout("")} data-testid="ctdoc-logout">Odhlásiť sa</Btn>
       </div>
       {data.loadError && <Callout tone="danger">CT termíny sa nepodarilo načítať ({data.loadError}).</Callout>}
-      {tab === "new"
-        ? <NewRequest data={data} token={session.token} onExpired={(m) => logout(m || EXPIRED)} onShowList={() => setTab("list")} />
-        : <OrderList token={session.token} onExpired={(m) => logout(m || EXPIRED)} />}
+      <NewRequest data={data} token={session.token} onExpired={(m) => logout(m || EXPIRED)} />
     </div>
   );
 }

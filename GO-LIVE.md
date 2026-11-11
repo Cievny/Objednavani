@@ -35,7 +35,12 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v122 (CT pre lekárov — „pacient prinesie čerstvý kreatinín"): spustiť
+- [ ] v124 (CT pre lekárov — len objednanie, bez prehľadu objednaných): spustiť
+      `supabase/ct-lekari-003.sql` AŽ po nasadení v124 na ostrú — zmaže funkciu
+      `ct_doctor_list`, aby sa zoznam pacientov nedal získať ani priamo cez API
+      so spoločným heslom. (Pred nasadením by v starej verzii prestala fungovať
+      záložka „Objednaní pacienti".)
+- [x] v122 (CT pre lekárov — „pacient prinesie čerstvý kreatinín"): spustiť
       `supabase/ct-lekari-002.sql` (po ct-lekari-001) — server prijme žiadosť
       s kontrastom bez kreatinínu, ak lekár označí, že ho pacient prinesie;
       pacient dostane pripomenutie v SMS pri potvrdení a deň vopred.

@@ -12,8 +12,8 @@
 --     clinical (údaje o kontraste), sms_reminder_sent_at
 --  2  tabuľky ct_doctor_auth (hash spoločného hesla) a ct_doctor_sessions
 --     (prihlásenie na 12 h); bez prístupu cez API
---  3  RPC: ct_doctor_login, ct_doctor_create_order, ct_doctor_list (anon
---     s platným prihlásením), ct_set_doctor_password, ct_doctor_password_info
+--  3  RPC: ct_doctor_login, ct_doctor_create_order (anon s platným
+--     prihlásením; prehľad objednaných lekári nemajú — ct-lekari-003), ct_set_doctor_password, ct_doctor_password_info
 --     (personál)
 --  4  notifikácie: e-mail pacientovi pri žiadosti lekára až po potvrdení,
 --     nové SMS pre CT (potvrdenie, zrušenie, presun, pripomienka deň vopred),
@@ -192,22 +192,6 @@ exception
 end $$;
 revoke all on function ct_doctor_create_order(text, text, text, text, text, date, text, text, text, text, jsonb, date, time, jsonb, boolean) from public;
 grant execute on function ct_doctor_create_order(text, text, text, text, text, date, text, text, text, text, jsonb, date, time, jsonb, boolean) to anon, authenticated;
-
--- prehľad CT objednávok pre prihlásených lekárov (od 7 dní dozadu; bez kontaktov a príloh)
-create or replace function ct_doctor_list(p_token text)
-returns jsonb
-language plpgsql stable security definer set search_path = public as $$
-begin
-  perform ct_doctor_require(p_token);
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'id', o.id, 'date', o.slot_date, 'time', to_char(o.slot_time, 'HH24:MI'), 'durationMin', o.duration_min,
-      'exam', o.exam_label, 'patient', o.patient_name, 'birthYear', extract(year from o.birth_date)::int,
-      'status', o.status, 'note', o.status_note, 'requestedBy', o.requested_by) order by o.slot_date, o.slot_time)
-    from ct_orders o where o.slot_date >= current_date - 7), '[]'::jsonb);
-end $$;
-revoke all on function ct_doctor_list(text) from public;
-grant execute on function ct_doctor_list(text) to anon, authenticated;
 
 -- nastavenie spoločného hesla (len superadmin); zmena odhlási všetkých lekárov
 create or replace function ct_set_doctor_password(p_password text)
@@ -395,7 +379,7 @@ begin
   if not exists (select 1 from pg_trigger where tgname = 'ct_orders_sms_notify') then
     raise exception 'CT-LEKARI-001: chýba trigger ct_orders_sms_notify.';
   end if;
-  foreach f in array array['ct_doctor_login(text)', 'ct_doctor_list(text)',
+  foreach f in array array['ct_doctor_login(text)',
     'ct_doctor_create_order(text, text, text, text, text, date, text, text, text, text, jsonb, date, time, jsonb, boolean)'] loop
     if not has_function_privilege('anon', f, 'execute') then raise exception 'CT-LEKARI-001: anon nemá EXECUTE na %.', f; end if;
   end loop;
