@@ -3,6 +3,7 @@ import { supabase } from "./supabaseClient.js";
 import { MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, insuranceOptions, normalizePhone, BirthDateInput } from "./booking.jsx";
 import { useCtData, CT_ORDERS_KEY } from "./podappkyData.js";
 import { inputCls, labelCls, Btn, Card, Callout, StatusChip } from "./ui.jsx";
+import { readZiadankaPdf, parseZiadanka, matchCtExam } from "./ziadanka.js";
 
 // CT objednávanie pre lekárov NÚSCH (ct-lekari-001).
 // CT nie je verejné: lekári sa prihlásia spoločným heslom (nastavuje superadmin
@@ -174,8 +175,14 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const clear = (k) => setErrs((x) => { if (!x[k]) return x; const n = { ...x }; delete n[k]; return n; });
-  const setP = (k, v) => { setPat((p) => ({ ...p, [k]: v })); clear(k); };
-  const setC = (k, v) => { setCl((p) => ({ ...p, [k]: v })); clear(k); };
+  // polia vyplnené zo žiadanky (PDF) — zvýraznené, kým ich lekár neupraví
+  const [pf, setPf] = useState(() => new Set());
+  const [fromPdf, setFromPdf] = useState(null); // { filled, warnings, info } alebo { error }
+  const [reading, setReading] = useState(false);
+  const unmark = (k) => setPf((x) => { if (!x.has(k)) return x; const n = new Set(x); n.delete(k); return n; });
+  const hl = (k) => (pf.has(k) && !errs[k] ? " bg-brand-soft" : "");
+  const setP = (k, v) => { setPat((p) => ({ ...p, [k]: v })); clear(k); unmark(k); };
+  const setC = (k, v) => { setCl((p) => ({ ...p, [k]: v })); clear(k); unmark(k); };
   useEffect(() => { try { localStorage.setItem(REQUESTER_KEY, JSON.stringify(req)); } catch { /* */ } }, [req]);
   // po opravení všetkých polí zmizne aj súhrnná hláška
   useEffect(() => { if (Object.keys(errs).length === 0) setMsg((m) => (m === CHECK_MSG ? "" : m)); }, [errs]);
@@ -207,10 +214,60 @@ function NewRequest({ data, token, onExpired, onShowList }) {
   useEffect(() => {
     if (!exam) return;
     const days = Object.keys(data.openSlots).filter((d) => d >= todayIso).sort();
-    const first = days.find((d) => offered(d).length > 0);
+    // deň už vybraný (napr. zo žiadanky) má prednosť pred prvým voľným dňom
+    const first = date && offered(date).length > 0 ? date : days.find((d) => offered(d).length > 0);
     if (first) { const d = new Date(`${first}T12:00:00`); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examTypeId, data.openSlots]);
+
+  // žiadanka z DOCTUSu (PDF s textom): prečítať v prehliadači a predvyplniť formulár
+  const readPdf = async (e) => {
+    const f = (e.target.files || [])[0]; e.target.value = "";
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name)) { setFromPdf({ error: "Vyberte PDF súbor žiadanky." }); return; }
+    if (f.size > 5 * 1024 * 1024) { setFromPdf({ error: "Súbor je väčší ako 5 MB." }); return; }
+    setFiles((p) => (p.some((x) => x.name === f.name && x.size === f.size) ? p : [...p, f].slice(0, 3))); clear("files");
+    setReading(true); setFromPdf(null);
+    let z = null;
+    try { z = parseZiadanka(await readZiadankaPdf(f)); } catch { z = null; }
+    setReading(false);
+    if (!z) { setFromPdf({ error: "Z tohto PDF sa údaje nepodarilo prečítať (asi sken alebo iný formát). Žiadanka je priložená — údaje vyplňte ručne." }); return; }
+    const filled = [], warnings = [], info = [], mark = new Set();
+    const p = { ...pat }, c = { ...cl };
+    const put = (obj, k, v, lbl) => { if (v === null || v === undefined || v === "") return; obj[k] = String(v); mark.add(k); filled.push(lbl); };
+    put(p, "name", z.patientName, "meno pacienta");
+    put(p, "birthDate", z.birthDate, "dátum narodenia");
+    if (z.insurance) put(p, "insurance", z.insurance, "poisťovňa");
+    put(p, "phone", z.phone, "telefón");
+    put(p, "email", z.email, "e-mail");
+    const ind = [z.question, z.diagnosisCode ? `Dg. ${z.diagnosisCode} ${z.diagnosisText}`.trim() : "", z.previousCt ? `Predchádzajúce CT: ${z.previousCt}` : ""].filter(Boolean).join("\n");
+    put(c, "indication", ind, "klinická otázka a diagnóza");
+    if (z.contrast) { c.contrast = true; mark.add("contrast"); filled.push("kontrast (CTA)"); }
+    if (z.creatinine) { put(c, "creatinine", String(z.creatinine).replace(".", ","), "kreatinín"); }
+    if (z.egfr) { put(c, "egfr", String(z.egfr).replace(".", ","), "eGFR"); }
+    if (z.creatinine || z.egfr) put(c, "labDate", z.labDate, "dátum odberu");
+    if (z.allergyAnswer) { c.allergy = z.allergyAnswer; mark.add("allergy"); filled.push("alergia"); }
+    else if (z.allergy) info.push(`Alergická anamnéza na žiadanke: „${z.allergy}" — vyberte odpoveď.`);
+    if (z.labDate && z.labDate < toISODate(new Date(Date.now() - 365 * 864e5))) warnings.push("Laboratórny výsledok na žiadanke je starší ako rok — doplňte aktuálny kreatinín alebo eGFR a dátum odberu.");
+    if (c.contrast) info.push("Metformín žiadanka neuvádza — vyberte odpoveď.");
+    setPat(p); setCl(c);
+    if (!req.name.trim() && (z.orderedBy || z.senderDoctor)) { setReq((r) => ({ ...r, name: z.orderedBy || z.senderDoctor })); filled.push("objednávajúci lekár"); }
+    if (!req.contact.trim() && z.senderDept) { setReq((r) => ({ ...r, contact: z.senderDept })); filled.push("pracovisko"); }
+    const m = matchCtExam(z, data.pricelist);
+    if (m) {
+      setExamTypeId(m.id); setTime(""); mark.add("exam"); filled.push(`typ CT (${m.label})`);
+      const planned = z.plannedDate && z.plannedDate >= todayIso ? z.plannedDate : "";
+      const plannedFree = planned && computeOfferedSlots({ openSlots: data.openSlots, takenSet: takenByDate.get(planned) || new Set(), doctors: data.doctors,
+        examTypeId: m.id, durationMin: (m.durationSlots || 3) * 5, iso: planned, minTime: earliestTimeFor(planned, ""), limit: Infinity }).length > 0;
+      if (plannedFree) {
+        setDate(planned); setShowCal(true); const d = new Date(`${planned}T12:00:00`); setMonthDate(new Date(d.getFullYear(), d.getMonth(), 1));
+        info.push(`Deň zo žiadanky (${fmtDay(planned)}) má voľné termíny — vyberte čas.`);
+      } else { setDate(""); if (planned) info.push(`Na žiadanke je dátum ${fmtDay(planned)}, ten deň však nemá voľný termín — vyberte iný.`); }
+    } else if (z.requestedExams.length) info.push(`Požadované na žiadanke: ${z.requestedExams.join("; ")} — vyberte typ CT.`);
+    if (z.heightWeight) info.push(`Výška/váha: ${z.heightWeight}.`);
+    setPf(mark); setErrs({}); setMsg("");
+    setFromPdf({ filled, warnings, info });
+  };
 
   const pickFiles = (e) => {
     const ok = [];
@@ -237,6 +294,7 @@ function NewRequest({ data, token, onExpired, onShowList }) {
     if (cl.contrast === true) {
       if (!(Number(String(cl.creatinine).replace(",", ".")) > 0) && !(Number(String(cl.egfr).replace(",", ".")) > 0)) e.renal = "Uveďte kreatinín alebo eGFR.";
       if (!cl.labDate || cl.labDate > todayIso) e.labDate = "Uveďte dátum odberu.";
+      else if (cl.labDate < toISODate(new Date(Date.now() - 365 * 864e5))) e.labDate = "Výsledok je starší ako rok — uveďte aktuálny.";
       if (!cl.allergy) e.allergy = "Vyberte odpoveď.";
       if (cl.metformin === null) e.metformin = "Vyberte odpoveď.";
     }
@@ -264,7 +322,7 @@ function NewRequest({ data, token, onExpired, onShowList }) {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setDone(null); setShowCal(false); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
+  const reset = () => { setDone(null); setPf(new Set()); setFromPdf(null); setShowCal(false); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
   const bad = (k) => (errs[k] ? " border-danger ring-1 ring-danger/40" : "");
   const Err = ({ k }) => (errs[k] ? <p className="text-xs text-danger mt-1" role="alert">{errs[k]}</p> : null);
   const choice = (on, err) => `text-sm font-semibold px-3 py-1.5 rounded-lg border transition-colors ${on ? "bg-brand text-white border-brand" : `bg-white text-ink hover:border-brand ${err ? "border-danger" : "border-line"}`}`;
@@ -287,6 +345,23 @@ function NewRequest({ data, token, onExpired, onShowList }) {
 
   return (
     <div className="space-y-4" data-testid="ctdoc-form">
+      <Card className="border-brand/40" data-testid="ctdoc-pdf-card">
+        <h2 className="text-base font-semibold text-brand mb-1">Máte žiadanku z DOCTUSu v PDF?</h2>
+        <p className="text-sm text-muted mb-3">Nahrajte ju a formulár sa vyplní sám — meno, dátum narodenia, poisťovňa, telefón, diagnóza, klinická otázka, typ CT a kreatinín. Žiadanka sa zároveň priloží. Súbor sa číta len vo vašom prehliadači.</p>
+        <label className={`inline-flex items-center gap-2 cursor-pointer font-semibold rounded-lg px-4 py-2 text-sm ${reading ? "bg-soft text-muted" : "bg-brand hover:bg-brand-dark text-white"}`}>
+          <input type="file" accept=".pdf,application/pdf" className="sr-only" onChange={readPdf} disabled={reading} data-testid="ctdoc-pdf" />
+          {reading ? "Čítam žiadanku…" : "📄 Nahrať žiadanku (PDF)"}
+        </label>
+        {fromPdf?.error && <Callout tone="warn" className="mt-3" data-testid="ctdoc-pdf-error">{fromPdf.error}</Callout>}
+        {fromPdf?.filled && (
+          <div className="mt-3 space-y-2" data-testid="ctdoc-pdf-result">
+            <Callout tone="success">Zo žiadanky sme vyplnili: {fromPdf.filled.join(", ")}. Vyplnené polia sú podfarbené — skontrolujte ich, prípadne opravte.</Callout>
+            {fromPdf.warnings.map((w) => <Callout key={w} tone="warn">{w}</Callout>)}
+            {fromPdf.info.length > 0 && <ul className="text-sm text-ink list-disc pl-5 space-y-0.5">{fromPdf.info.map((t) => <li key={t}>{t}</li>)}</ul>}
+          </div>
+        )}
+      </Card>
+
       <Card>
         <H n={1}>Objednávajúci lekár</H>
         <div className="grid sm:grid-cols-2 gap-3">
@@ -381,28 +456,28 @@ function NewRequest({ data, token, onExpired, onShowList }) {
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
             <label className={labelCls} htmlFor="ctdoc-name">Meno a priezvisko <span className="text-danger">*</span></label>
-            <input id="ctdoc-name" className={inputCls + bad("name")} autoComplete="off" value={pat.name} onChange={(e) => setP("name", e.target.value)} data-testid="ctdoc-name" />
+            <input id="ctdoc-name" className={inputCls + bad("name") + hl("name")} autoComplete="off" value={pat.name} onChange={(e) => setP("name", e.target.value)} data-testid="ctdoc-name" />
             <Err k="name" />
           </div>
           <div>
             <label className={labelCls} htmlFor="ctdoc-birth">Dátum narodenia <span className="text-danger">*</span></label>
-            <BirthDateInput id="ctdoc-birth" data-testid="ctdoc-birth" autoComplete="off" className={inputCls + bad("birthDate")} value={pat.birthDate} onChange={(v) => setP("birthDate", v)} />
+            <BirthDateInput id="ctdoc-birth" data-testid="ctdoc-birth" autoComplete="off" className={inputCls + bad("birthDate") + hl("birthDate")} value={pat.birthDate} onChange={(v) => setP("birthDate", v)} />
             <Err k="birthDate" />
           </div>
           <div>
             <label className={labelCls} htmlFor="ctdoc-ins">Zdravotná poisťovňa</label>
-            <select id="ctdoc-ins" className={inputCls} value={pat.insurance} onChange={(e) => setP("insurance", e.target.value)}>
+            <select id="ctdoc-ins" className={inputCls + hl("insurance")} value={pat.insurance} onChange={(e) => setP("insurance", e.target.value)}>
               {insuranceOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </div>
           <div>
             <label className={labelCls} htmlFor="ctdoc-phone">Telefón pacienta <span className="text-danger">*</span></label>
-            <input id="ctdoc-phone" type="tel" autoComplete="off" className={inputCls + bad("phone")} value={pat.phone} onChange={(e) => setP("phone", e.target.value)} data-testid="ctdoc-phone" />
+            <input id="ctdoc-phone" type="tel" autoComplete="off" className={inputCls + bad("phone") + hl("phone")} value={pat.phone} onChange={(e) => setP("phone", e.target.value)} data-testid="ctdoc-phone" />
             <Err k="phone" />
           </div>
           <div>
             <label className={labelCls} htmlFor="ctdoc-email">E-mail pacienta <span className="font-normal text-muted">(nepovinné)</span></label>
-            <input id="ctdoc-email" type="email" autoComplete="off" className={inputCls + bad("email")} value={pat.email} onChange={(e) => setP("email", e.target.value)} data-testid="ctdoc-email" />
+            <input id="ctdoc-email" type="email" autoComplete="off" className={inputCls + bad("email") + hl("email")} value={pat.email} onChange={(e) => setP("email", e.target.value)} data-testid="ctdoc-email" />
             <Err k="email" />
           </div>
         </div>
@@ -413,7 +488,7 @@ function NewRequest({ data, token, onExpired, onShowList }) {
         <div className="space-y-4">
           <div>
             <label className={labelCls} htmlFor="ctdoc-ind">Klinická otázka / indikácia <span className="text-danger">*</span></label>
-            <textarea id="ctdoc-ind" rows={3} maxLength={2000} className={inputCls + bad("indication")} placeholder="napr. vylúčiť disekciu aorty; kontrola po EVAR" value={cl.indication} onChange={(e) => setC("indication", e.target.value)} data-testid="ctdoc-indication" />
+            <textarea id="ctdoc-ind" rows={3} maxLength={2000} className={inputCls + bad("indication") + hl("indication")} placeholder="napr. vylúčiť disekciu aorty; kontrola po EVAR" value={cl.indication} onChange={(e) => setC("indication", e.target.value)} data-testid="ctdoc-indication" />
             <Err k="indication" />
           </div>
           <fieldset>
@@ -429,15 +504,15 @@ function NewRequest({ data, token, onExpired, onShowList }) {
               <div className="grid sm:grid-cols-3 gap-3">
                 <div>
                   <label className={labelCls} htmlFor="ctdoc-crea">Kreatinín <span className="font-normal text-muted">(µmol/l)</span></label>
-                  <input id="ctdoc-crea" inputMode="decimal" className={inputCls + bad("renal")} value={cl.creatinine} onChange={(e) => { setC("creatinine", e.target.value); clear("renal"); }} data-testid="ctdoc-creatinine" />
+                  <input id="ctdoc-crea" inputMode="decimal" className={inputCls + bad("renal") + hl("creatinine")} value={cl.creatinine} onChange={(e) => { setC("creatinine", e.target.value); clear("renal"); }} data-testid="ctdoc-creatinine" />
                 </div>
                 <div>
                   <label className={labelCls} htmlFor="ctdoc-egfr">eGFR <span className="font-normal text-muted">(ml/min/1,73 m²)</span></label>
-                  <input id="ctdoc-egfr" inputMode="decimal" className={inputCls + bad("renal")} value={cl.egfr} onChange={(e) => { setC("egfr", e.target.value); clear("renal"); }} data-testid="ctdoc-egfr" />
+                  <input id="ctdoc-egfr" inputMode="decimal" className={inputCls + bad("renal") + hl("egfr")} value={cl.egfr} onChange={(e) => { setC("egfr", e.target.value); clear("renal"); }} data-testid="ctdoc-egfr" />
                 </div>
                 <div>
                   <label className={labelCls} htmlFor="ctdoc-lab">Dátum odberu <span className="text-danger">*</span></label>
-                  <input id="ctdoc-lab" type="date" max={todayIso} className={inputCls + bad("labDate")} value={cl.labDate} onChange={(e) => setC("labDate", e.target.value)} data-testid="ctdoc-labdate" />
+                  <input id="ctdoc-lab" type="date" max={todayIso} className={inputCls + bad("labDate") + hl("labDate")} value={cl.labDate} onChange={(e) => setC("labDate", e.target.value)} data-testid="ctdoc-labdate" />
                   <Err k="labDate" />
                 </div>
               </div>
