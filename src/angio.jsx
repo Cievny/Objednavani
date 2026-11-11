@@ -10,6 +10,7 @@ import ZachranNohuLanding, { CallbackCard } from "./zachrannohu.jsx";
 import { ConsentAck } from "./legal.jsx";
 import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 import { StaffAddOrder } from "./staffAdd.jsx";
+import { printDayProgram, PrintButton, fmtPhone } from "./printProgram.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -759,7 +760,7 @@ function AngioOrderRow({ order, data, canManage, showDate = false, defaultOpen =
             <span className="font-semibold text-sm text-ink truncate">{order.patientName}</span>
             <ArrivedBadge order={order} />
           </div>
-          <div className="text-xs text-muted truncate">{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}{order.requestedBy ? ` · žiadosť: ${order.requestedBy}` : ""}</div>
+          <div className="text-xs text-muted truncate">{order.phone && <a href={`tel:${order.phone.replace(/\s/g, "")}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-brand hover:underline" data-testid="row-phone">📞 {fmtPhone(order.phone)}</a>}{order.phone ? " · " : ""}{order.exam?.label || "—"}{order.doctor ? ` · ${order.doctor}` : ""}{order.createdBy ? " · zadané ručne" : ""}{order.requestedBy ? ` · žiadosť: ${order.requestedBy}` : ""}</div>
         </div>
         <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${statusChip(order.status)}`}>{statuses[order.status] || order.status}</span>
         {canManage && order.status === "new" && !open && (
@@ -865,6 +866,18 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
     && (fRange === "today" ? o.date === todayIso : fRange === "week" ? (o.date >= todayIso && o.date <= in7Iso) : fRange === "arrived" ? false : true)
     && (() => { const q = fText.trim().toLowerCase(); if (!q) return true; const qd = q.replace(/\s/g, ""); return o.patientName.toLowerCase().includes(q) || o.id.toLowerCase().includes(q) || (o.phone || "").replace(/\s/g, "").includes(qd); })()).length;
 
+  // tlač programu dňa (aj uloženie do PDF) — všetci objednaní okrem zrušených, podľa času
+  const printDay = (iso) => printDayProgram({
+    heading: clinic === "ct" ? "CT pracovisko" : CLINIC_NAME,
+    dateLabel: fmtLong(iso),
+    rows: active.filter((o) => o.date === iso).sort((a, b) => a.time.localeCompare(b.time)).map((o) => ({
+      time: o.time, end: o.durationMin ? addMinutes(o.time, o.durationMin) : "", name: o.patientName, birth: o.birthDate ? fmtD(o.birthDate) : "",
+      phone: o.phone, exam: o.exam?.label || "", doctor: o.doctor, status: statuses[o.status] || o.status,
+      notes: [o.reason ? `${o.requestedBy ? "Otázka" : "Pozn."}: ${o.reason}` : "", contrastText(o.clinical) ? `Kontrast: ${contrastText(o.clinical)}` : "",
+        o.requestedBy ? `Objednal: ${o.requestedBy}` : "", o.notifyPatient === false ? "bez SMS / e-mailov" : ""],
+    })),
+  });
+
   const cbNew = data.newCallbackCount || 0;
   // lekár vidí cez RLS len vlastných pacientov — kalendár obsadenosti by mu klamal, preto ho nemá
   const tabs = [["overview", "Prehľad"], ...(canManage ? [["calendar", "Kalendár"]] : []), ["orders", "Objednávky"], ...(clinic === "angio" ? [["callbacks", cbNew > 0 ? `Spätné volania (${cbNew})` : "Spätné volania"]] : []), ...(canManage ? [["settings", "Nastavenia"]] : [])];
@@ -917,7 +930,10 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
             </button>
           )}
           <div className="bg-white rounded-xl border border-line p-5">
-            <h3 className="text-lg font-semibold text-brand mb-3">Dnešný program</h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-lg font-semibold text-brand">Dnešný program</h3>
+              <PrintButton onClick={() => printDay(todayIso)} />
+            </div>
             {todayProgram.length === 0 ? <p className="text-sm text-muted">Dnes nie sú objednaní žiadni pacienti.</p>
               : <div className="space-y-1.5">{todayProgram.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>}
           </div>
@@ -957,7 +973,7 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
             {/* deň: čakáreň → nasledujúci + voľné bloky → vybavení */}
             <div className="bg-white rounded-xl border border-line p-4 md:p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-                <h3 className="text-lg font-semibold text-brand">{fmtLong(selDay)}</h3>
+                <h3 className="text-lg font-semibold text-brand flex items-center gap-2">{fmtLong(selDay)} <PrintButton onClick={() => printDay(selDay)} /></h3>
                 <p className="text-xs text-muted">{dayOrders.length} {dayOrders.length === 1 ? "pacient" : dayOrders.length < 5 ? "pacienti" : "pacientov"}{dayRange ? ` · otvorené ${dayRange}` : ""} · {dayFree.length} voľných buniek{dayFree.length ? ` (${fmtDur(dayFree.length * 5)})` : ""}</p>
               </div>
               {dayOrders.length === 0 && dayOpen.length === 0 && (

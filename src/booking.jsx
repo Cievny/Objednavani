@@ -6,6 +6,7 @@ import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./bo
 import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 import { StaffAddOrder } from "./staffAdd.jsx";
+import { printDayProgram, PrintButton } from "./printProgram.jsx";
 
 // --- 1. KONFIGURÁCIA ---
 
@@ -2302,6 +2303,18 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
     return { iso, open, free, booked: open - free, segments };
   };
 
+  // tlač programu dňa (aj uloženie do PDF) — objednaní okrem zrušených, podľa času
+  const printDay = (iso) => printDayProgram({
+    heading: "USG vyšetrenia",
+    dateLabel: formatDateHuman(iso),
+    rows: orders.filter((o) => o.date === iso && isSlotOccupying(o)).sort((a, b) => a.time.localeCompare(b.time)).map((o) => ({
+      time: o.time, end: o.durationMin ? addMinutes(o.time, o.durationMin) : "", name: o.patient.name, birth: formatBirth(o.patient).replace(/^nar\. /, ""),
+      phone: o.patient.phone, exam: o.exam.label, doctor: o.doctor, status: usgStatuses[o.status]?.label || o.status,
+      notes: [o.price > 0 ? `${o.paid ? "zaplatené" : "NEZAPLATENÉ"} ${formatPrice(o.price)}${o.hasReferral ? " (doplatok, so žiadankou)" : ""}` : "bez platby",
+        o.exam.reason ? `Pozn.: ${o.exam.reason}` : "", o.createdBy ? `zadal(a) ručne ${o.createdBy}` : "", o.notifyPatient === false ? "bez SMS / e-mailov" : ""],
+    })),
+  });
+
   const week = Array.from({ length: 7 }, (_, i) => daySegmentsFor(shiftIso(weekStart, i)));
   const daySeg = daySegmentsFor(selectedDate);
 
@@ -2401,7 +2414,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           )}
 
           <div>
-            <h3 className="text-lg font-semibold text-brand mb-2">Dnešný program — {formatDateHuman(todayIso)}</h3>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-brand">Dnešný program — {formatDateHuman(todayIso)}</h3>
+              <PrintButton onClick={() => printDay(todayIso)} />
+            </div>
             {todayProgram.length === 0
               ? <p className="text-muted bg-white border border-line p-4 rounded-lg">Dnes nie sú objednaní žiadni pacienti.</p>
               : (
@@ -2638,7 +2654,7 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
 
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <h3 className="text-lg font-semibold text-brand">Deň: {formatDateHuman(selectedDate)}</h3>
+              <h3 className="text-lg font-semibold text-brand flex items-center gap-2">Deň: {formatDateHuman(selectedDate)} <PrintButton onClick={() => printDay(selectedDate)} /></h3>
               <div className="flex items-center gap-2">
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={inputDark} />
                 <button onClick={() => doCloseDay(selectedDate)} className="bg-brand-soft hover:bg-line text-brand text-sm font-semibold px-3 py-2 rounded-lg transition-colors">

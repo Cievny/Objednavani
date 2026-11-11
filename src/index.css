@@ -85,3 +85,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   to   { opacity: 1; transform: translateY(0); }
 }
 .toast-in { animation: toast-in 180ms ease-out; }
+
+/* tlač programu dňa (src/printProgram.jsx) — pri tlači len #print-root, na obrazovke skrytý */
+#print-root { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body.printing { background: #fff !important; }
+  body.printing > *:not(#print-root) { display: none !important; }
+  body.printing #print-root { display: block !important; color: #000; font-size: 10.5pt; line-height: 1.35; }
+}
+#print-root .pp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+#print-root .pp-org { font-size: 9pt; }
+#print-root h1 { font-size: 15pt; font-weight: 700; margin: 2px 0 0; font-family: inherit; }
+#print-root .pp-date { font-size: 12pt; font-weight: 600; }
+#print-root .pp-meta { text-align: right; font-size: 9pt; }
+#print-root .pp-table { width: 100%; border-collapse: collapse; }
+#print-root .pp-table th { text-align: left; font-size: 8.5pt; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px 6px; }
+#print-root .pp-table td { vertical-align: top; border-bottom: 1px solid #999; padding: 5px 6px; }
+#print-root .pp-table tr { break-inside: avoid; }
+#print-root .pp-table td span { font-size: 9pt; color: #333; }
+#print-root .pp-time { white-space: nowrap; font-family: ui-monospace, monospace; }
+#print-root .pp-phone { white-space: nowrap; }
+#print-root .pp-notes { font-size: 9pt; max-width: 32%; }
+#print-root .pp-chk { width: 48px; text-align: center; }
+#print-root .pp-box { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #000; }
+#print-root .pp-empty { text-align: center; padding: 16px; }
+#print-root .pp-foot { margin-top: 10px; font-size: 8.5pt; color: #333; }
