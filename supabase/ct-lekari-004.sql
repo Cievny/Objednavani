@@ -1,5 +1,6 @@
 -- ============================================================
 -- CT-LEKARI-004 — žiadosť lekára o presun CT termínu viazaná na rodné číslo
+--                 + pokyn „prineste čerstvý kreatinín" aj v e-mailoch pacientovi
 --
 -- Lekár pri žiadosti o CT zadá rodné číslo pacienta (zo žiadanky sa
 -- vyplní samo). V databáze sa NEUKLADÁ samotné rodné číslo, len jeho
@@ -21,6 +22,10 @@
 --     prihlásením lekára; obmedzenie počtu pokusov)
 --  4  e-mail personálu pri žiadosti o presun; odtlačok r.č. sa zmaže
 --     spolu so žiadankou po termíne (ct_purge_orders)
+--  5  CT s kontrastom bez aktuálneho kreatinínu (lekár ho nemusí zadať):
+--     pokyn priniesť čerstvý výsledok kreatinínu aj v e-maile pacientovi
+--     (rezervácia / potvrdenie / presun) a v e-mailovej pripomienke deň
+--     vopred — SMS ho obsahujú už od ct-lekari-002
 --
 -- Idempotentné. Spúšťať PO ct-lekari-002.sql. Ak by ste neskôr znova
 -- spustili ct-lekari-001 alebo 002, spustite potom znova aj tento skript.
@@ -305,6 +310,19 @@ begin
     E'or clinical <> ''\\{\\}''::jsonb\\)',
     E'or clinical <> ''{}''::jsonb or rc_hash <> '''')',
     'or rc_hash <> ''''');
+  -- 5. pokyn priniesť čerstvý kreatinín v e-mailoch pacientovi
+  perform pg_temp.ctl4_patch('ct_notify_trigger',
+    '(Príďte prosím 15 minút pred termínom\. Pod Krásnou hôrkou 1, Bratislava\.</p>'' else '''' end)',
+    '\1' || E'\n' || '    || case when NEW.status <> ''rejected'' and coalesce(NEW.clinical ->> ''labLater'', '''') = ''true'' then '
+      || '''<p style="font-size:14px;background:#fff7ed;border-left:4px solid #f59e0b;padding:8px 12px;margin:12px 0">'
+      || '<b>Prineste si na vyšetrenie čerstvý výsledok kreatinínu</b> (z odberu krvi) — je potrebný pred CT s kontrastnou látkou.</p>'' else '''' end',
+    'labLater');
+  perform pg_temp.ctl4_patch('send_ct_reminders',
+    '(Prineste si žiadanku a predchádzajúce nálezy\.</p>'')',
+    '\1' || E'\n' || '      || case when coalesce(r.clinical ->> ''labLater'', '''') = ''true'' then '
+      || '''<p style="font-size:14px;background:#fff7ed;border-left:4px solid #f59e0b;padding:8px 12px;margin:12px 0">'
+      || '<b>Prineste si čerstvý výsledok kreatinínu</b> (z odberu krvi) — je potrebný pred CT s kontrastnou látkou.</p>'' else '''' end',
+    'labLater');
 end $$;
 
 notify pgrst, 'reload schema';
@@ -335,6 +353,10 @@ begin
   end if;
   if not exists (select 1 from pg_proc where proname = 'ct_purge_orders' and prosrc like '%rc_hash = ''''%') then
     raise exception 'CT-LEKARI-004: mazanie odtlačku r.č. chýba.';
+  end if;
+  if not exists (select 1 from pg_proc where proname = 'ct_notify_trigger' and prosrc like '%labLater%')
+     or not exists (select 1 from pg_proc where proname = 'send_ct_reminders' and prosrc like '%labLater%') then
+    raise exception 'CT-LEKARI-004: pokyn o kreatiníne v e-mailoch pacientovi chýba.';
   end if;
   raise notice 'CT-LEKARI-004 OK.';
 end $$;

@@ -343,6 +343,11 @@ const rcError = (rc) => (!rcDigits(rc) ? "Zadajte rodné číslo pacienta." : va
 
 // ---------- Nová žiadosť ----------
 const emptyPatient = { name: "", rc: "", noRc: false, birthDate: "", insurance: "25", phone: "", email: "" };
+const numVal = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return n > 0 ? n : null; };
+// aktuálny kreatinín = kreatinín alebo eGFR + dátum odberu najviac rok dozadu; inak pacient prinesie čerstvý
+const labIsFresh = (cl, todayIso) => Boolean((numVal(cl.creatinine) || numVal(cl.egfr)) && cl.labDate && cl.labDate <= todayIso
+  && cl.labDate >= toISODate(new Date(Date.now() - 365 * 864e5)));
+const LAB_LATER_INFO = "Bez aktuálneho kreatinínu (výsledok do 1 roka) sa dá objednať — pacient dostane v SMS a e-maile pokyn priniesť na vyšetrenie čerstvý výsledok kreatinínu a CT pracovisko to uvidí v žiadosti.";
 const emptyClinical = { indication: "", contrast: null, creatinine: "", egfr: "", labDate: "", labLater: false, allergy: "", metformin: null };
 
 function NewRequest({ data, token, onExpired }) {
@@ -407,8 +412,8 @@ function NewRequest({ data, token, onExpired }) {
     if (z.creatinine || z.egfr) put(c, "labDate", z.labDate, "dátum odberu");
     if (z.allergyAnswer) { c.allergy = z.allergyAnswer; mark.add("allergy"); filled.push("alergia"); }
     else if (z.allergy) info.push(`Alergická anamnéza na žiadanke: „${z.allergy}" — vyberte odpoveď.`);
-    if (z.labDate && z.labDate < toISODate(new Date(Date.now() - 365 * 864e5))) warnings.push("Laboratórny výsledok na žiadanke je starší ako rok — doplňte aktuálny kreatinín alebo eGFR a dátum odberu, alebo zaškrtnite „Pacient prinesie čerstvý kreatinín“.");
-    else if (c.contrast && !z.creatinine && !z.egfr) info.push("Žiadanka neuvádza kreatinín ani eGFR — doplňte ho, alebo zaškrtnite „Pacient prinesie čerstvý kreatinín“.");
+    if (z.labDate && z.labDate < toISODate(new Date(Date.now() - 365 * 864e5))) warnings.push("Laboratórny výsledok na žiadanke je starší ako rok — žiadosť sa dá odoslať, pacient prinesie čerstvý kreatinín (dostane pokyn v SMS a e-maile). Ak máte aktuálny výsledok, doplňte ho.");
+    else if (c.contrast && !z.creatinine && !z.egfr) info.push("Žiadanka neuvádza kreatinín ani eGFR — žiadosť sa dá odoslať, pacient prinesie čerstvý kreatinín. Ak máte aktuálny výsledok, doplňte ho.");
     if (c.contrast) info.push("Metformín žiadanka neuvádza — vyberte odpoveď.");
     setPat(p); setCl(c);
     if (!req.name.trim() && (z.orderedBy || z.senderDoctor)) { setReq((r) => ({ ...r, name: z.orderedBy || z.senderDoctor })); filled.push("objednávajúci lekár"); }
@@ -455,11 +460,7 @@ function NewRequest({ data, token, onExpired }) {
     if (cl.indication.trim().length < 5) e.indication = "Napíšte klinickú otázku / indikáciu.";
     if (cl.contrast === null) e.contrast = "Vyberte, či sa má podať kontrastná látka.";
     if (cl.contrast === true) {
-      if (!cl.labLater) {
-        if (!(Number(String(cl.creatinine).replace(",", ".")) > 0) && !(Number(String(cl.egfr).replace(",", ".")) > 0)) e.renal = "Uveďte kreatinín alebo eGFR, alebo zaškrtnite, že pacient prinesie čerstvý výsledok.";
-        if (!cl.labDate || cl.labDate > todayIso) e.labDate = "Uveďte dátum odberu.";
-        else if (cl.labDate < toISODate(new Date(Date.now() - 365 * 864e5))) e.labDate = "Výsledok je starší ako rok — uveďte aktuálny alebo zaškrtnite nižšie.";
-      }
+      // kreatinín nie je povinný: bez aktuálneho výsledku pacient prinesie čerstvý (labLater)
       if (!cl.allergy) e.allergy = "Vyberte odpoveď.";
       if (cl.metformin === null) e.metformin = "Vyberte odpoveď.";
     }
@@ -467,10 +468,10 @@ function NewRequest({ data, token, onExpired }) {
     setErrs(e);
     if (Object.keys(e).length) { setMsg(CHECK_MSG); return; }
     setBusy(true); setMsg("");
-    const num = (v) => { const n = Number(String(v).replace(",", ".")); return n > 0 ? n : null; };
+    const later = cl.labLater || !labIsFresh(cl, todayIso);
     const clinical = !cl.contrast ? { contrast: false }
-      : cl.labLater ? { contrast: true, labLater: true, allergy: cl.allergy, metformin: cl.metformin }
-      : { contrast: true, creatinine: num(cl.creatinine), egfr: num(cl.egfr), labDate: cl.labDate, allergy: cl.allergy, metformin: cl.metformin };
+      : later ? { contrast: true, labLater: true, allergy: cl.allergy, metformin: cl.metformin }
+      : { contrast: true, creatinine: numVal(cl.creatinine), egfr: numVal(cl.egfr), labDate: cl.labDate, allergy: cl.allergy, metformin: cl.metformin };
     try {
       const id = await ctDoctorApi.createOrder(token, {
         requestedBy: `${req.name.trim()}, ${req.contact.trim()}`, examTypeId, examLabel: exam.label, durationSlots: exam.durationSlots,
@@ -478,7 +479,7 @@ function NewRequest({ data, token, onExpired }) {
         email: pat.email.trim(), indication: cl.indication.trim(), clinical, date, time, notify,
         birthNumber: pat.noRc ? "" : rcDigits(pat.rc),
       }, files);
-      setDone({ id, date, time, label: exam.label, patient: pat.name.trim(), hasRc: !pat.noRc });
+      setDone({ id, date, time, label: exam.label, patient: pat.name.trim(), hasRc: !pat.noRc, labLater: Boolean(clinical.labLater) });
       await data.reload?.();
     } catch (err) {
       const m = err?.message || String(err);
@@ -500,6 +501,7 @@ function NewRequest({ data, token, onExpired }) {
         <h2 className="text-xl font-semibold text-success">Žiadosť o CT je odoslaná</h2>
         <p className="text-ink"><b>{done.patient}</b> · {done.label}</p>
         <p className="text-ink">Termín: <b>{fmtDay(done.date)} o {done.time}</b> — rezervovaný, čaká na potvrdenie CT pracoviskom.</p>
+        {done.labLater && <p className="text-sm font-semibold text-warn" data-testid="ctdoc-done-lab">Pacient prinesie na vyšetrenie čerstvý výsledok kreatinínu{notify ? " — pokyn dostane v SMS (a e-maile)." : " — povedzte mu to, systém mu nič neposiela."}</p>}
         <p className="text-sm text-muted">Číslo žiadosti: <span className="font-mono">{done.id}</span>. {notify ? "Pacient dostane SMS (a e-mail) až po potvrdení." : "Pacientovi systém nič neposiela — termín mu oznámte sami."}</p>
         <p className="text-sm text-muted">{done.hasRc
           ? <>Presun termínu: záložka <b>Presun termínu</b> — podľa rodného čísla pacienta. Zrušenie vybaví CT pracovisko.</>
@@ -618,24 +620,25 @@ function NewRequest({ data, token, onExpired }) {
               <div className="grid sm:grid-cols-3 gap-3">
                 <div>
                   <label className={labelCls} htmlFor="ctdoc-crea">Kreatinín <span className="font-normal text-muted">(µmol/l)</span></label>
-                  <input id="ctdoc-crea" inputMode="decimal" className={inputCls + bad("renal") + hl("creatinine")} value={cl.creatinine} onChange={(e) => { setC("creatinine", e.target.value); clear("renal"); }} data-testid="ctdoc-creatinine" />
+                  <input id="ctdoc-crea" inputMode="decimal" className={inputCls + hl("creatinine")} value={cl.creatinine} onChange={(e) => setC("creatinine", e.target.value)} data-testid="ctdoc-creatinine" />
                 </div>
                 <div>
                   <label className={labelCls} htmlFor="ctdoc-egfr">eGFR <span className="font-normal text-muted">(ml/min/1,73 m²)</span></label>
-                  <input id="ctdoc-egfr" inputMode="decimal" className={inputCls + bad("renal") + hl("egfr")} value={cl.egfr} onChange={(e) => { setC("egfr", e.target.value); clear("renal"); }} data-testid="ctdoc-egfr" />
+                  <input id="ctdoc-egfr" inputMode="decimal" className={inputCls + hl("egfr")} value={cl.egfr} onChange={(e) => setC("egfr", e.target.value)} data-testid="ctdoc-egfr" />
                 </div>
                 <div>
-                  <label className={labelCls} htmlFor="ctdoc-lab">Dátum odberu <span className="text-danger">*</span></label>
-                  <input id="ctdoc-lab" type="date" max={todayIso} className={inputCls + bad("labDate") + hl("labDate")} value={cl.labDate} onChange={(e) => setC("labDate", e.target.value)} data-testid="ctdoc-labdate" />
-                  <Err k="labDate" />
+                  <label className={labelCls} htmlFor="ctdoc-lab">Dátum odberu</label>
+                  <input id="ctdoc-lab" type="date" max={todayIso} className={inputCls + hl("labDate")} value={cl.labDate} onChange={(e) => setC("labDate", e.target.value)} data-testid="ctdoc-labdate" />
                 </div>
               </div>
-              {errs.renal ? <Err k="renal" /> : <p className="text-xs text-muted">Stačí kreatinín alebo eGFR.</p>}
+              {labIsFresh(cl, todayIso)
+                ? <p className="text-xs text-muted">Aktuálny výsledok (do 1 roka) — stačí kreatinín alebo eGFR.</p>
+                : <Callout tone="warn" data-testid="ctdoc-lab-info">{LAB_LATER_INFO}</Callout>}
               </>)}
               <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
                 <input type="checkbox" className="mt-1 accent-brand" checked={cl.labLater}
-                  onChange={(e) => { setCl((p) => ({ ...p, labLater: e.target.checked })); clear("renal"); clear("labDate"); }} data-testid="ctdoc-lablater" />
-                <span><b>Pacient prinesie čerstvý kreatinín na vyšetrenie</b> <span className="text-muted">— keď nie je aktuálny výsledok alebo ho žiadanka neuvádza. Pacient dostane v SMS pripomenutie.</span></span>
+                  onChange={(e) => setCl((p) => ({ ...p, labLater: e.target.checked }))} data-testid="ctdoc-lablater" />
+                <span><b>Pacient prinesie čerstvý kreatinín na vyšetrenie</b> <span className="text-muted">— aj keď je výsledok vyššie. Bez aktuálneho výsledku sa to nastaví samo; pacient dostane pokyn v SMS a e-maile.</span></span>
               </label>
               <fieldset>
                 <legend className={labelCls}>Alergia na jódovú kontrastnú látku <span className="text-danger">*</span></legend>

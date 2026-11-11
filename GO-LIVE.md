@@ -44,6 +44,9 @@ treba dokončiť body nižšie.
       rezervuje, objednávka je opäť „nová" a CT pracovisko ju potvrdí (e-mail
       „Žiadosť lekára o presun termínu"). Ak by sa neskôr znova spustil
       ct-lekari-001/002, treba potom znova spustiť aj 004.
+      v126: ten istý skript pridá pokyn „prineste čerstvý výsledok kreatinínu"
+      aj do e-mailov pacientovi (potvrdenie, presun, pripomienka deň vopred) —
+      lekár môže CT s kontrastom objednať aj bez aktuálneho kreatinínu.
 - [ ] v124 (CT pre lekárov — len objednanie, bez prehľadu objednaných): spustiť
       `supabase/ct-lekari-003.sql` AŽ po nasadení v124 na ostrú — zmaže funkciu
       `ct_doctor_list`, aby sa zoznam pacientov nedal získať ani priamo cez API
