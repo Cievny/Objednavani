@@ -35,7 +35,7 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v128 (SMS „meškáme pre akútneho pacienta"): spustiť `supabase/meskanie-001.sql`
+- [x] v128 (SMS „meškáme pre akútneho pacienta"): spustiť `supabase/meskanie-001.sql`
       (po rucne-001 a ct-lekari-001; môže sa spustiť hneď). V Prehľade USG,
       angiologickej ambulancie aj CT pribudne tlačidlo „📣 SMS: meškáme" — pošle
       pevný text všetkým dnešným nevybaveným pacientom (stav nová / potvrdená,
