@@ -35,7 +35,7 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] v125 (CT pre lekárov — žiadosť o presun termínu viazaná na rodné číslo):
+- [x] v125 (CT pre lekárov — žiadosť o presun termínu viazaná na rodné číslo):
       spustiť `supabase/ct-lekari-004.sql` (po ct-lekari-002) — môže sa spustiť
       hneď, súčasná ostrá verzia s ním funguje ďalej. Lekár pri žiadosti zadá
       r.č. (zo žiadanky sa vyplní samo); databáza ukladá len odtlačok r.č.
@@ -47,7 +47,7 @@ treba dokončiť body nižšie.
       v126: ten istý skript pridá pokyn „prineste čerstvý výsledok kreatinínu"
       aj do e-mailov pacientovi (potvrdenie, presun, pripomienka deň vopred) —
       lekár môže CT s kontrastom objednať aj bez aktuálneho kreatinínu.
-- [ ] v124 (CT pre lekárov — len objednanie, bez prehľadu objednaných): spustiť
+- [x] v124 (CT pre lekárov — len objednanie, bez prehľadu objednaných): spustiť
       `supabase/ct-lekari-003.sql` AŽ po nasadení v124 na ostrú — zmaže funkciu
       `ct_doctor_list`, aby sa zoznam pacientov nedal získať ani priamo cez API
       so spoločným heslom. (Pred nasadením by v starej verzii prestala fungovať
