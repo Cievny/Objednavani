@@ -1,4 +1,7 @@
-// Tlač programu dňa (aj „Uložiť ako PDF" v dialógu tlače) — USG, angio, CT.
+import { useState } from "react";
+
+// Tlač programu dňa (aj „Uložiť ako PDF" v dialógu tlače) a export do Excelu
+// (CSV) — USG, angio, CT.
 // Program sa vloží do #print-root mimo aplikácie; pri tlači je viditeľný len on
 // (src/index.css, body.printing). Titulok okna = názov súboru pri uložení do PDF.
 
@@ -52,6 +55,53 @@ export function printDayProgram({ heading, dateLabel, rows }) {
   };
   window.addEventListener("afterprint", cleanup);
   window.print();
+}
+
+// Export programu dňa do Excelu: CSV s BOM (UTF-8, diakritika) a bodkočiarkou
+// (slovenský Excel). Bunky začínajúce = + - @ dostanú apostrof (ochrana pred
+// vzorcami); slovenské čísla v tvare 0905 222 333, aby ich Excel nebral ako vzorec.
+const csvPhone = (p) => {
+  const s = String(p || "").replace(/\s+/g, "");
+  return /^\+421\d{9}$/.test(s) ? `0${s.slice(4, 7)} ${s.slice(7, 10)} ${s.slice(10)}` : fmtPhone(p);
+};
+const csvCell = (v) => {
+  let s = String(v ?? "").replace(/\r?\n/g, " ").trim();
+  if (/^[=+\-@\t]/.test(s)) s = "'" + s;
+  return /[;"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+// „1. 1. 1970" → „01.01.1970" (Excel ho spozná ako dátum)
+const csvDate = (s) => String(s || "").replace(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/, (_, d, m, y) => `${d.padStart(2, "0")}.${m.padStart(2, "0")}.${y}`);
+export function dayProgramCsv({ rows }) {
+  const head = ["Čas", "Do", "Pacient", "Dátum narodenia", "Telefón", "Vyšetrenie", "Lekár", "Stav", "Poznámka"];
+  const lines = [head, ...rows.map((r) => [r.time, r.end || "", r.name, csvDate(r.birth), csvPhone(r.phone), r.exam || "", r.doctor || "", r.status || "",
+    (r.notes || []).filter(Boolean).join(" | ")])];
+  return "\uFEFF" + lines.map((l) => l.map(csvCell).join(";")).join("\r\n") + "\r\n";
+}
+const slug = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function exportDayProgram({ heading, iso, rows }) {
+  const blob = new Blob([dayProgramCsv({ rows })], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `program-${slug(heading)}-${iso}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Tlačidlá „Tlačiť / PDF" a „Excel" pre program dňa. pickDate: s výberom dňa (napr. v Prehľade).
+export function DayProgramActions({ iso, onPrint, onExport, pickDate = false, className = "" }) {
+  const [day, setDay] = useState(iso);
+  const target = pickDate ? day || iso : iso;
+  const b = "shrink-0 text-xs font-semibold text-brand bg-white border border-line hover:border-brand px-3 py-1.5 rounded-lg";
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+      {pickDate && (
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} aria-label="Deň programu na tlač / export" data-testid="program-day"
+          className="text-xs border border-line rounded-lg px-2 py-1 bg-white text-ink" />
+      )}
+      <button type="button" onClick={() => onPrint(target)} data-testid="print-program" title="Vytlačiť program dňa alebo ho uložiť ako PDF" className={b}>🖨 Tlačiť / PDF</button>
+      {onExport && <button type="button" onClick={() => onExport(target)} data-testid="export-program" title="Stiahnuť program dňa ako tabuľku pre Excel (CSV)" className={b}>⬇ Excel</button>}
+    </span>
+  );
 }
 
 export function PrintButton({ onClick, label = "Tlačiť / PDF", className = "" }) {
