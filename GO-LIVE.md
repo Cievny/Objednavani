@@ -35,6 +35,13 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] v128 (SMS „meškáme pre akútneho pacienta"): spustiť `supabase/meskanie-001.sql`
+      (po rucne-001 a ct-lekari-001; môže sa spustiť hneď). V Prehľade USG,
+      angiologickej ambulancie aj CT pribudne tlačidlo „📣 SMS: meškáme" — pošle
+      pevný text všetkým dnešným nevybaveným pacientom (stav nová / potvrdená,
+      zapnuté správy, mobil; lekár len svojim), voliteľne s odhadom meškania.
+      Ďalšia SMS najskôr o 10 minút, najviac 5 za deň na ambulanciu; odoslania
+      sa zapisujú do `delay_sms_log`. Každá SMS sa účtuje ako bežná SMS.
 - [x] v125 (CT pre lekárov — žiadosť o presun termínu viazaná na rodné číslo):
       spustiť `supabase/ct-lekari-004.sql` (po ct-lekari-002) — môže sa spustiť
       hneď, súčasná ostrá verzia s ním funguje ďalej. Lekár pri žiadosti zadá

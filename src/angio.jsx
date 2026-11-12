@@ -11,6 +11,7 @@ import { ConsentAck } from "./legal.jsx";
 import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
 import { StaffAddOrder } from "./staffAdd.jsx";
 import { printDayProgram, exportDayProgram, DayProgramActions, fmtPhone } from "./printProgram.jsx";
+import { DelaySms } from "./delaySms.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -938,7 +939,10 @@ export function AngioAdmin({ data, role, clinic = "angio", SettingsView = AngioS
           <div className="bg-white rounded-xl border border-line p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-brand">Dnešný program</h3>
-              <DayProgramActions iso={todayIso} pickDate onPrint={printDay} onExport={exportDay} />
+              <span className="flex flex-wrap items-center justify-end gap-1.5">
+                <DelaySms clinic={clinic} demoRows={data.orders.filter((o) => o.date === todayIso).map((o) => ({ phone: o.phone, status: o.status, notify: o.notifyPatient !== false, requestedBy: o.requestedBy || "" }))} />
+                <DayProgramActions iso={todayIso} pickDate onPrint={printDay} onExport={exportDay} />
+              </span>
             </div>
             {todayProgram.length === 0 ? <p className="text-sm text-muted">Dnes nie sú objednaní žiadni pacienti.</p>
               : <div className="space-y-1.5">{todayProgram.map((o) => <AngioOrderRow key={o.id} order={o} data={data} canManage={canManage} />)}</div>}

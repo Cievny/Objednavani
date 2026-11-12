@@ -7,6 +7,7 @@ import { encode, PaymentOptions, CurrencyCode } from "bysquare/pay";
 import QRCode from "qrcode";
 import { StaffAddOrder } from "./staffAdd.jsx";
 import { printDayProgram, exportDayProgram, DayProgramActions } from "./printProgram.jsx";
+import { DelaySms } from "./delaySms.jsx";
 
 // --- 1. KONFIGURÁCIA ---
 
@@ -2418,7 +2419,10 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
           <div>
             <div className="flex items-center justify-between gap-2 mb-2">
               <h3 className="text-lg font-semibold text-brand">Dnešný program — {formatDateHuman(todayIso)}</h3>
-              <DayProgramActions iso={todayIso} pickDate onPrint={printDay} onExport={exportDay} />
+              <span className="flex flex-wrap items-center justify-end gap-1.5">
+                <DelaySms clinic="usg" demoRows={orders.filter((o) => o.date === todayIso).map((o) => ({ phone: o.patient.phone, status: o.status, notify: o.notifyPatient !== false, requestedBy: "" }))} />
+                <DayProgramActions iso={todayIso} pickDate onPrint={printDay} onExport={exportDay} />
+              </span>
             </div>
             {todayProgram.length === 0
               ? <p className="text-muted bg-white border border-line p-4 rounded-lg">Dnes nie sú objednaní žiadni pacienti.</p>
