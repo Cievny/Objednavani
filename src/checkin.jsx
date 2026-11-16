@@ -81,7 +81,7 @@ const rpcConfirm = async (phone) => {
 // verejný tok nezobrazuje surové DB chyby — len rate-limit a všeobecnú hlášku
 const friendly = (e) => {
   const m = (e && e.message) || "";
-  if (/priveľa|rate|too many/i.test(m)) return "Priveľa pokusov. Skúste to, prosím, o chvíľu.";
+  if (/priveľa|príliš veľa|rate|too many/i.test(m)) return "Priveľa pokusov. Skúste to, prosím, o 15 minút.";
   if (/telefón|telefon/i.test(m)) return m;
   return "Momentálne sa nepodarilo spojiť so systémom. Skúste to, prosím, znova o chvíľu.";
 };

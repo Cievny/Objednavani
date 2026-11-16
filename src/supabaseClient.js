@@ -31,3 +31,34 @@ export const patientDbError = (error) => {
   try { console.error("Technická chyba pri pacientskej akcii:", error.code || "", error.message || error); } catch { /* */ }
   return new Error(PATIENT_TECH_ERROR);
 };
+
+// Číslo objednávky tak, ako ho čaká databáza: bez medzier, veľkými písmenami
+// (pacient ho často prepíše malými písmenami alebo s medzerou).
+export const normOrderId = (id) => String(id || "").replace(/\s+/g, "").toUpperCase();
+
+// Otvorené termíny načítavame len od tohto dňa (14 dní dozadu kvôli prehľadu
+// personálu) — staré bunky by inak časom prekročili limit počtu riadkov API
+// (predvolene 1000) a časť termínov by sa potichu nenačítala.
+export const slotsFromIso = () => {
+  const d = new Date(Date.now() - 14 * 864e5);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// Načítanie VŠETKÝCH riadkov po stránkach. API vracia na jednu požiadavku
+// najviac „Max rows" riadkov (predvolene 1000) a zvyšok potichu zahodí — pri
+// 5-minútových bunkách termínov by tak po pár otvorených týždňoch zmizla časť
+// dní pacientom aj personálu. `build` musí vrátiť NOVÝ dotaz so stabilným
+// zoradením a `{ count: "exact" }` (pri select); pri RPC sa končí prázdnou stranou.
+export async function selectAllRows(build, pageSize = 1000) {
+  const out = [];
+  let total = null;
+  for (let guard = 0; guard < 100; guard++) {
+    const { data, error, count } = await build().range(out.length, out.length + pageSize - 1);
+    if (error) return { data: null, error };
+    if (typeof count === "number") total = count;
+    if (!data || data.length === 0) break;
+    out.push(...data);
+    if (total !== null ? out.length >= total : data.length < pageSize) break;
+  }
+  return { data: out, error: null };
+}

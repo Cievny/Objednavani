@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase, isSupabaseConfigured, patientDbError } from "./supabaseClient.js";
+import { supabase, isSupabaseConfigured, patientDbError, normOrderId, slotsFromIso, selectAllRows } from "./supabaseClient.js";
 import {
   defaultSettings, defaultPricelist, normalizePricelist,
   generateWindowSlots, isSlotOccupying, toISODate, loadJson, normalizeDoctors,
@@ -268,7 +268,7 @@ export function useBookingData(isStaff, enabled = true) {
   const reloadInner = useCallback(async () => {
     if (!supabase) return;
     const [slotsRes, priceRes, settingsRes] = await Promise.all([
-      supabase.from("open_slots").select("slot_date, slot_time, doctor"),
+      selectAllRows(() => supabase.from("open_slots").select("slot_date, slot_time, doctor", { count: "exact" }).gte("slot_date", slotsFromIso()).order("slot_date").order("slot_time")),
       supabase.from("pricelist").select("*").eq("active", true).order("sort_order"),
       supabase.from("settings").select("key, value"),
     ]);
@@ -301,10 +301,10 @@ export function useBookingData(isStaff, enabled = true) {
       });
     }
     if (isStaff) {
-      const { data, error } = await supabase.from("orders").select("*").order("slot_date").order("slot_time");
+      const { data, error } = await selectAllRows(() => supabase.from("orders").select("*", { count: "exact" }).order("slot_date").order("slot_time").order("id"));
       if (!error) setOrders(data.map(orderFromRow));
     } else {
-      const { data, error } = await supabase.rpc("get_booked_slots");
+      const { data, error } = await selectAllRows(() => supabase.rpc("get_booked_slots", {}, { count: "exact" }).order("slot_date").order("slot_time"));
       if (!error) setOccupiedRemote(data.map((r) => ({ date: r.slot_date, time: r.slot_time.slice(0, 5) })));
     }
     if (slotsRes.error) throw new Error(slotsRes.error.message || "Nepodarilo sa načítať termíny.");
@@ -407,8 +407,9 @@ export function useBookingData(isStaff, enabled = true) {
     if (missingAttachParam) {
       ({ data, error } = await supabase.rpc("create_order", rpcParams));
     }
-    if (error && (error.code === "23505" || error.code === "23P01")) await reload(); // obsadený termín → hneď čerstvá ponuka
-    throwIf(error);
+    // obsadený termín → hneď čerstvá ponuka (databáza ho hlási aj vlastnou správou)
+    if (error && (error.code === "23505" || error.code === "23P01" || /obsaden/i.test(error.message || ""))) await reload();
+    if (error) throw patientDbError(error);
     await reload();
     // Nová verzia create_order vracia serverom pridelený ČÍSELNÝ variabilný
     // symbol. Stará verzia (pred migráciou fio-parovanie-002) vracia číslo
@@ -677,7 +678,7 @@ export function useBookingData(isStaff, enabled = true) {
       const o = orders.find((x) => x.id.toUpperCase() === orderId.toUpperCase() && x.patient.phone.replace(/\D/g, "").slice(-9) === digits.slice(-9));
       return o || null;
     }
-    const { data, error } = await supabase.rpc("lookup_order", { p_id: orderId, p_phone: phone });
+    const { data, error } = await supabase.rpc("lookup_order", { p_id: normOrderId(orderId), p_phone: phone });
     if (error) throw patientDbError(error);
     return lookupFromJson(data);
   };
@@ -688,16 +689,17 @@ export function useBookingData(isStaff, enabled = true) {
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, date, time, statusNote: "Presunuté pacientom" } : o)));
       return;
     }
-    const { error } = await supabase.rpc("patient_reschedule", { p_id: orderId, p_phone: phone, p_slot_date: date, p_slot_time: time });
+    const { error } = await supabase.rpc("patient_reschedule", { p_id: normOrderId(orderId), p_phone: phone, p_slot_date: date, p_slot_time: time });
     if (error) throw patientDbError(error);
     await reload();
   };
 
   const cancelOrder = async (orderId, phone) => {
     if (!supabase) { await setStatus(orderId, "rejected", "Zrušené pacientom"); return; }
-    const { error } = await supabase.rpc("cancel_order", { p_id: orderId, p_phone: phone });
+    const { data, error } = await supabase.rpc("cancel_order", { p_id: normOrderId(orderId), p_phone: phone });
     if (error) throw patientDbError(error);
     await reload();
+    return data !== false;
   };
 
   // len poradie cenníka (povolené aj sestre — RPC update_pricelist_order)
@@ -753,8 +755,8 @@ export function useBookingData(isStaff, enabled = true) {
   // kniha faktúr (číta ju len superadmin — v Supabase to vynucuje RLS)
   const listInvoices = async () => {
     if (!supabase) return loadJson(DEMO_INVOICES_KEY, []);
-    const { data, error } = await supabase.from("invoices").select("*")
-      .order("year", { ascending: false }).order("seq", { ascending: false });
+    const { data, error } = await selectAllRows(() => supabase.from("invoices").select("*", { count: "exact" })
+      .order("year", { ascending: false }).order("seq", { ascending: false }));
     throwIf(error);
     return (data || []).map(invoiceFromRow);
   };
@@ -801,7 +803,7 @@ export function useBookingData(isStaff, enabled = true) {
   const sendOtp = async (phone) => {
     if (!supabase) { sessionStorage.setItem("usgDemoOtp", "123456"); return { demoCode: "123456" }; }
     const { error } = await supabase.rpc("send_phone_otp", { p_phone: phone });
-    throwIf(error);
+    if (error) throw patientDbError(error);
     return {};
   };
   const verifyOtp = async (phone, code) => {
@@ -810,7 +812,7 @@ export function useBookingData(isStaff, enabled = true) {
       return { ok: false, error: "Nesprávny kód. Skúste znova." };
     }
     const { data, error } = await supabase.rpc("verify_phone_otp", { p_phone: phone, p_code: code });
-    throwIf(error);
+    if (error) throw patientDbError(error);
     return data && typeof data === "object" ? data : { ok: false, error: "Overenie zlyhalo." };
   };
 

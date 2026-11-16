@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useMsg } from "./toast.jsx";
+import { useMsg, showToast } from "./toast.jsx";
 import { STATUS_TONES, inputCls as sharedInputCls } from "./ui.jsx";
 import { paymentReady, paymentStatus, PAYMENT_PENDING_TEXT } from "./iban.js";
 import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./botguard.js";
@@ -204,7 +204,15 @@ export function BirthDateInput({ value, onChange, className = "", ...rest }) {
   useEffect(() => { if ((value || "") !== emitted.current) { emitted.current = value || ""; setText(isoToText(value)); setHint(""); } }, [value]);
   const emit = (iso) => { emitted.current = iso; onChange(iso); };
   const handle = (e) => {
-    const d = e.target.value.replace(/\D/g, "").slice(0, 8);
+    const raw = e.target.value;
+    let d;
+    if (/[.,/\- ]/.test(raw)) {
+      // písané s oddeľovačmi (5.5.1958) → deň a mesiac doplniť nulou, keď je časť ukončená oddeľovačom
+      const parts = raw.split(/[.,/\- ]+/);
+      const closed = (i) => i < parts.length - 1;
+      const two = (v, i) => { const n = (v || "").replace(/\D/g, ""); return n.length === 1 && closed(i) ? "0" + n : n; };
+      d = (two(parts[0], 0) + two(parts[1], 1) + parts.slice(2).join("").replace(/\D/g, "")).slice(0, 8);
+    } else d = raw.replace(/\D/g, "").slice(0, 8);
     const t = d.slice(0, 2) + (d.length > 2 ? "." + d.slice(2, 4) : "") + (d.length > 4 ? "." + d.slice(4, 8) : "");
     setText(t);
     if (d.length < 8) { setHint(""); if (emitted.current) emit(""); return; }
@@ -217,7 +225,8 @@ export function BirthDateInput({ value, onChange, className = "", ...rest }) {
   };
   return (
     <>
-      <input type="text" inputMode="numeric" autoComplete="bday" placeholder="DD.MM.RRRR" maxLength={10} value={text} onChange={handle}
+      <input type="text" inputMode="numeric" autoComplete="off" placeholder="DD.MM.RRRR" maxLength={10} value={text} onChange={handle}
+        onBlur={() => { const n = text.replace(/\D/g, "").length; if (n > 0 && n < 8) setHint("Zadajte celý dátum v tvare DD.MM.RRRR (rok štyrmi číslicami), napr. 15.05.1958."); }}
         className={className} aria-describedby={hint ? "birth-hint" : undefined} data-testid="birth-date" {...rest} />
       {hint && <p id="birth-hint" className="text-xs text-danger mt-1">{hint}</p>}
     </>
@@ -249,7 +258,7 @@ export const OFFERED_PER_DAY = 3;
 // apostrofom, aby ju Excel/LibreOffice nevyhodnotil ako vzorec.
 export function csvCell(v) {
   let s = String(v ?? "");
-  if (/^[\s]*[=+\-@]/.test(s)) s = "'" + s;
+  if (/^[\s]*[=+\-@]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = "'" + s;
   return `"${s.replace(/"/g, '""')}"`;
 }
 
@@ -724,7 +733,8 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
     if (isReferral && files.length === 0) {
       return setError("Pri objednávke so žiadankou priložte žiadanku (výmenný lístok) — na mobile ju môžete odfotiť.");
     }
-    // číslo objednávky raz za sedenie — pri opakovaní po chybe sa prílohy nenahrávajú pod novým číslom
+    // číslo objednávky platí pre jeden pokus o odoslanie; po chybe sa vygeneruje nové (v catch),
+    // inak by opakované nahratie príloh pod tým istým číslom úložisko odmietlo („already exists")
     if (!orderIdRef.current) orderIdRef.current = newOrderId();
     const order = {
       id: orderIdRef.current,
@@ -764,6 +774,7 @@ const PatientView = ({ occupied, openSlots, settings, pricelist, onSubmit, onSen
     } catch (err) {
       const m = err?.message || "Objednávku sa nepodarilo odoslať. Skúste to znova.";
       setError(m);
+      orderIdRef.current = ""; // ďalší pokus pod novým číslom (prílohy z tohto pokusu zmaže nočné upratovanie)
       if (err?.code === "SLOT_TAKEN" || /obsaden/i.test(m)) { setStep(2); setField("time", ""); }
       else if (/overen/i.test(m)) setOtp({ stage: "idle", phone: "", code: "", msg: "", busy: false, demoCode: "" }); // overenie vypršalo → nový kód
     } finally {
@@ -1443,6 +1454,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
   }));
   const [rows, setRows] = useState(() => toDrafts(pricelist));
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const pricelistKey = JSON.stringify(pricelist);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setRows(toDrafts(pricelist)); }, [pricelistKey]);
@@ -1465,7 +1477,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
     return isNaN(num) || num < 0 ? null : num;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const cleaned = rows
       .map((r) => ({
         id: r.id,
@@ -1476,9 +1488,15 @@ const PricelistEditor = ({ pricelist, onSave }) => {
         durationSlots: Math.max(2, Number(r.durationSlots) || 2),
       }))
       .filter((r) => r.label && r.priceSelf != null);
-    onSave(cleaned);
-    setRows(toDrafts(cleaned));
-    setSaved(true);
+    setSaveError("");
+    try {
+      await onSave(cleaned);
+      setRows(toDrafts(cleaned));
+      setSaved(true);
+    } catch (e) {
+      setSaved(false);
+      setSaveError(`Cenník sa nepodarilo uložiť: ${e?.message || e}. Zmeny NIE sú uložené — skúste to znova.`);
+    }
   };
 
   return (
@@ -1563,6 +1581,7 @@ const PricelistEditor = ({ pricelist, onSave }) => {
           Uložiť cenník
         </button>
         {saved && <span className="text-success text-sm self-center">✓ Uložené</span>}
+        {saveError && <span className="text-danger text-sm font-semibold self-center" role="alert" data-testid="pricelist-save-error">{saveError}</span>}
       </div>
     </div>
   );
@@ -2146,7 +2165,9 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
         setTimeout(() => setActionInfo(""), 4000);
       }
     } catch (e) {
-      setActionError(e?.message || String(e));
+      const m = e?.message || String(e);
+      setActionError(m);
+      showToast(`Akcia zlyhala: ${m}`, "err");
     } finally {
       setActionBusy(false);
     }
@@ -2177,7 +2198,9 @@ const AdminView = ({ orders, openSlots, settings, pricelist, onOpenWindow, onClo
       orders.filter((o) => o.date === iso && o.id !== excludeId && isSlotOccupying(o)).flatMap(orderCellTimes)
     );
     const need = Math.max(1, Math.round(durationMin / BASE_SLOT_MIN));
+    const minT = earliestTimeFor(iso, ""); // dnes už uplynuté časy neponúkať (pacient by dostal správu o presune do minulosti)
     return open.filter((slot) => {
+      if (minT && slot.time < minT) return false;
       // len lekár, ktorý dané vyšetrenie vykonáva (rovnaké pravidlo ako pacientska ponuka)
       if (examTypeId && !doctorDoesExam(doctors, slot.doctor, examTypeId)) return false;
       for (let i = 0; i < need; i++) {

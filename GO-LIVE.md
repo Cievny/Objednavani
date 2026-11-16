@@ -35,7 +35,33 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v129 — NALIEHAVÉ (zistené 16. 11. 2026): rušenie objednávok a mazanie príloh.**
+- [ ] **v130 — opravy z veľkého auditu (16. 11. 2026):** spustiť `supabase/audit-vlna10-001.sql`
+      (po prilohy-mazanie-001; idempotentné; na konci vypíše `AUDIT-VLNA10-001 OK`).
+      Overené na vernej kópii ostrej schémy (79 kontrol celých postupov pacienta aj personálu).
+      1. staré otvorené termíny sa mažú po 14 dňoch (`slots-cleanup`, 01:35 UTC) — USG mala 748
+         riadkov, API vracia najviac 1000 → hrozilo tiché miznutie dní; stránky od v130
+         načítavajú termíny, objednávky aj faktúry po stránkach;
+      2. „Skontrolovať platby" už nečaká na banku (padalo na 8 s limit a blokovalo párovanie);
+      3. `ct_create_order` už nie je dostupná verejne (obchádzala heslo pre lekárov);
+      4. „Vystaviť chýbajúce faktúry" — superadmin má oprávnenie;
+      5. pripomienky len deň vopred (nie v deň termínu s textom „zajtra"); po presune termínu
+         sa pripomienka pošle znova;
+      6. CT: zamietnutá žiadosť lekára o presun potvrdeného termínu → pacient dostane zrušenie;
+      7. chyba pri skladaní e-mailu (USG, CT) už nezablokuje zmenu objednávky; zapíše sa
+         do stavu systému;
+      8. strážca hlási aj zachytené chyby a chýbajúce kľúče (Resend, BulkGate, Fio);
+         `http-watch` každú hodinu kontroluje, či e-mailová / SMS brána nevracia chyby;
+      9. USG: zrušená ZAPLATENÁ objednávka → e-mail „vrátiť platbu" na `notify_email` / `copy_email`;
+      10. angio pripomienka: menej ako 24 h do termínu → namiesto „zmeňte online" pýta SMS;
+      11. SMS na čísla „+421 0949 …", neutrálna hlavička e-mailov, angio zrušenie vyžaduje telefón,
+          CT pri zrušení maže aj klinické údaje a odtlačok r.č., nočné mazanie starých SMS kódov,
+          „platbu sme prijali" len pri naozaj zaplatenej objednávke.
+      Stránka v130: zrozumiteľné chyby namiesto surových, číslo objednávky bez ohľadu na veľkosť
+      písmen, dátum narodenia aj ako 5.5.1958, opakované odoslanie objednávky s prílohou, karta
+      „nepodarilo sa načítať" namiesto „žiadne termíny", chyby v správe viditeľné (toast),
+      uloženie cenníka čaká na výsledok.
+- [x] **v129 — NALIEHAVÉ (zistené 16. 11. 2026): rušenie objednávok a mazanie príloh.**
+      Spustené a nasadené 16. 11. 2026 (overené: zrušenie funguje, funkcia zmazala 7 súborov, rad prázdny).
       Supabase zakázal mazať súbory priamym SQL zo `storage.objects`; naše funkcie to
       robili, takže v angiologickej ambulancii a na CT sa nedala zrušiť ŽIADNA
       objednávka (pacient ani personál) a nočné mazanie údajov po lehote

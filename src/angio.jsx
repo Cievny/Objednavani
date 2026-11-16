@@ -395,6 +395,20 @@ function AngioBookingView({ data, landing = null }) {
   );
 }
 
+// termíny sa nepodarilo načítať (výpadok spojenia) — nezamieňať s „žiadne voľné termíny"
+const loadFailed = (data) => Boolean(data.isSupabase && data.loadError && Object.keys(data.openSlots || {}).length === 0);
+function LoadFailed({ data }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="bg-white rounded-xl border border-line p-6 text-center space-y-3" role="alert" data-testid="angio-load-failed">
+      <p className="font-semibold text-ink">Voľné termíny sa teraz nepodarilo načítať.</p>
+      <p className="text-sm text-muted">Skontrolujte pripojenie na internet a skúste to znova. Ak problém pretrváva, nechajte nám nižšie číslo — zavoláme vám.</p>
+      <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await data.reload?.(); } finally { setBusy(false); } }}
+        className="bg-brand hover:bg-brand-dark disabled:opacity-50 text-white font-semibold px-5 py-2.5 rounded-lg">{busy ? "Načítavam…" : "Skúsiť znova"}</button>
+    </div>
+  );
+}
+
 // ---------- Overenie / zrušenie objednávky pacientom ----------
 function AngioOrderLookup({ data, initialId = "" }) {
   const [id, setId] = useState(initialId || "");
@@ -1341,7 +1355,7 @@ export function AngioPatientApp() {
   if (landing && landingExam) {
     return (
       <ZachranNohuLanding landing={landing} exam={landingExam} requestCallback={data.requestCallback}>
-        {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : <AngioBookingView data={data} landing={landing} />}
+        {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : loadFailed(data) ? <LoadFailed data={data} /> : <AngioBookingView data={data} landing={landing} />}
         <AngioOrderLookup data={data} initialId={orderLinkId} />
       </ZachranNohuLanding>
     );
@@ -1359,7 +1373,7 @@ export function AngioPatientApp() {
           preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
         </p>
       </div>
-      {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : <AngioBookingView data={data} landing={null} />}
+      {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : loadFailed(data) ? <LoadFailed data={data} /> : <AngioBookingView data={data} landing={null} />}
       <section id="zavolame" className="scroll-mt-16"><CallbackCard onRequest={data.requestCallback} source="angio1" /></section>
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>

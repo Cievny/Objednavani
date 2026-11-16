@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase, isSupabaseConfigured, patientDbError } from "./supabaseClient.js";
+import { supabase, isSupabaseConfigured, patientDbError, normOrderId, slotsFromIso, selectAllRows } from "./supabaseClient.js";
 import { defaultSettings, toISODate, loadJson, genSlots, normalizeDoctors, normalizePhone } from "./booking.jsx";
 
 // predvyplnené CT typy vyšetrení (demo aj prvé naplnenie)
@@ -218,7 +218,7 @@ function useClinicData(cfg, isStaff) {
       }
     }
     const [slotsRes, priceRes] = await Promise.all([
-      supabase.from(T.slots).select("slot_date, slot_time, doctor"),
+      selectAllRows(() => supabase.from(T.slots).select("slot_date, slot_time, doctor", { count: "exact" }).gte("slot_date", slotsFromIso()).order("slot_date").order("slot_time")),
       supabase.from(T.pricelist).select("*").eq("active", true).order("sort_order"),
     ]);
     if (!slotsRes.error) setOpenSlots(groupSlots(slotsRes.data));
@@ -237,7 +237,7 @@ function useClinicData(cfg, isStaff) {
       setDoctors(normalizeDoctors(Array.isArray(data) ? data : []));
     }
     if (isStaff) {
-      const { data, error } = await supabase.from(T.orders).select("*").order("slot_date").order("slot_time");
+      const { data, error } = await selectAllRows(() => supabase.from(T.orders).select("*", { count: "exact" }).order("slot_date").order("slot_time").order("id"));
       if (!error) setOrders((data || []).map((r) => ({
         id: r.id, patientName: r.patient_name, birthDate: r.birth_date || "", insurance: r.insurance || "",
         phone: r.phone || "", email: r.email || "", reason: r.reason || "",
@@ -265,7 +265,7 @@ function useClinicData(cfg, isStaff) {
         if (smsRes && !smsRes.error) setCallbackSmsTo(smsRes.data?.value || "");
       }
     } else {
-      const { data, error } = await supabase.rpc(R.booked);
+      const { data, error } = await selectAllRows(() => supabase.rpc(R.booked, {}, { count: "exact" }).order("slot_date").order("slot_time"));
       if (!error) setOccupiedRemote((data || []).map((r) => ({ date: r.slot_date, time: (r.slot_time || "").slice(0, 5) })));
     }
     if (slotsRes.error) throw new Error(slotsRes.error.message || "Nepodarilo sa načítať termíny.");
@@ -415,7 +415,7 @@ function useClinicData(cfg, isStaff) {
     if (error) {
       const taken = error.code === "23505" || error.code === "23P01" || /obsaden/i.test(error.message || "");
       if (taken) { await reload(); const e = new Error("Vybraný termín bol medzičasom obsadený. Vyberte iný."); e.code = "SLOT_TAKEN"; throw e; }
-      throw new Error(error.message);
+      throw patientDbError(error);
     }
     await reload();
     return order.id;
@@ -526,7 +526,7 @@ function useClinicData(cfg, isStaff) {
   const sendOtp = async (phone) => {
     if (!supabase) { sessionStorage.setItem("angioDemoOtp", "123456"); return { demoCode: "123456" }; }
     const { error } = await supabase.rpc(R.sendOtp, { p_phone: phone });
-    if (error) throw new Error(error.message);
+    if (error) throw patientDbError(error);
     return {};
   };
   const verifyOtp = async (phone, code) => {
@@ -535,7 +535,7 @@ function useClinicData(cfg, isStaff) {
       return { ok: false, error: "Nesprávny kód. Skúste znova." };
     }
     const { data, error } = await supabase.rpc(R.verifyOtp, { p_phone: phone, p_code: code });
-    if (error) throw new Error(error.message);
+    if (error) throw patientDbError(error);
     return data && typeof data === "object" ? data : { ok: false, error: "Overenie zlyhalo." };
   };
 
@@ -546,7 +546,7 @@ function useClinicData(cfg, isStaff) {
       const o = orders.find((x) => x.id.toUpperCase() === id.toUpperCase() && x.phone.replace(/\D/g, "").slice(-9) === digits.slice(-9));
       return o || null;
     }
-    const { data, error } = await supabase.rpc(R.lookup, { p_id: id, p_phone: phone });
+    const { data, error } = await supabase.rpc(R.lookup, { p_id: normOrderId(id), p_phone: phone });
     if (error) throw patientDbError(error);
     return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "",
       exam: { typeId: data.exam_type_id || "", label: data.exam_label || "" }, durationMin: Number(data.duration_min) || 15 } : null;
@@ -564,16 +564,17 @@ function useClinicData(cfg, isStaff) {
       list[i] = { ...list[i], date, time, status: "new", statusNote: `Termín zmenil pacient (pôvodne ${list[i].date} ${list[i].time})` };
       localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
     }
-    const { error } = await supabase.rpc(R.patientReschedule, { p_id: id, p_phone: phone, p_slot_date: date, p_slot_time: time });
+    const { error } = await supabase.rpc(R.patientReschedule, { p_id: normOrderId(id), p_phone: phone, p_slot_date: date, p_slot_time: time });
     if (error) throw patientDbError(error);
     await reload();
   };
 
   const cancelOrder = async (id, phone) => {
     if (!supabase) { await setStatus(id, "rejected", "Zrušené pacientom"); return; }
-    const { error } = await supabase.rpc(R.cancel, { p_id: id, p_phone: phone });
+    const { data, error } = await supabase.rpc(R.cancel, { p_id: normOrderId(id), p_phone: phone });
     if (error) throw patientDbError(error);
     await reload();
+    return data !== false; // false = databáza nič nezrušila (objednávka medzičasom zmenila stav)
   };
 
   // „Zavolajte mi späť": pacient (bez prihlásenia) → RPC; demo: localStorage

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Tlač programu dňa (aj „Uložiť ako PDF" v dialógu tlače) a export do Excelu
 // (CSV) — USG, angio, CT.
@@ -90,6 +90,7 @@ export function exportDayProgram({ heading, iso, rows }) {
 // Tlačidlá „Tlačiť / PDF" a „Excel" pre program dňa. pickDate: s výberom dňa (napr. v Prehľade).
 export function DayProgramActions({ iso, onPrint, onExport, pickDate = false, className = "" }) {
   const [day, setDay] = useState(iso);
+  useEffect(() => { setDay(iso); }, [iso]); // nový deň (stránka otvorená cez noc) → predvoliť dnešok
   const target = pickDate ? day || iso : iso;
   const b = "shrink-0 text-xs font-semibold text-brand bg-white border border-line hover:border-brand px-3 py-1.5 rounded-lg";
   return (
