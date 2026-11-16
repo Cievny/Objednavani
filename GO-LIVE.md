@@ -35,6 +35,21 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v129 — NALIEHAVÉ (zistené 16. 11. 2026): rušenie objednávok a mazanie príloh.**
+      Supabase zakázal mazať súbory priamym SQL zo `storage.objects`; naše funkcie to
+      robili, takže v angiologickej ambulancii a na CT sa nedala zrušiť ŽIADNA
+      objednávka (pacient ani personál) a nočné mazanie údajov po lehote
+      (`angio-cleanup`, `ct-cleanup`) padalo od septembra 2026. Pri USG sa chyba
+      ignorovala — súbory príloh ostávali v úložisku.
+      1. spustiť `supabase/prilohy-mazanie-001.sql` (hneď; rušenie začne fungovať,
+         súbory sa zaradia do radu `attachment_purge_queue`);
+      2. nasadiť Edge Function `supabase/functions/purge-prilohy` (verify_jwt = false) —
+         rad vybaví cez Storage API (hneď po zrušení a každú noc o 02:45 UTC);
+      3. skript pridáva `system_watchdog()` (denne 05:30 UTC): pri zlyhanej nočnej
+         úlohe alebo prílohách čakajúcich na zmazanie > 24 h pošle e-mail na
+         `notify_email` / `copy_email` a zapíše do stavu systému.
+      Pozn.: súbory „zmazané" priamym SQL pred zavedením ochrany mohli fyzicky ostať
+      v úložisku Supabase (bez záznamu) — overiť / dať odstrániť cez podporu Supabase.
 - [x] v128 (SMS „meškáme pre akútneho pacienta"): spustiť `supabase/meskanie-001.sql`
       (po rucne-001 a ct-lekari-001; môže sa spustiť hneď). V Prehľade USG,
       angiologickej ambulancie aj CT pribudne tlačidlo „📣 SMS: meškáme" — pošle

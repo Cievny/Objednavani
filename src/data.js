@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
+import { supabase, isSupabaseConfigured, patientDbError } from "./supabaseClient.js";
 import {
   defaultSettings, defaultPricelist, normalizePricelist,
   generateWindowSlots, isSlotOccupying, toISODate, loadJson, normalizeDoctors,
@@ -678,7 +678,7 @@ export function useBookingData(isStaff, enabled = true) {
       return o || null;
     }
     const { data, error } = await supabase.rpc("lookup_order", { p_id: orderId, p_phone: phone });
-    throwIf(error);
+    if (error) throw patientDbError(error);
     return lookupFromJson(data);
   };
 
@@ -689,14 +689,14 @@ export function useBookingData(isStaff, enabled = true) {
       return;
     }
     const { error } = await supabase.rpc("patient_reschedule", { p_id: orderId, p_phone: phone, p_slot_date: date, p_slot_time: time });
-    throwIf(error);
+    if (error) throw patientDbError(error);
     await reload();
   };
 
   const cancelOrder = async (orderId, phone) => {
     if (!supabase) { await setStatus(orderId, "rejected", "Zrušené pacientom"); return; }
     const { error } = await supabase.rpc("cancel_order", { p_id: orderId, p_phone: phone });
-    throwIf(error);
+    if (error) throw patientDbError(error);
     await reload();
   };
 

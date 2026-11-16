@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
+import { supabase, isSupabaseConfigured, patientDbError } from "./supabaseClient.js";
 import { defaultSettings, toISODate, loadJson, genSlots, normalizeDoctors, normalizePhone } from "./booking.jsx";
 
 // predvyplnené CT typy vyšetrení (demo aj prvé naplnenie)
@@ -547,7 +547,7 @@ function useClinicData(cfg, isStaff) {
       return o || null;
     }
     const { data, error } = await supabase.rpc(R.lookup, { p_id: id, p_phone: phone });
-    if (error) throw new Error(error.message);
+    if (error) throw patientDbError(error);
     return data ? { id: data.id, status: data.status, date: data.slot_date, time: (data.slot_time || "").slice(0, 5), doctor: data.doctor || "",
       exam: { typeId: data.exam_type_id || "", label: data.exam_label || "" }, durationMin: Number(data.duration_min) || 15 } : null;
   };
@@ -565,14 +565,14 @@ function useClinicData(cfg, isStaff) {
       localStorage.setItem(K.orders, JSON.stringify(list)); setOrders(list); return;
     }
     const { error } = await supabase.rpc(R.patientReschedule, { p_id: id, p_phone: phone, p_slot_date: date, p_slot_time: time });
-    if (error) throw new Error(error.message);
+    if (error) throw patientDbError(error);
     await reload();
   };
 
   const cancelOrder = async (id, phone) => {
     if (!supabase) { await setStatus(id, "rejected", "Zrušené pacientom"); return; }
     const { error } = await supabase.rpc(R.cancel, { p_id: id, p_phone: phone });
-    if (error) throw new Error(error.message);
+    if (error) throw patientDbError(error);
     await reload();
   };
 
