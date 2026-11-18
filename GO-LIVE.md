@@ -45,6 +45,11 @@ treba dokončiť body nižšie.
          z nemocničného počítača — v Správe CT je vidieť, či overenie v jeho prehliadači prešlo.
          Formuláre pacientov sa nemenia (`turnstile_enforce` ostáva `off`).
       Stránka v131: prihlásenie lekára posiela preukaz a pri odmietnutí si vypýta nový.
+- [ ] **Oprava strážcu brán (18. 11. 2026):** spustiť `supabase/audit-vlna10-003.sql`
+      (po audit-vlna10-001). Hodinová kontrola `http-watch` počítala aj chyby banky — 18. 11.
+      o 17:07 poslala planý poplach „e-mailová alebo SMS brána vracia chyby" pre päťminútový
+      výpadok Fio. Po oprave sa banka do kontroly e-mailov/SMS nepočíta a má vlastné
+      upozornenie, keď 6 hodín neprišla úspešná odpoveď (typicky vypršaný token Fio).
 - [ ] **Rozhodnutia po audite (17. 11. 2026):** spustiť `supabase/audit-vlna10-002.sql`
       (po audit-vlna10-001; idempotentné; vypíše `AUDIT-VLNA10-002 OK`).
       1. CT: pacient si termín online nezruší — `ct_cancel_order` už nie je dostupná cez API
