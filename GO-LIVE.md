@@ -35,6 +35,16 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v131 — zabezpečenie (18. 11. 2026):** spustiť `supabase/zabezpecenie-001.sql`
+      (po audit-vlna10-001; idempotentné; vypíše `ZABEZPECENIE-001 OK`, v editore „Success").
+      1. povinná žiadanka sa už nedá obísť vlastným programom — príloha bez nahratého súboru
+         sa odmietne (stránka také prílohy neposiela), obmedzená veľkosť zoznamu príloh;
+      2. CT pre lekárov: overenie „nie som robot" (Turnstile) pri spoločnom hesle. Po skripte
+         je VYPNUTÉ; zapína superadmin v Správe CT → Nastavenia → Prístup pre lekárov
+         (vypnúť vie aj sestra). Pred zapnutím nechať jedného lekára prihlásiť sa
+         z nemocničného počítača — v Správe CT je vidieť, či overenie v jeho prehliadači prešlo.
+         Formuláre pacientov sa nemenia (`turnstile_enforce` ostáva `off`).
+      Stránka v131: prihlásenie lekára posiela preukaz a pri odmietnutí si vypýta nový.
 - [ ] **Rozhodnutia po audite (17. 11. 2026):** spustiť `supabase/audit-vlna10-002.sql`
       (po audit-vlna10-001; idempotentné; vypíše `AUDIT-VLNA10-002 OK`).
       1. CT: pacient si termín online nezruší — `ct_cancel_order` už nie je dostupná cez API

@@ -113,6 +113,13 @@ function startPass() {
 // Spustiť overenie vopred — keď pacient začne vypĺňať formulár (nie až pri odoslaní).
 export function prewarmHumanPass() { startPass(); }
 
+// Zahodiť preukaz (server ho odmietol — vypršal alebo sa vyčerpal); ďalšie
+// ensureHumanPass() si vypýta nový.
+export function resetHumanPass() {
+  state.pass = ""; state.passAt = 0; failedAt = 0;
+  state.ts = TURNSTILE_SITE_KEY ? "idle" : "";
+}
+
 // Pred odoslaním počkať na preukaz najviac `wait` ms. NIKDY nevyhodí chybu a nezdrží
 // pacienta: ak preukaz nie je hotový, požiadavka ide bez neho. Povinnosť preukazu
 // vynucuje len databáza (turnstile_enforce = on) so zrozumiteľnou hláškou.

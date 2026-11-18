@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient.js";
+import { ensureHumanPass, prewarmHumanPass, resetHumanPass } from "./botguard.js";
 import { MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, insuranceOptions, normalizePhone, BirthDateInput, validateBirthNumber } from "./booking.jsx";
 import { useCtData, CT_ORDERS_KEY } from "./podappkyData.js";
 import { inputCls, labelCls, Btn, Card, Callout } from "./ui.jsx";
@@ -152,7 +153,8 @@ export const ctDoctorApi = {
 
   // personál (správa CT → Nastavenia)
   async passwordInfo() {
-    if (!supabase) return { set: Boolean(localStorage.getItem(DEMO_PW_KEY)), updatedAt: localStorage.getItem(DEMO_PW_KEY + "_at") || "", updatedBy: "demo", activeSessions: 0 };
+    if (!supabase) return { set: Boolean(localStorage.getItem(DEMO_PW_KEY)), updatedAt: localStorage.getItem(DEMO_PW_KEY + "_at") || "", updatedBy: "demo", activeSessions: 0,
+      robotCheck: Boolean(localStorage.getItem(DEMO_PW_KEY + "_robot")), robotOk: 0, robotFail: 0, robotBlocked: 0 };
     const { data, error } = await supabase.rpc("ct_doctor_password_info");
     if (error) throw new Error(error.code === "PGRST202" ? "CT pre lekárov ešte nie je zapnuté v databáze (spustite supabase/ct-lekari-001.sql)." : error.message);
     return data || { set: false };
@@ -165,6 +167,12 @@ export const ctDoctorApi = {
     const { error } = await supabase.rpc("ct_set_doctor_password", { p_password: pw });
     if (error) throw new Error(error.message);
   },
+  // overenie „nie som robot" pri hesle lekárov (zabezpecenie-001): zapína superadmin, vypnúť vie aj sestra
+  async setRobotCheck(on) {
+    if (!supabase) { localStorage.setItem(DEMO_PW_KEY + "_robot", on ? "1" : ""); return; }
+    const { error } = await supabase.rpc("ct_set_login_robot_check", { p_on: Boolean(on) });
+    if (error) throw new Error(error.message);
+  },
 };
 
 // adresa stránky pre lekárov (pacientska verzia; zo správy /sprava/ o úroveň vyššie)
@@ -175,12 +183,17 @@ function DoctorLogin({ onLogin, notice }) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  useEffect(() => { prewarmHumanPass(); }, []);
   const submit = async (e) => {
     e.preventDefault();
     if (!pw) { setErr("Zadajte heslo."); return; }
     setBusy(true); setErr("");
     try {
-      const r = await ctDoctorApi.login(pw);
+      // overenie „nie som robot" (zabezpecenie-001): beží na pozadí od otvorenia stránky;
+      // ak ho server vyžaduje a preukaz chýba alebo vypršal, vypýta sa nový a skúsi sa raz znova
+      await ensureHumanPass(4000);
+      let r = await ctDoctorApi.login(pw);
+      if (r?.robot) { resetHumanPass(); await ensureHumanPass(15000); r = await ctDoctorApi.login(pw); }
       if (!r?.ok) { setErr(r?.error || "Prihlásenie zlyhalo."); return; }
       onLogin({ token: r.token, exp: new Date(r.expires_at).getTime() });
     } catch (e2) { setErr(e2?.message || String(e2)); } finally { setBusy(false); }

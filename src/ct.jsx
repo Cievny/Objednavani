@@ -25,6 +25,12 @@ function DoctorAccessCard({ isSuper }) {
     try { await ctDoctorApi.setPassword(pw); setPw(""); setMsg("✓ Heslo pre lekárov uložené."); load(); } catch (e) { setMsg(e.message); }
   };
   const copy = async () => { try { await navigator.clipboard.writeText(url); setMsg("✓ Odkaz skopírovaný."); } catch { setMsg("Odkaz sa nepodarilo skopírovať."); } };
+  const robot = info && !info.error && typeof info.robotCheck === "boolean" ? info : null; // až po zabezpecenie-001.sql
+  const toggleRobot = async () => {
+    const on = !robot.robotCheck;
+    if (on && !window.confirm("Zapnúť overenie „nie som robot“ pri hesle lekárov?\n\nAk by sa potom lekári nevedeli prihlásiť, vypnite ho tu — vie to aj sestra.")) return;
+    try { await ctDoctorApi.setRobotCheck(on); setMsg(on ? "✓ Overenie „nie som robot“ je zapnuté." : "✓ Overenie „nie som robot“ je vypnuté."); load(); } catch (e) { setMsg(e.message); }
+  };
   const when = info?.updatedAt ? new Date(info.updatedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
   return (
     <div className="bg-white rounded-xl border border-line p-5 space-y-3" data-testid="ct-doctor-access">
@@ -42,6 +48,20 @@ function DoctorAccessCard({ isSuper }) {
           <button type="button" onClick={save} className="bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-4 py-2 rounded-lg" data-testid="ct-doctor-pw-save">{info?.set ? "Zmeniť heslo" : "Nastaviť heslo"}</button>
         </div>
       ) : <p className="text-xs text-muted">Heslo nastavuje a mení superadmin.</p>}
+      {robot && (
+        <div className="border-t border-line pt-3 space-y-1.5" data-testid="ct-robot-check">
+          <p className="text-sm text-ink"><b>Overenie „nie som robot“ pri hesle:</b>{" "}
+            <span className={robot.robotCheck ? "text-success font-semibold" : "text-muted font-semibold"} data-testid="ct-robot-state">{robot.robotCheck ? "zapnuté" : "vypnuté"}</span></p>
+          <p className="text-xs text-muted">Chráni spoločné heslo pred automatickým hádaním. Lekár si ho zvyčajne nevšimne, výnimočne zaškrtne políčko. Formulárov pacientov sa netýka.
+            {" "}Za posledných 14 dní overenie v prehliadači lekárov prešlo <b data-testid="ct-robot-ok">{robot.robotOk || 0}</b>× a neprešlo <b data-testid="ct-robot-fail">{robot.robotFail || 0}</b>×{robot.robotBlocked ? `; zablokované pokusy o prihlásenie: ${robot.robotBlocked}` : ""}.</p>
+          {!robot.robotCheck && !robot.robotOk && (
+            <p className="text-xs text-warn font-semibold">Pred zapnutím nechajte aspoň jedného lekára prihlásiť sa z nemocničného počítača — tu uvidíte, či overenie v nemocničnej sieti prechádza.</p>)}
+          {(isSuper || robot.robotCheck) && (
+            <button type="button" onClick={toggleRobot} data-testid="ct-robot-toggle"
+              className="text-xs bg-soft hover:bg-line text-ink font-semibold px-3 py-1.5 rounded-lg">{robot.robotCheck ? "Vypnúť overenie" : "Zapnúť overenie"}</button>)}
+          {!isSuper && !robot.robotCheck && <p className="text-xs text-muted">Overenie zapína superadmin.</p>}
+        </div>
+      )}
       <p className="text-xs text-muted">Heslo meňte, keď lekár odíde z ústavu alebo keď sa heslo dostane k nepovolanej osobe. Zmena hneď odhlási všetkých lekárov. Odovzdávajte ho osobne alebo telefonicky, nie e-mailom.</p>
       {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`}>{msg}</p>}
     </div>
