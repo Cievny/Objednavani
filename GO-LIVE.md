@@ -35,7 +35,15 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v130 — opravy z veľkého auditu (16. 11. 2026):** spustiť `supabase/audit-vlna10-001.sql`
+- [ ] **Rozhodnutia po audite (17. 11. 2026):** spustiť `supabase/audit-vlna10-002.sql`
+      (po audit-vlna10-001; idempotentné; vypíše `AUDIT-VLNA10-002 OK`).
+      1. CT: pacient si termín online nezruší — `ct_cancel_order` už nie je dostupná cez API
+         (stránka ju nepoužívala; pacient sa musí ozvať pracovisku);
+      2. angio a CT: zrušené objednávky sa mažú 7 dní po zrušení (ako USG), nie termín + 28 dní;
+      3. banka: párovanie platieb pozerá 10 dní dozadu (doteraz 3).
+- [x] **v130 — opravy z veľkého auditu (16. 11. 2026):** spustiť `supabase/audit-vlna10-001.sql`
+      — spustené na ostrej 17. 11. 2026 (overené 18. 11.: úlohy `slots-cleanup` a `http-watch` bežia,
+      staré termíny zmazané, žiadna zlyhaná úloha). Stránka v130 čaká na „daj na ostrú".
       (po prilohy-mazanie-001; idempotentné; na konci vypíše `AUDIT-VLNA10-001 OK`).
       Overené na vernej kópii ostrej schémy (79 kontrol celých postupov pacienta aj personálu).
       1. staré otvorené termíny sa mažú po 14 dňoch (`slots-cleanup`, 01:35 UTC) — USG mala 748
