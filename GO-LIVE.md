@@ -35,7 +35,8 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v132 — CT zásobník (23. 11. 2026):** spustiť `supabase/ct-zasobnik-001.sql`
+- [x] **v132 — CT zásobník (23. 11. 2026):** spustiť `supabase/ct-zasobnik-001.sql` — skript spustený a stránka v132
+      nasadená na ostrú 23. 11. 2026 (overené: tabuľka, funkcie, práva, nočná úloha).
       (po ct-lekari-004, audit-vlna10-001 a zabezpecenie-001; idempotentné; vypíše `CT-ZASOBNIK-001 OK`).
       Termíny na ďalší mesiac sú známe až koncom mesiaca — lekár preto môže žiadosť o CT poslať
       aj BEZ termínu (stránka pre lekárov → „Bez termínu — do zásobníka", nepovinné „požadované obdobie").
@@ -50,7 +51,7 @@ treba dokončiť body nižšie.
       5. vypnutie zásobníka (stránka ho prestane ponúkať): v SQL editore
          `insert into settings (key, value) values ('ct_waitlist', 'off') on conflict (key) do update set value = 'off';`
       Stránka v132 zásobník ponúkne až po spustení skriptu (pýta sa databázy `ct_waitlist_ready`).
-- [x] **v131 — zabezpečenie (18. 11. 2026):** spustiť `supabase/zabezpecenie-001.sql` — skript spustený na ostrej 19. 11. 2026, stránka v131 je zatiaľ len na beta
+- [x] **v131 — zabezpečenie (18. 11. 2026):** spustiť `supabase/zabezpecenie-001.sql` — skript spustený na ostrej 19. 11. 2026, stránka na ostrej od 23. 11. 2026 (spolu s v132)
       (po audit-vlna10-001; idempotentné; vypíše `ZABEZPECENIE-001 OK`, v editore „Success").
       1. povinná žiadanka sa už nedá obísť vlastným programom — príloha bez nahratého súboru
          sa odmietne (stránka také prílohy neposiela), obmedzená veľkosť zoznamu príloh;
@@ -60,12 +61,12 @@ treba dokončiť body nižšie.
          z nemocničného počítača — v Správe CT je vidieť, či overenie v jeho prehliadači prešlo.
          Formuláre pacientov sa nemenia (`turnstile_enforce` ostáva `off`).
       Stránka v131: prihlásenie lekára posiela preukaz a pri odmietnutí si vypýta nový.
-- [ ] **Oprava strážcu brán (18. 11. 2026):** spustiť `supabase/audit-vlna10-003.sql`
+- [x] **Oprava strážcu brán (18. 11. 2026):** spustiť `supabase/audit-vlna10-003.sql` — spustené na ostrej 23. 11. 2026
       (po audit-vlna10-001). Hodinová kontrola `http-watch` počítala aj chyby banky — 18. 11.
       o 17:07 poslala planý poplach „e-mailová alebo SMS brána vracia chyby" pre päťminútový
       výpadok Fio. Po oprave sa banka do kontroly e-mailov/SMS nepočíta a má vlastné
       upozornenie, keď 6 hodín neprišla úspešná odpoveď (typicky vypršaný token Fio).
-- [ ] **Rozhodnutia po audite (17. 11. 2026):** spustiť `supabase/audit-vlna10-002.sql`
+- [x] **Rozhodnutia po audite (17. 11. 2026):** spustiť `supabase/audit-vlna10-002.sql` — spustené na ostrej 23. 11. 2026
       (po audit-vlna10-001; idempotentné; vypíše `AUDIT-VLNA10-002 OK`).
       1. CT: pacient si termín online nezruší — `ct_cancel_order` už nie je dostupná cez API
          (stránka ju nepoužívala; pacient sa musí ozvať pracovisku);
