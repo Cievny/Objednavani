@@ -1,14 +1,105 @@
 import { useEffect, useState } from "react";
 import { useMsg } from "./toast.jsx";
 import { normalizeDoctors } from "./booking.jsx";
-import { useCtData } from "./podappkyData.js";
-import { AngioAdmin } from "./angio.jsx";
-import { ctDoctorApi, ctDoctorUrl } from "./ctDoctor.jsx";
+import { useCtData, useCtWaitlist } from "./podappkyData.js";
+import { AngioAdmin, contrastText } from "./angio.jsx";
+import { ctDoctorApi, ctDoctorUrl, SlotPicker } from "./ctDoctor.jsx";
 
 import { inputSmCls as inp } from "./ui.jsx";
 
 // ---------- Karta CT objednávky (správa) ----------
 // Karta a správa CT: od v112 sa používa zdieľaná správa z angio.jsx (AngioAdmin, clinic="ct").
+
+// ---------- Zásobník (ct-zasobnik-001): žiadosti lekárov bez termínu ----------
+// CT pracovisko im pridelí termín, keď je známy rozpis; pridelením vznikne potvrdená
+// objednávka a pacient dostane SMS / e-mail.
+const fmtD = (iso) => (iso ? `${String(iso).slice(8, 10)}.${String(iso).slice(5, 7)}.${String(iso).slice(0, 4)}` : "");
+const daysSince = (ts) => Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 864e5));
+const DOW_SK = ["nedeľa", "pondelok", "utorok", "streda", "štvrtok", "piatok", "sobota"];
+const fmtDaySk = (iso) => { const d = new Date(`${iso}T12:00:00`); return `${DOW_SK[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
+
+function WaitlistPanel({ wl, data }) {
+  const [open, setOpen] = useState(true);
+  const [sel, setSel] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useMsg();
+  if (!wl.ready || (wl.list.length === 0 && !wl.loadError)) return null;
+  const start = (id) => { setSel(id); setDate(""); setTime(""); setMsg(""); };
+  const assign = async (w) => {
+    if (!date || !time) { setMsg("Vyberte deň a čas."); return; }
+    setBusy(true); setMsg("");
+    try {
+      await wl.assign(w.id, date, time);
+      setSel(""); setDate(""); setTime("");
+      setMsg(`✓ ${w.patientName}: termín ${fmtD(date)} o ${time} je pridelený a potvrdený.${w.notifyPatient ? " Pacient dostane SMS (a e-mail)." : " Pacient si neželá správy — termín mu oznámte."}`);
+    } catch (e) {
+      setMsg(e.message || String(e));
+      if (e.code === "SLOT_TAKEN") { setTime(""); await data.reload?.(); }
+    } finally { setBusy(false); }
+  };
+  const remove = async (w) => {
+    if (!window.confirm(`Odstrániť žiadosť zo zásobníka?\n\n${w.patientName} · ${w.examLabel}\n\nPacient o žiadosti nevie, nič sa mu neposiela. Lekárovi (${w.requestedBy}) to oznámte sami.`)) return;
+    setBusy(true); setMsg("");
+    try { await wl.remove(w.id); if (sel === w.id) setSel(""); setMsg("✓ Žiadosť je odstránená zo zásobníka."); } catch (e) { setMsg(e.message || String(e)); } finally { setBusy(false); }
+  };
+  const btn = "text-sm font-semibold px-3 py-1.5 rounded-lg";
+  return (
+    <section className="bg-white rounded-xl border-2 border-brand/40 p-4 space-y-3" data-testid="ct-waitlist">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-brand">Zásobník — žiadosti bez termínu <span className="font-normal text-muted" data-testid="ct-waitlist-count">({wl.list.length})</span></h2>
+        <button type="button" onClick={() => setOpen((v) => !v)} className="text-sm font-semibold text-brand hover:underline" data-testid="ct-waitlist-toggle">{open ? "▴ Skryť" : "Zobraziť ▾"}</button>
+      </div>
+      {wl.loadError && <p className="text-sm text-danger font-semibold">{wl.loadError}</p>}
+      {msg && <p className={`text-sm font-semibold ${msg.startsWith("✓") ? "text-success" : "text-danger"}`} role="status" data-testid="ct-waitlist-msg">{msg}</p>}
+      {open && (<>
+        <p className="text-sm text-muted">Lekári sem zaraďujú pacientov, ktorým nevedia vybrať termín (rozpis na ďalší mesiac ešte nie je známy). Po pridelení termínu vznikne potvrdená objednávka a pacient dostane SMS. Voľné termíny otvoríte v Kalendári.</p>
+        <ul className="space-y-3">
+          {wl.list.map((w) => {
+            const days = daysSince(w.createdAt);
+            const contrast = contrastText(w.clinical);
+            return (
+              <li key={w.id} className="border border-line rounded-lg p-3 space-y-2" data-testid="ct-waitlist-item">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-ink"><b>{w.patientName}</b> · {w.examLabel} <span className="text-muted">· {w.durationMin} min</span></p>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${days > 30 ? "bg-warn-soft text-warn" : "bg-soft text-muted"}`}>v zásobníku od {fmtD(w.createdAt)} · {days === 0 ? "dnes" : `${days} ${days === 1 ? "deň" : days < 5 ? "dni" : "dní"}`}</span>
+                </div>
+                <dl className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <div><dt className="inline text-muted">Narodený(á): </dt><dd className="inline">{fmtD(w.birthDate) || "—"}</dd></div>
+                  <div><dt className="inline text-muted">Telefón: </dt><dd className="inline">{w.phone ? <a href={`tel:${w.phone.replace(/\s/g, "")}`} className="font-semibold text-brand hover:underline">{w.phone}</a> : "—"}{w.email ? ` · ${w.email}` : ""}</dd></div>
+                  <div><dt className="inline text-muted">Objednal (lekár): </dt><dd className="inline font-semibold">{w.requestedBy}</dd></div>
+                  <div><dt className="inline text-muted">Požadované obdobie: </dt><dd className={`inline ${w.prefer ? "font-semibold text-ink bg-brand-soft px-1 rounded" : "text-muted"}`} data-testid="ct-waitlist-prefer">{w.prefer || "neuvedené"}</dd></div>
+                  <div className="sm:col-span-2"><dt className="inline text-muted">Klinická otázka: </dt><dd className="inline whitespace-pre-wrap">{w.reason}</dd></div>
+                  {contrast && <div className="sm:col-span-2"><dt className="inline text-muted">Kontrastná látka: </dt><dd className={`inline ${w.clinical?.allergy === "ano" || w.clinical?.metformin ? "font-semibold text-warn" : ""}`}>{contrast}</dd></div>}
+                  {!w.notifyPatient && <div className="sm:col-span-2 text-warn font-semibold">Pacient si neželá SMS ani e-maily — termín mu treba oznámiť.</div>}
+                </dl>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(w.attachments || []).map((a, i) => (
+                    <button key={i} type="button" onClick={() => data.openAttachment(a).catch((e) => setMsg(e.message))} className="text-xs bg-soft hover:bg-line text-ink font-semibold px-2 py-1 rounded-lg">📎 {a.name || `príloha ${i + 1}`}</button>
+                  ))}
+                  <span className="grow" />
+                  {sel !== w.id && <button type="button" onClick={() => start(w.id)} disabled={busy} className={`${btn} bg-brand hover:bg-brand-dark text-white`} data-testid="ct-waitlist-assign">Prideliť termín</button>}
+                  <button type="button" onClick={() => remove(w)} disabled={busy} className={`${btn} bg-white border border-line text-danger hover:border-danger`} data-testid="ct-waitlist-remove">Odstrániť</button>
+                </div>
+                {sel === w.id && (
+                  <div className="border-t border-line pt-2" data-testid="ct-waitlist-picker">
+                    <SlotPicker data={data} examTypeId={w.examTypeId} durationMin={w.durationMin} date={date} time={time} onPick={(d, t) => { setDate(d); setTime(t); setMsg(""); }} />
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <button type="button" onClick={() => assign(w)} disabled={busy || !date || !time} className={`${btn} bg-brand hover:bg-brand-dark text-white disabled:opacity-50`} data-testid="ct-waitlist-confirm">
+                        {busy ? "Prideľujem…" : date && time ? `Prideliť ${fmtDaySk(date)} o ${time} a potvrdiť` : "Vyberte deň a čas"}</button>
+                      <button type="button" onClick={() => setSel("")} disabled={busy} className={`${btn} bg-soft text-ink`}>Zrušiť</button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </>)}
+    </section>
+  );
+}
 
 // Prístup lekárov NÚSCH (ct-lekari-001): spoločné heslo nastavuje superadmin
 function DoctorAccessCard({ isSuper }) {
@@ -141,15 +232,17 @@ function CtSettings({ data, isSuper }) {
 
 export default function CtApp({ isStaff, role = "superadmin", doctorName = "" }) {
   const data = useCtData(isStaff);
+  const wl = useCtWaitlist(isStaff, data.reload);
   return (
     <div className="space-y-4">
       <div className="bg-brand-soft border border-line text-brand rounded-lg px-4 py-3 text-sm font-semibold flex flex-wrap items-center justify-between gap-2">
-        <span>CT pracovisko — správa objednávok{data.pendingCount > 0 ? ` · žiadosti na potvrdenie: ${data.pendingCount}` : ""}</span>
+        <span>CT pracovisko — správa objednávok{data.pendingCount > 0 ? ` · žiadosti na potvrdenie: ${data.pendingCount}` : ""}{wl.ready && wl.list.length > 0 ? ` · v zásobníku: ${wl.list.length}` : ""}</span>
         <span className="flex flex-wrap gap-3">
           <a href={ctDoctorUrl()} target="_blank" rel="noreferrer" className="hover:underline" data-testid="ct-doctor-page">Stránka pre lekárov ›</a>
           <a href="#/sprava" className="hover:underline">← Späť do správy</a>
         </span>
       </div>
+      {role !== "lekar" && <WaitlistPanel wl={wl} data={data} />}
       <AngioAdmin data={data} role={role} clinic="ct" SettingsView={CtSettings} doctorName={doctorName} />
     </div>
   );

@@ -35,7 +35,22 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v131 — zabezpečenie (18. 11. 2026):** spustiť `supabase/zabezpecenie-001.sql`
+- [ ] **v132 — CT zásobník (23. 11. 2026):** spustiť `supabase/ct-zasobnik-001.sql`
+      (po ct-lekari-004, audit-vlna10-001 a zabezpecenie-001; idempotentné; vypíše `CT-ZASOBNIK-001 OK`).
+      Termíny na ďalší mesiac sú známe až koncom mesiaca — lekár preto môže žiadosť o CT poslať
+      aj BEZ termínu (stránka pre lekárov → „Bez termínu — do zásobníka", nepovinné „požadované obdobie").
+      1. žiadosť čaká v tabuľke `ct_waitlist`; personál dostane e-mail, pacient nič;
+      2. Správa CT → hore panel „Zásobník": sestra / superadmin pridelí termín (`ct_waitlist_assign`) —
+         vznikne POTVRDENÁ objednávka a pacient dostane rovnakú SMS a e-mail ako pri potvrdení
+         bežnej žiadosti; alebo žiadosť odstráni (`ct_waitlist_remove`, pacientovi sa nič neposiela);
+      3. lekár podľa r.č. (záložka Presun termínu) vidí, že pacient v zásobníku čaká;
+      4. poriadok: žiadosť čakajúca > 60 dní sa každý pondelok pripomenie e-mailom, po 90 dňoch
+         sa zmaže aj s prílohami (`ct-zasobnik-cleanup`, 01:25 UTC); prílohy zásobníka nočné
+         mazanie „súborov bez objednávky" nechá;
+      5. vypnutie zásobníka (stránka ho prestane ponúkať): v SQL editore
+         `insert into settings (key, value) values ('ct_waitlist', 'off') on conflict (key) do update set value = 'off';`
+      Stránka v132 zásobník ponúkne až po spustení skriptu (pýta sa databázy `ct_waitlist_ready`).
+- [x] **v131 — zabezpečenie (18. 11. 2026):** spustiť `supabase/zabezpecenie-001.sql` — skript spustený na ostrej 19. 11. 2026, stránka v131 je zatiaľ len na beta
       (po audit-vlna10-001; idempotentné; vypíše `ZABEZPECENIE-001 OK`, v editore „Success").
       1. povinná žiadanka sa už nedá obísť vlastným programom — príloha bez nahratého súboru
          sa odmietne (stránka také prílohy neposiela), obmedzená veľkosť zoznamu príloh;

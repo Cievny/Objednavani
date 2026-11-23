@@ -45,6 +45,7 @@ export const DEFAULT_ANGIO_NOTES = [
 
 const ADHOC_KEY = "adhocPayments_v1";
 export const CT_ORDERS_KEY = "ctOrders_v1";
+export const CT_WAITLIST_KEY = "ctWaitlist_v1"; // demo: zásobník žiadostí o CT bez termínu
 export const ANGIO_ORDERS_KEY = "angioOrders_v1";
 const DEMO_INVOICES_KEY = "usgInvoices_v1"; // spoločná demo kniha faktúr
 
@@ -173,6 +174,67 @@ const ANGIO_CFG = {
 };
 
 export function useCtData(isStaff) { return useClinicData(CT_CFG, isStaff); }
+
+// ---------- CT zásobník (ct-zasobnik-001): žiadosti lekárov bez termínu ----------
+// Personál ich vidí v správe CT a pridelí im termín; pridelením vznikne potvrdená
+// objednávka a pacient dostane SMS / e-mail. ready = false: databáza ešte nemá
+// ct-zasobnik-001.sql (zásobník sa v správe nezobrazí).
+const waitRow = (r) => ({ id: r.id, createdAt: r.created_at, requestedBy: r.requested_by || "", examTypeId: r.exam_type_id, examLabel: r.exam_label || "",
+  durationMin: r.duration_min || 15, patientName: r.patient_name, birthDate: r.birth_date || "", insurance: r.insurance || "", phone: r.phone || "",
+  email: r.email || "", reason: r.reason || "", clinical: r.clinical || {}, attachments: Array.isArray(r.attachments) ? r.attachments : [],
+  notifyPatient: r.notify_patient !== false, prefer: r.prefer || "" });
+const toMinutes = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
+
+export function useCtWaitlist(isStaff, onChanged) {
+  const [list, setList] = useState([]);
+  const [ready, setReady] = useState(!isSupabaseConfigured);
+  const [loadError, setLoadError] = useState("");
+  const reload = useCallback(async () => {
+    if (!supabase) { setList(loadJson(CT_WAITLIST_KEY, []).slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))); setReady(true); return; }
+    if (!isStaff) return;
+    const { data, error } = await supabase.from("ct_waitlist").select("*").order("created_at", { ascending: true });
+    if (error) {
+      // tabuľka ešte neexistuje (skript nebol spustený) → zásobník v správe skryť; iná chyba → ukázať
+      const missing = error.code === "42P01" || error.code === "PGRST205" || (/ct_waitlist/.test(error.message || "") && /not exist|schema cache/i.test(error.message || ""));
+      setReady(!missing); setLoadError(missing ? "" : error.message || "Zásobník sa nepodarilo načítať."); setList([]);
+      return;
+    }
+    setReady(true); setLoadError(""); setList((data || []).map(waitRow));
+  }, [isStaff]);
+  useEffect(() => { reload(); }, [reload]);
+
+  // prideliť termín → potvrdená objednávka (pacient dostane SMS / e-mail)
+  const assign = async (id, date, time) => {
+    if (!supabase) {
+      const wl = loadJson(CT_WAITLIST_KEY, []);
+      const w = wl.find((x) => x.id === id);
+      if (!w) throw new Error("Žiadosť už v zásobníku nie je — termín jej medzičasom pridelil niekto iný alebo bola odstránená.");
+      const orders = loadJson(CT_ORDERS_KEY, []);
+      const a = toMinutes(time), b = a + (w.durationMin || 15);
+      if (orders.some((o) => o.status !== "rejected" && o.date === date && toMinutes(o.time) < b && toMinutes(o.time) + (o.durationMin || 15) > a)) {
+        throw new Error("V tomto čase je už objednaný iný pacient. Vyberte iný čas.");
+      }
+      const cell = (loadJson("ctOpenSlots_v1", {})[date] || []).find((c) => c.time === time);
+      orders.push({ id: w.id, examTypeId: w.examTypeId, exam: { typeId: w.examTypeId, label: w.examLabel }, patientName: w.patientName, birthDate: w.birthDate,
+        insurance: w.insurance, phone: w.phone, email: w.email, reason: w.reason, date, time, doctor: cell?.doctor || "", status: "confirmed", statusNote: "",
+        durationMin: w.durationMin || 15, attachments: w.attachments || [], createdAt: w.createdAt, requestedBy: w.requestedBy, clinical: w.clinical,
+        notifyPatient: w.notifyPatient !== false, createdBy: "demo", rcHash: w.rcHash || "" });
+      localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(orders));
+      localStorage.setItem(CT_WAITLIST_KEY, JSON.stringify(wl.filter((x) => x.id !== id)));
+    } else {
+      const { error } = await supabase.rpc("ct_waitlist_assign", { p_id: id, p_slot_date: date, p_slot_time: time });
+      if (error) { const e = new Error(error.message); if (error.code === "23P01" || /objednaný iný pacient/i.test(error.message || "")) e.code = "SLOT_TAKEN"; throw e; }
+    }
+    await reload(); await onChanged?.();
+  };
+  // odstrániť žiadosť (pacient o nej nevedel — nič sa mu neposiela)
+  const remove = async (id) => {
+    if (!supabase) localStorage.setItem(CT_WAITLIST_KEY, JSON.stringify(loadJson(CT_WAITLIST_KEY, []).filter((x) => x.id !== id)));
+    else { const { error } = await supabase.rpc("ct_waitlist_remove", { p_id: id }); if (error) throw new Error(error.message); }
+    await reload();
+  };
+  return { list, ready, loadError, reload, assign, remove };
+}
 export function useAngioData(isStaff) { return useClinicData(ANGIO_CFG, isStaff); }
 
 // ---------- spoločná dátová vrstva ambulancie (plná vetva ako USG) ----------

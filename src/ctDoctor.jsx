@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import { ensureHumanPass, prewarmHumanPass, resetHumanPass } from "./botguard.js";
 import { MonthCalendar, toISODate, earliestTimeFor, computeOfferedSlots, insuranceOptions, normalizePhone, BirthDateInput, validateBirthNumber } from "./booking.jsx";
-import { useCtData, CT_ORDERS_KEY } from "./podappkyData.js";
+import { useCtData, CT_ORDERS_KEY, CT_WAITLIST_KEY } from "./podappkyData.js";
 import { inputCls, labelCls, Btn, Card, Callout } from "./ui.jsx";
 import { readZiadankaPdf, parseZiadanka, matchCtExam } from "./ziadanka.js";
 
@@ -42,6 +42,7 @@ export const birthFromRc = (rc) => {
 };
 const demoRc = (rc) => "demo:" + rcDigits(rc); // demo režim (localStorage) — v databáze je odtlačok s tajným kľúčom
 const fmtSk = (iso) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : "");
+const NEED_ZASOBNIK = "Zásobník ešte nie je zapnutý v databáze — CT pracovisko musí spustiť supabase/ct-zasobnik-001.sql.";
 const NEED_004 = "Presun termínu ešte nie je zapnutý v databáze — CT pracovisko musí spustiť supabase/ct-lekari-004.sql.";
 const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
 const demoOverlap = (list, date, time, durationMin, exceptId = "") => {
@@ -51,6 +52,19 @@ const demoOverlap = (list, date, time, durationMin, exceptId = "") => {
 const readAsDataUrl = (file) => new Promise((resolve, reject) => {
   const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("Súbor sa nepodarilo načítať.")); r.readAsDataURL(file);
 });
+
+// žiadanky do úložiska pod číslo žiadosti (cesta = <ID>/…)
+const uploadZiadanky = async (id, files) => {
+  const attachments = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const path = `${id}/${i}-${f.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
+    const { error: upErr } = await supabase.storage.from("prilohy").upload(path, f, { contentType: f.type || undefined });
+    if (upErr) throw new Error(`Žiadanku ${f.name} sa nepodarilo nahrať: ${upErr.message}`);
+    attachments.push({ name: f.name, path });
+  }
+  return attachments;
+};
 
 // ---------- API (Supabase RPC; demo: localStorage) ----------
 export const ctDoctorApi = {
@@ -84,14 +98,7 @@ export const ctDoctorApi = {
       localStorage.setItem(CT_ORDERS_KEY, JSON.stringify(list));
       return id;
     }
-    const attachments = [];
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      const path = `${id}/${i}-${f.name.replace(/[^\w.-]+/g, "_").slice(-80)}`;
-      const { error: upErr } = await supabase.storage.from("prilohy").upload(path, f, { contentType: f.type || undefined });
-      if (upErr) throw new Error(`Žiadanku ${f.name} sa nepodarilo nahrať: ${upErr.message}`);
-      attachments.push({ name: f.name, path });
-    }
+    const attachments = await uploadZiadanky(id, files);
     const args = {
       p_token: token, p_id: id, p_requested_by: o.requestedBy, p_exam_type_id: o.examTypeId,
       p_patient_name: o.patientName, p_birth_date: o.birthDate, p_insurance: o.insurance, p_phone: o.phone, p_email: o.email,
@@ -108,6 +115,53 @@ export const ctDoctorApi = {
       throw e;
     }
     return id;
+  },
+
+  // ---- zásobník (ct-zasobnik-001): žiadosť bez termínu, termín pridelí CT pracovisko ----
+  // ponúknuť zásobník? (false = databáza ho ešte nemá alebo je vypnutý)
+  async waitlistReady() {
+    if (!supabase) return true;
+    const { data, error } = await supabase.rpc("ct_waitlist_ready");
+    return !error && data === true;
+  },
+  async addToWaitlist(token, o, files) {
+    const id = newCtId();
+    if (!supabase) {
+      const pl = loadJson("ctPricelist_v1", []);
+      const item = pl.find((p) => p.id === o.examTypeId) || { label: o.examLabel || "", durationSlots: o.durationSlots || 3 };
+      const list = loadJson(CT_WAITLIST_KEY, []);
+      const rcHash = o.birthNumber ? demoRc(o.birthNumber) : "";
+      const dup = rcHash && list.find((w) => w.rcHash === rcHash && w.examTypeId === o.examTypeId);
+      if (dup) throw new Error(`Tento pacient už s týmto vyšetrením v zásobníku je (žiadosť z ${fmtSk(String(dup.createdAt).slice(0, 10))}). Ak treba niečo zmeniť, kontaktujte CT pracovisko.`);
+      const attachments = [];
+      for (const f of files) attachments.push({ name: f.name, dataUrl: await readAsDataUrl(f) });
+      list.push({ id, createdAt: new Date().toISOString(), requestedBy: o.requestedBy, examTypeId: o.examTypeId, examLabel: item.label,
+        durationMin: (item.durationSlots || 3) * 5, patientName: o.patientName, birthDate: o.birthDate, insurance: o.insurance, phone: o.phone,
+        email: o.email, reason: o.indication, clinical: o.clinical, attachments, rcHash, notifyPatient: o.notify, prefer: o.prefer || "" });
+      localStorage.setItem(CT_WAITLIST_KEY, JSON.stringify(list));
+      return id;
+    }
+    const attachments = await uploadZiadanky(id, files);
+    const args = {
+      p_token: token, p_id: id, p_requested_by: o.requestedBy, p_exam_type_id: o.examTypeId,
+      p_patient_name: o.patientName, p_birth_date: o.birthDate, p_insurance: o.insurance, p_phone: o.phone, p_email: o.email,
+      p_indication: o.indication, p_clinical: o.clinical, p_attachments: attachments, p_notify: o.notify, p_prefer: o.prefer || "",
+    };
+    if (o.birthNumber) args.p_birth_number = o.birthNumber;
+    const { error } = await supabase.rpc("ct_doctor_waitlist_add", args);
+    if (error) throw new Error(error.code === "PGRST202" ? NEED_ZASOBNIK : error.message);
+    return id;
+  },
+  // je pacient s týmto r.č. v zásobníku? (staršia databáza bez zásobníka → nič)
+  async waitlistByRc(token, rc) {
+    if (!supabase) {
+      const h = demoRc(rc);
+      return loadJson(CT_WAITLIST_KEY, []).filter((w) => w.rcHash && w.rcHash === h)
+        .map((w) => ({ id: w.id, examLabel: w.examLabel, patientName: w.patientName, createdAt: w.createdAt, prefer: w.prefer || "" }));
+    }
+    const { data, error } = await supabase.rpc("ct_doctor_waitlist_by_rc", { p_token: token, p_birth_number: rc });
+    if (error) { if (error.code === "PGRST202") return []; throw new Error(error.message); }
+    return (data || []).map((r) => ({ id: r.id, examLabel: r.exam_label, patientName: r.patient_name, createdAt: r.created_at, prefer: r.prefer || "" }));
   },
 
   // presun: budúce termíny pacienta s daným r.č. (len objednané cez túto stránku)
@@ -237,7 +291,7 @@ const monthOf = (iso) => { const d = new Date(`${iso}T12:00:00`); return new Dat
 
 // tri najbližšie dni s voľnými termínmi (každý so všetkými časmi) + kalendár na vyžiadanie;
 // calSignal: zmena otvorí kalendár na vybranom dni (napr. deň zo žiadanky)
-function SlotPicker({ data, examTypeId, durationMin, date, time, onPick, error = false, skip = null, calSignal = 0 }) {
+export function SlotPicker({ data, examTypeId, durationMin, date, time, onPick, error = false, skip = null, calSignal = 0 }) {
   const todayIso = toISODate(new Date());
   const offeredFor = useSlotFinder(data);
   const offered = (iso) => offeredFor(examTypeId, durationMin, iso, skip);
@@ -370,6 +424,11 @@ function NewRequest({ data, token, onExpired }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [calSignal, setCalSignal] = useState(0); // deň zo žiadanky → otvoriť kalendár
+  // zásobník: žiadosť bez termínu (termín pridelí CT pracovisko, keď bude známy rozpis)
+  const [queueOn, setQueueOn] = useState(!supabase);
+  const [queue, setQueue] = useState(false);
+  const [prefer, setPrefer] = useState("");
+  useEffect(() => { let on = true; ctDoctorApi.waitlistReady().then((v) => { if (on) setQueueOn(v); }).catch(() => {}); return () => { on = false; }; }, []);
   const [pat, setPat] = useState(emptyPatient);
   const [cl, setCl] = useState(emptyClinical);
   const [files, setFiles] = useState([]);
@@ -460,7 +519,8 @@ function NewRequest({ data, token, onExpired }) {
     const e = {};
     reqErrors(req, e);
     if (!exam) e.exam = "Vyberte CT vyšetrenie.";
-    if (!date || !time) e.slot = "Vyberte deň a čas termínu.";
+    const toQueue = queue && queueOn;
+    if (!toQueue && (!date || !time)) e.slot = queueOn ? "Vyberte deň a čas termínu, alebo žiadosť zaraďte do zásobníka." : "Vyberte deň a čas termínu.";
     if (pat.name.trim().length < 3) e.name = "Zadajte meno a priezvisko pacienta.";
     if (!pat.noRc) {
       const rcE = rcError(pat.rc);
@@ -486,13 +546,16 @@ function NewRequest({ data, token, onExpired }) {
       : later ? { contrast: true, labLater: true, allergy: cl.allergy, metformin: cl.metformin }
       : { contrast: true, creatinine: numVal(cl.creatinine), egfr: numVal(cl.egfr), labDate: cl.labDate, allergy: cl.allergy, metformin: cl.metformin };
     try {
-      const id = await ctDoctorApi.createOrder(token, {
+      const order = {
         requestedBy: `${req.name.trim()}, ${req.contact.trim()}`, examTypeId, examLabel: exam.label, durationSlots: exam.durationSlots,
         patientName: pat.name.trim().replace(/\s+/g, " "), birthDate: pat.birthDate, insurance: pat.insurance, phone: normalizePhone(pat.phone),
-        email: pat.email.trim(), indication: cl.indication.trim(), clinical, date, time, notify,
+        email: pat.email.trim(), indication: cl.indication.trim(), clinical, notify,
         birthNumber: pat.noRc ? "" : rcDigits(pat.rc),
-      }, files);
-      setDone({ id, date, time, label: exam.label, patient: pat.name.trim(), hasRc: !pat.noRc, labLater: Boolean(clinical.labLater) });
+      };
+      const id = toQueue
+        ? await ctDoctorApi.addToWaitlist(token, { ...order, prefer: prefer.trim() }, files)
+        : await ctDoctorApi.createOrder(token, { ...order, date, time }, files);
+      setDone({ id, date, time, label: exam.label, patient: pat.name.trim(), hasRc: !pat.noRc, labLater: Boolean(clinical.labLater), queue: toQueue, prefer: prefer.trim() });
       await data.reload?.();
     } catch (err) {
       const m = err?.message || String(err);
@@ -502,7 +565,7 @@ function NewRequest({ data, token, onExpired }) {
     } finally { setBusy(false); }
   };
 
-  const reset = () => { setDone(null); setPf(new Set()); setFromPdf(null); setCalSignal(0); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
+  const reset = () => { setDone(null); setQueue(false); setPrefer(""); setPf(new Set()); setFromPdf(null); setCalSignal(0); setExamTypeId(""); setDate(""); setTime(""); setPat(emptyPatient); setCl(emptyClinical); setFiles([]); setNotify(true); setErrs({}); setMsg(""); };
   const bad = (k) => (errs[k] ? " border-danger ring-1 ring-danger/40" : "");
   const Err = ({ k }) => (errs[k] ? <p className="text-xs text-danger mt-1" role="alert">{errs[k]}</p> : null);
   const choice = (on, err) => `text-sm font-semibold px-3 py-1.5 rounded-lg border transition-colors ${on ? "bg-brand text-white border-brand" : `bg-white text-ink hover:border-brand ${err ? "border-danger" : "border-line"}`}`;
@@ -511,12 +574,16 @@ function NewRequest({ data, token, onExpired }) {
   if (done) {
     return (
       <Card data-testid="ctdoc-done" className="text-center space-y-2">
-        <h2 className="text-xl font-semibold text-success">Žiadosť o CT je odoslaná</h2>
+        <h2 className="text-xl font-semibold text-success">{done.queue ? "Žiadosť o CT je v zásobníku" : "Žiadosť o CT je odoslaná"}</h2>
         <p className="text-ink"><b>{done.patient}</b> · {done.label}</p>
-        <p className="text-ink">Termín: <b>{fmtDay(done.date)} o {done.time}</b> — rezervovaný, čaká na potvrdenie CT pracoviskom.</p>
+        {done.queue
+          ? <p className="text-ink" data-testid="ctdoc-done-queue">Bez termínu — <b>termín pridelí CT pracovisko</b>, keď bude známy rozpis.{done.prefer ? <> Požadované obdobie: <b>{done.prefer}</b>.</> : null}</p>
+          : <p className="text-ink">Termín: <b>{fmtDay(done.date)} o {done.time}</b> — rezervovaný, čaká na potvrdenie CT pracoviskom.</p>}
         {done.labLater && <p className="text-sm font-semibold text-warn" data-testid="ctdoc-done-lab">Pacient prinesie na vyšetrenie čerstvý výsledok kreatinínu{notify ? " — pokyn dostane v SMS (a e-maile)." : " — povedzte mu to, systém mu nič neposiela."}</p>}
-        <p className="text-sm text-muted">Číslo žiadosti: <span className="font-mono">{done.id}</span>. {notify ? "Pacient dostane SMS (a e-mail) až po potvrdení." : "Pacientovi systém nič neposiela — termín mu oznámte sami."}</p>
-        <p className="text-sm text-muted">{done.hasRc
+        <p className="text-sm text-muted">Číslo žiadosti: <span className="font-mono">{done.id}</span>. {notify ? (done.queue ? "Pacient dostane SMS (a e-mail) s termínom, až keď mu ho CT pracovisko pridelí." : "Pacient dostane SMS (a e-mail) až po potvrdení.") : "Pacientovi systém nič neposiela — termín mu oznámte sami."}</p>
+        <p className="text-sm text-muted">{done.queue
+          ? (done.hasRc ? <>Či už pacient termín má, zistíte v záložke <b>Presun termínu</b> podľa jeho rodného čísla.</> : "Zmenu alebo zrušenie žiadosti vybaví CT pracovisko.")
+          : done.hasRc
           ? <>Presun termínu: záložka <b>Presun termínu</b> — podľa rodného čísla pacienta. Zrušenie vybaví CT pracovisko.</>
           : "Presun alebo zrušenie termínu vybaví CT pracovisko (pacient nemá rodné číslo)."}</p>
         <div className="flex flex-wrap justify-center gap-2 pt-3">
@@ -561,9 +628,28 @@ function NewRequest({ data, token, onExpired }) {
           ))}
         </div>
         <Err k="exam" />
-        {exam && (
+        {exam && queueOn && (
+          <div className="flex flex-wrap gap-2 mt-4" role="group" aria-label="Termín alebo zásobník">
+            <button type="button" aria-pressed={!queue} onClick={() => { setQueue(false); clear("slot"); }} className={choice(!queue, false)} data-testid="ctdoc-mode-slot">Vybrať termín</button>
+            <button type="button" aria-pressed={queue} onClick={() => { setQueue(true); setDate(""); setTime(""); clear("slot"); }} className={choice(queue, false)} data-testid="ctdoc-mode-queue">Bez termínu — do zásobníka</button>
+          </div>
+        )}
+        {exam && !(queue && queueOn) && (
           <SlotPicker data={data} examTypeId={examTypeId} durationMin={durationMin} date={date} time={time} error={Boolean(errs.slot)} calSignal={calSignal}
             onPick={(d, t) => { setDate(d); setTime(t); clear("slot"); }} />
+        )}
+        {exam && queue && queueOn && (
+          <div className="mt-4 space-y-3" data-testid="ctdoc-queue">
+            <Callout tone="info">Žiadosť pôjde do <b>zásobníka</b> CT pracoviska bez termínu. Termín jej pridelia, keď bude známy rozpis (termíny na ďalší mesiac bývajú známe až koncom mesiaca). Pacient dostane SMS s termínom až po pridelení.</Callout>
+            <div>
+              <label className={labelCls} htmlFor="ctdoc-prefer">Požadované obdobie <span className="font-normal text-muted">(nepovinné)</span></label>
+              <input id="ctdoc-prefer" maxLength={200} className={inputCls} placeholder="napr. december; po 10. 12.; čo najskôr" value={prefer} onChange={(e) => setPrefer(e.target.value)} data-testid="ctdoc-prefer" />
+            </div>
+          </div>
+        )}
+        {exam && queueOn && !queue && (
+          <p className="text-sm text-muted mt-3">Nevyhovuje žiadny termín (napr. potrebujete až ďalší mesiac)?{" "}
+            <button type="button" onClick={() => { setQueue(true); setDate(""); setTime(""); clear("slot"); }} className="font-semibold text-brand hover:underline" data-testid="ctdoc-to-queue">Zaradiť bez termínu do zásobníka</button></p>
         )}
         <Err k="slot" />
       </Card>
@@ -695,13 +781,14 @@ function NewRequest({ data, token, onExpired }) {
         </div>
         <label className="flex items-start gap-2 text-sm text-ink cursor-pointer mt-4">
           <input type="checkbox" className="mt-1 accent-brand" checked={notify} onChange={(e) => setNotify(e.target.checked)} data-testid="ctdoc-notify" />
-          <span>Po potvrdení termínu CT pracoviskom poslať pacientovi SMS{pat.email.trim() ? " a e-mail" : ""} a pripomienku deň vopred</span>
+          <span>{queue && queueOn ? "Po pridelení termínu" : "Po potvrdení termínu"} CT pracoviskom poslať pacientovi SMS{pat.email.trim() ? " a e-mail" : ""} a pripomienku deň vopred</span>
         </label>
         {!notify && <p className="text-xs text-warn mt-1 ml-6">Pacient nedostane žiadnu správu — termín mu oznámte sami.</p>}
         {msg && <Callout tone="danger" role="alert" className="mt-4" data-testid="ctdoc-error">{msg}</Callout>}
         <div className="flex flex-wrap items-center gap-3 mt-4">
-          <Btn size="lg" onClick={submit} disabled={busy} data-testid="ctdoc-submit">{busy ? "Odosielam…" : "Odoslať žiadosť o termín"}</Btn>
-          {exam && date && time && <span className="text-sm text-muted">{exam.label} · {fmtDay(date)} o {time}</span>}
+          <Btn size="lg" onClick={submit} disabled={busy} data-testid="ctdoc-submit">{busy ? "Odosielam…" : queue && queueOn ? "Zaradiť do zásobníka" : "Odoslať žiadosť o termín"}</Btn>
+          {exam && queue && queueOn && <span className="text-sm text-muted">{exam.label} · bez termínu (zásobník)</span>}
+          {exam && !(queue && queueOn) && date && time && <span className="text-sm text-muted">{exam.label} · {fmtDay(date)} o {time}</span>}
         </div>
       </Card>
     </div>
@@ -715,6 +802,7 @@ function MoveRequest({ data, token, onExpired }) {
   const [req, setReq] = useState(() => loadJson(REQUESTER_KEY, { name: "", contact: "" }));
   const [rc, setRc] = useState("");
   const [found, setFound] = useState(null); // null = ešte nehľadané; [] = nič
+  const [waiting, setWaiting] = useState([]); // žiadosti pacienta v zásobníku (bez termínu)
   const [sel, setSel] = useState(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -734,11 +822,12 @@ function MoveRequest({ data, token, onExpired }) {
   const find = async (e) => {
     e?.preventDefault();
     const rcE = rcError(rc);
-    setErrs(rcE ? { rc: rcE } : {}); setMsg(""); setFound(null); setSel(null);
+    setErrs(rcE ? { rc: rcE } : {}); setMsg(""); setFound(null); setSel(null); setWaiting([]);
     if (rcE) return;
     setBusy(true);
     try {
       const list = await ctDoctorApi.findByRc(token, rcDigits(rc));
+      setWaiting(await ctDoctorApi.waitlistByRc(token, rcDigits(rc)).catch(() => []));
       setFound(list);
       if (list.length === 1) pick(list[0]);
     } catch (err) { fail(err); } finally { setBusy(false); }
@@ -758,7 +847,7 @@ function MoveRequest({ data, token, onExpired }) {
       if (!fail(err) && (err?.code === "SLOT_TAKEN" || /obsaden/i.test(err?.message || ""))) { setTime(""); await data.reload?.(); }
     } finally { setBusy(false); }
   };
-  const again = () => { setDone(null); setRc(""); setFound(null); setSel(null); setDate(""); setTime(""); setNote(""); setErrs({}); setMsg(""); };
+  const again = () => { setDone(null); setRc(""); setFound(null); setWaiting([]); setSel(null); setDate(""); setTime(""); setNote(""); setErrs({}); setMsg(""); };
 
   if (done) {
     return (
@@ -783,12 +872,17 @@ function MoveRequest({ data, token, onExpired }) {
           <div className="w-full sm:w-56">
             <label className="sr-only" htmlFor="ctdoc-move-rc">Rodné číslo pacienta</label>
             <input id="ctdoc-move-rc" inputMode="numeric" autoComplete="off" placeholder="RRMMDD/XXXX" maxLength={11} className={inputCls + bad("rc")}
-              value={rc} onChange={(e) => { setRc(e.target.value); clear("rc"); setFound(null); setSel(null); }} data-testid="ctdoc-move-rc" />
+              value={rc} onChange={(e) => { setRc(e.target.value); clear("rc"); setFound(null); setSel(null); setWaiting([]); }} data-testid="ctdoc-move-rc" />
             <Err k="rc" />
           </div>
           <Btn type="submit" disabled={busy} data-testid="ctdoc-move-find">{busy && !sel ? "Hľadám…" : "Vyhľadať termín"}</Btn>
         </form>
-        {found && found.length === 0 && (
+        {found && waiting.map((w) => (
+          <Callout key={w.id} tone="info" className="mt-3" data-testid="ctdoc-move-waiting">
+            <b>{w.patientName}</b> · {w.examLabel} — <b>v zásobníku</b> od {fmtSk(String(w.createdAt).slice(0, 10))}, termín zatiaľ nepridelený{w.prefer ? ` (požadované obdobie: ${w.prefer})` : ""}. Pridelí ho CT pracovisko; pacient potom dostane SMS.
+          </Callout>
+        ))}
+        {found && found.length === 0 && waiting.length === 0 && (
           <Callout tone="warn" className="mt-3" data-testid="ctdoc-move-none">
             Pre toto rodné číslo nie je budúci CT termín objednaný cez túto stránku. Presun vybaví CT pracovisko.
           </Callout>
