@@ -2,21 +2,27 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import { classify } from "./triaz.js";
 
-// Konzultácie z Instagramu (konzultacie-001): verejný triážny formulár a prehľad pre lekára.
+// Konzultácie z Instagramu (konzultacie-001, -002): verejný triážny formulár a prehľad pre lekára.
+// Po vybavení sa žiadosť IHNEĎ a natrvalo maže — ostáva len anonymný počet (consult_stats).
 // Demo režim (bez databázy): localStorage.
 
 export const CONSULT_KEY = "consultRequests_v1";
+export const CONSULT_STATS_KEY = "consultStats_v1";
 const DEMO_OPEN_KEY = "consultFormOff_v1";
 const NEED_SQL = "Konzultácie ešte nie sú zapnuté v databáze (spustite supabase/konzultacie-001.sql).";
+const NEED_SQL2 = "Okamžité mazanie po vybavení ešte nie je v databáze zapnuté — spustite supabase/konzultacie-002.sql. Dovtedy žiadosti, prosím, nevybavujte.";
 
 const load = () => { try { return JSON.parse(localStorage.getItem(CONSULT_KEY) || "[]"); } catch { return []; } };
 const save = (list) => localStorage.setItem(CONSULT_KEY, JSON.stringify(list));
+const loadStats = () => { try { return JSON.parse(localStorage.getItem(CONSULT_STATS_KEY) || "[]"); } catch { return []; } };
+// stav: new = čaká · sending = odpoveď sa odosiela (zdravotné údaje sú už zmazané) · failed = brána odpoveď neprijala
 const row = (r) => ({
   id: r.id, createdAt: r.created_at, initials: r.initials, birthYear: r.birth_year, region: r.region || "", topic: r.topic,
   answers: r.answers || {}, flags: Array.isArray(r.flags) ? r.flags : [], note: r.note || "", contactType: r.contact_type, contact: r.contact,
-  status: r.status, outcome: r.outcome || "", replyText: r.reply_text || "", replySent: Boolean(r.reply_sent), staffNote: r.staff_note || "",
-  doneAt: r.done_at || "", doneBy: r.done_by || "",
+  status: r.status, outcome: r.outcome || "", replyText: r.reply_text || "", sendError: r.send_error || "", sentAt: r.sent_at || "",
 });
+const statRow = (r) => ({ doneOn: r.done_on, topic: r.topic, outcome: r.outcome, channel: r.channel, replySent: Boolean(r.reply_sent), waitDays: Number(r.wait_days) || 0 });
+const isoToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 // kontakt v jednotnom tvare (demo; v databáze to robí consult_submit)
 const normContact = (type, value) => {
   const v = String(value || "").trim();
@@ -58,7 +64,7 @@ export const consultApi = {
       const list = load();
       list.push({ id, createdAt: new Date().toISOString(), initials: [...letters.toUpperCase()].map((c) => c + ".").join(" "), birthYear: Number(req.birthYear), region: req.region || "",
         topic: req.topic, answers: req.answers || {}, flags: req.flags || [], note: String(req.note || "").trim(), contactType: req.contactType, contact: normContact(req.contactType, req.contact),
-        status: "new", outcome: "", replyText: "", replySent: false, staffNote: "", doneAt: "", doneBy: "" });
+        status: "new", outcome: "", replyText: "", sendError: "", sentAt: "" });
       save(list);
       return id;
     }
@@ -90,48 +96,55 @@ export function useConsultRequests(isStaff) {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState("");
+  const [stats, setStats] = useState([]);
+  const [needsUpgrade, setNeedsUpgrade] = useState(false); // databáza ešte nemá okamžité mazanie (konzultacie-002)
 
   const reload = useCallback(async () => {
     if (!supabase) {
-      setList(load()); setOpen(!localStorage.getItem(DEMO_OPEN_KEY)); setLoading(false); setError("");
+      setList(load()); setStats(loadStats().map(statRow)); setOpen(!localStorage.getItem(DEMO_OPEN_KEY)); setLoading(false); setError("");
       return;
     }
     if (!isStaff) return;
-    const [rq, st] = await Promise.all([
+    // najprv potvrdiť odoslané odpovede (brána prijala → riadok sa zmaže; odmietla → vráti sa ako neodoslaná)
+    try { await supabase.rpc("consult_finalize"); } catch { /* staršia databáza alebo výpadok — zoznam sa načíta aj tak */ }
+    const [rq, st, cs] = await Promise.all([
       supabase.from("consult_requests").select("*").order("created_at", { ascending: true }).limit(1000),
       supabase.from("settings").select("key,value").in("key", ["consult_form", "consult_notify_email"]),
+      supabase.from("consult_stats").select("done_on,topic,outcome,channel,reply_sent,wait_days").order("done_on", { ascending: false }).limit(5000),
     ]);
     setLoading(false);
+    const missing = (e, name) => e && (e.code === "42P01" || e.code === "PGRST205" || (new RegExp(name).test(e.message || "") && /not exist|schema cache/i.test(e.message || "")));
     if (rq.error) {
-      const missing = rq.error.code === "42P01" || rq.error.code === "PGRST205" || (/consult_requests/.test(rq.error.message || "") && /not exist|schema cache/i.test(rq.error.message || ""));
-      setError(missing ? NEED_SQL : rq.error.message || "Žiadosti sa nepodarilo načítať."); setList([]);
+      setError(missing(rq.error, "consult_requests") ? NEED_SQL : rq.error.message || "Žiadosti sa nepodarilo načítať."); setList([]); setStats([]);
       return;
     }
-    setError(""); setList((rq.data || []).map(row));
+    // žiadosti vybavené ešte starším postupom (pred konzultacie-002) sa v prehľade neukazujú
+    setList((rq.data || []).map(row).filter((r) => ["new", "sending", "failed"].includes(r.status)));
+    setError(cs.error ? (missing(cs.error, "consult_stats") ? NEED_SQL2 : cs.error.message || "Počty sa nepodarilo načítať.") : "");
+    setNeedsUpgrade(Boolean(missing(cs.error, "consult_stats")));
+    setStats(cs.error ? [] : (cs.data || []).map(statRow));
     const s = Object.fromEntries((st.data || []).map((x) => [x.key, x.value]));
     setOpen(s.consult_form !== "off"); setNotifyEmail(s.consult_notify_email || "");
   }, [isStaff]);
   useEffect(() => { reload(); }, [reload]);
 
-  // rozhodnutie + odpoveď; send = odoslať SMS / e-mail zo systému (pri Instagrame sa nič neposiela)
-  const resolve = async (id, { outcome, reply, send, staffNote }) => {
+  // rozhodnutie + odpoveď; send = odoslať SMS / e-mail zo systému (pri Instagrame sa nič neposiela).
+  // Žiadosť sa tým natrvalo maže — nedá sa vrátiť.
+  const resolve = async (id, { outcome, reply, send }) => {
     if (!supabase) {
-      const all = load(); const i = all.findIndex((x) => x.id === id);
-      if (i < 0) throw new Error("Žiadosť sa nenašla (mohla byť medzičasom zmazaná).");
-      const sent = send && all[i].contactType !== "instagram";
-      all[i] = { ...all[i], status: "done", outcome, replyText: String(reply || "").trim(), replySent: Boolean(sent), staffNote: String(staffNote || "").trim(), doneAt: new Date().toISOString(), doneBy: "demo" };
-      save(all); await reload();
-      return { sent: sent ? all[i].contactType : null };
+      const all = load(); const r = all.find((x) => x.id === id);
+      if (!r) throw new Error("Žiadosť sa nenašla (už bola vybavená a zmazaná).");
+      const sent = send && r.contactType !== "instagram";
+      save(all.filter((x) => x.id !== id));
+      localStorage.setItem(CONSULT_STATS_KEY, JSON.stringify([{ done_on: isoToday(), topic: r.topic, outcome, channel: r.contactType, reply_sent: Boolean(sent),
+        wait_days: Math.max(0, Math.floor((Date.now() - new Date(r.createdAt).getTime()) / 86400000)) }, ...loadStats()]));
+      await reload();
+      return { sent: sent ? r.contactType : null };
     }
-    const { data, error: e } = await supabase.rpc("consult_resolve", { p_id: id, p_outcome: outcome, p_reply: reply || "", p_send: Boolean(send), p_staff_note: staffNote || "" });
+    const { data, error: e } = await supabase.rpc("consult_resolve", { p_id: id, p_outcome: outcome, p_reply: reply || "", p_send: Boolean(send) });
     if (e) throw new Error(e.message);
     await reload();
     return { sent: data?.sent || null };
-  };
-  const reopen = async (id) => {
-    if (!supabase) save(load().map((x) => (x.id === id ? { ...x, status: "new", doneAt: "" } : x)));
-    else { const { error: e } = await supabase.rpc("consult_reopen", { p_id: id }); if (e) throw new Error(e.message); }
-    await reload();
   };
   const setFormOpen = async (on) => {
     if (!supabase) { if (on) localStorage.removeItem(DEMO_OPEN_KEY); else localStorage.setItem(DEMO_OPEN_KEY, "1"); }
@@ -147,5 +160,5 @@ export function useConsultRequests(isStaff) {
 
   // návrh zaradenia sa počíta z odpovedí pri každom zobrazení (pravidlá: src/triaz.js)
   const withTriage = list.map((r) => ({ ...r, triage: classify(r) }));
-  return { isSupabase: isSupabaseConfigured, list: withTriage, loading, error, open, notifyEmail, reload, resolve, reopen, setFormOpen, saveNotifyEmail };
+  return { isSupabase: isSupabaseConfigured, list: withTriage, stats, needsUpgrade, loading, error, open, notifyEmail, reload, resolve, setFormOpen, saveNotifyEmail };
 }

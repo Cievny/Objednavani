@@ -35,7 +35,20 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v133 — konzultácie z Instagramu (25. 11. 2026):** spustiť `supabase/konzultacie-001.sql`
+- [ ] **v134 — konzultácie: okamžité mazanie po vybavení (25. 11. 2026):** spustiť `supabase/konzultacie-002.sql`
+      (po konzultacie-001; idempotentné; editor ukáže riadok `KONZULTACIE-002 OK`). Požiadavka GDPR:
+      po vybavení nesmú v systéme ostať citlivé údaje.
+      1. vybavenie bez odoslania zo systému (Instagram, „vybaviť bez odoslania") → riadok sa zmaže hneď;
+      2. odpoveď SMS / e-mailom → zdravotné údaje, iniciály, rok a kraj sa zmažú hneď; kontakt a text odpovede
+         ostanú len do potvrdenia brány (`consult_finalize`, úloha `konzultacie-odoslanie` každých 5 minút
+         a pri každom otvorení prehľadu), potom sa zmaže celý riadok;
+      3. brána správu odmietne alebo 15 minút nepotvrdí → žiadosť sa vráti lekárovi ako „Neodoslané" (len kontakt
+         a text odpovede), personálu príde e-mail; lekár ju pošle znova alebo zavrie; najdlhšie 7 dní;
+      4. ostáva anonymný počet v `consult_stats` (deň, téma, rozhodnutie, spôsob odpovede, dni čakania) —
+         záložka „Vybavené — počty"; žiadosť sa už nedá vrátiť medzi nevybavené, interná poznámka zanikla;
+      5. každé vybavenie sa v správe potvrdzuje („natrvalo zmaže"); stránka v134 vybavovanie zablokuje,
+         kým skript nie je spustený.
+- [x] **v133 — konzultácie z Instagramu (25. 11. 2026):** spustiť `supabase/konzultacie-001.sql` — spustené na ostrej 25. 11. 2026
       (po audit-vlna10-001; idempotentné; editor ukáže riadok `KONZULTACIE-001 OK | zapnutý`).
       Verejný dotazník `objednanie.cievny.sk/konzultacia/` (odkaz do Instagramu) NEDÁVA termín: človek uvedie
       iniciály, rok narodenia, voliteľne kraj, ťažkosti (téma + pár otázok + voľný text) a kontakt na odpoveď
@@ -47,7 +60,8 @@ treba dokončiť body nižšie.
          `src/triaz.js` (návrh na odsúhlasenie lekárom — zaradenie sa počíta pri zobrazení, nie v databáze);
       3. odpovedá len lekár a superadmin (`consult_resolve`): SMS bez diakritiky (najviac 450 znakov) alebo
          e-mail odíde zo systému; pri Instagrame si lekár odpoveď skopíruje a pošle sám; sestra len číta;
-      4. poriadok: vybavené žiadosti sa mažú po 30 dňoch, všetky po 90 dňoch (`konzultacie-cleanup`, 01:40 UTC);
+      4. poriadok: nevybavené žiadosti sa mažú po 90 dňoch (`konzultacie-cleanup`, 01:40 UTC); vybavené
+         sa od konzultacie-002 mažú hneď (pôvodne po 30 dňoch);
       5. ochrana: limity na IP a kontakt, denný strop 300 žiadostí, skryté pole + čas vyplnenia (`bot_guard`);
          príjem sa dá pozastaviť tlačidlom v správe (`consult_set_open`) — dotazník to pacientovi oznámi;
       6. adresa upozornení: správa → Konzultácie → „Upozornenia e-mailom" (`settings.consult_notify_email`);

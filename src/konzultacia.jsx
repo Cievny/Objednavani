@@ -111,6 +111,7 @@ export default function ConsultForm() {
           <p className="text-ink">Prečíta si ju lekár a odpovieme vám <b>{done.via}</b> — spravidla do niekoľkých pracovných dní.</p>
           <p className="text-sm text-muted">Odpoveď vám povie, či je vhodné vyšetrenie u nás, u angiológa vo vašom okolí alebo u všeobecného lekára. Nie je to objednanie na termín.</p>
           {done.id && <p className="text-sm text-muted">Číslo žiadosti: <span className="font-mono">{done.id}</span></p>}
+          <p className="text-sm text-muted">Hneď po odpovedi vaše údaje z dotazníka vymažeme.</p>
           <p className="text-sm text-muted">Ak sa váš stav zhorší, nečakajte na odpoveď a vyhľadajte lekára.</p>
         </Card>
       </div>
@@ -235,7 +236,7 @@ export default function ConsultForm() {
 
         <label className={`flex items-start gap-3 mt-5 text-sm text-ink cursor-pointer rounded-lg border px-3 py-2.5 ${errs.consent ? "border-danger" : "border-line"}`}>
           <input type="checkbox" className="mt-1 accent-brand shrink-0" checked={consent} onChange={(e) => { setConsent(e.target.checked); clear("consent"); }} data-testid="konz-consent" />
-          <span>Súhlasím, aby NÚSCH, a.s. spracoval údaje z tohto formulára vrátane údajov o mojom zdraví na posúdenie žiadosti a odpoveď. Údaje vymažeme najneskôr do 90 dní. <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Viac o ochrane údajov</a></span>
+          <span>Súhlasím, aby NÚSCH, a.s. spracoval údaje z tohto formulára vrátane údajov o mojom zdraví na posúdenie žiadosti a odpoveď. Hneď po odpovedi lekára údaje vymažeme (nevybavené žiadosti najneskôr do 90 dní). <a href="#/osobne-udaje" target="_blank" rel="noreferrer" className="text-brand font-semibold hover:underline">Viac o ochrane údajov</a></span>
         </label>
         <Err msg={errs.consent} />
 
