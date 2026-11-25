@@ -35,7 +35,10 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v134 — konzultácie: okamžité mazanie po vybavení (25. 11. 2026):** spustiť `supabase/konzultacie-002.sql`
+- [x] **v135 — konzultácie: tri nové témy (25. 11. 2026):** bez skriptu. Dotazník pozná aj zúženie obličkových
+      (renálnych) tepien, cievne malformácie (AVM) a panvovú kongesciu; pravidlá zaradenia sú v `src/triaz.js`
+      (návrh na odsúhlasenie lekárom). Databáza nové témy prijíma bez zmeny. Na ostrej od 25. 11. 2026.
+- [x] **v134 — konzultácie: okamžité mazanie po vybavení (25. 11. 2026):** spustiť `supabase/konzultacie-002.sql` — skript spustený a stránka nasadená na ostrú 25. 11. 2026
       (po konzultacie-001; idempotentné; editor ukáže riadok `KONZULTACIE-002 OK`). Požiadavka GDPR:
       po vybavení nesmú v systéme ostať citlivé údaje.
       1. vybavenie bez odoslania zo systému (Instagram, „vybaviť bez odoslania") → riadok sa zmaže hneď;

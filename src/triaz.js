@@ -90,9 +90,29 @@ export const TOPICS = [
     q("a_rast", "Zväčšila sa za posledný rok?", [["ano", "Áno"], ["nie", "Nie"], ["neviem", "Neviem"]]),
     q("a_zakrok", "Odporučil vám lekár zákrok?", YN),
   ] },
+  { id: "renalne", label: "Zúženie obličkových tepien, ťažko liečiteľný vysoký tlak", questions: [
+    q("n_nalez", "Máte nález o zúžení obličkovej (renálnej) tepny (ultrazvuk, CT alebo MR angiografia)?", [["nad70", "Áno, významné (70 % a viac)"], ["do70", "Áno, menej významné alebo neviem koľko"], ["nie", "Nie"]]),
+    q("n_tlak", "Máte vysoký tlak, ktorý sa nedarí upraviť ani tromi a viac liekmi?", YN),
+    q("n_oblicky", "Zhoršuje sa vám funkcia obličiek (stúpa kreatinín)?", [["ano", "Áno"], ["nie", "Nie"], ["neviem", "Neviem"]]),
+    q("n_edem", "Mali ste opakovane náhlu dýchavicu s vodou na pľúcach alebo náhle zlyhanie srdca?", YN),
+    q("n_zakrok", "Odporučil vám lekár zákrok (rozšírenie tepny, stent)?", YN),
+  ] },
   { id: "prsty", label: "Studené, biele alebo modré prsty", questions: [
     q("p_rany", "Máte na prstoch ranky, vredíky alebo trvalo modré či čierne miesto?", YN),
     q("p_jedna", "Týka sa to len jednej ruky alebo nohy?", YN),
+  ] },
+  { id: "malformacia", label: "Cievna malformácia (AVM, žilová malformácia)", questions: [
+    q("m_diag", "Je malformácia potvrdená vyšetrením (ultrazvuk, MR, CT)?", [["ano", "Áno"], ["nie", "Nie, je to len podozrenie"]]),
+    q("m_kde", "Kde sa nachádza?", [["koncatina", "Ruka alebo noha"], ["hlava", "Tvár, hlava alebo krk"], ["trup", "Trup alebo panva"], ["organy", "Vnútorné orgány (pľúca, pečeň, obličky…)"], ["mozog", "Mozog alebo miecha"], ["neviem", "Neviem"]]),
+    q("m_tazkosti", "Čo vás trápi?", [["krvacanie", "Krvácanie alebo rana, ktorá sa nehojí"], ["bolest", "Bolesť alebo opuch"], ["rast", "Zväčšuje sa alebo sa mení"], ["nic", "Bez ťažkostí — chcem posúdenie"]]),
+    q("m_liecba", "Bola už liečená (embolizácia, skleroterapia, operácia)?", YN),
+  ] },
+  { id: "panva", label: "Dlhodobá bolesť v podbrušku, kŕčové žily v oblasti panvy (panvová kongescia)", questions: [
+    q("pk_bolest", "Máte dlhšie ako 6 mesiacov bolesť alebo tlak v podbrušku, ktoré sa zhoršujú pri státí, večer alebo po styku?", YN),
+    q("pk_varixy", "Máte kŕčové žily na vonkajších rodidlách, v slabinách, na zadku alebo na zadnej strane stehien?", YN),
+    q("pk_gyn", "Boli ste s tým u gynekológa?", [["nie", "Nie"], ["bez", "Áno, inú príčinu nenašiel"], ["ina", "Áno, našla sa iná príčina (napr. endometrióza, myómy)"]]),
+    q("pk_nalez", "Máte nález o rozšírených panvových alebo ovariálnych žilách (ultrazvuk, CT, MR)?", YN),
+    q("pk_zakrok", "Odporučil vám lekár zákrok (embolizáciu)?", YN),
   ] },
   { id: "po_zakroku", label: "Nové ťažkosti po zákroku na cievach (stent, bypass, operácia žíl)", questions: [
     q("z_typ", "Aký zákrok ste mali?", [["tepny_nohy", "Stent alebo angioplastika tepien nôh"], ["bypass", "Bypass"], ["karotidy", "Zákrok na krčných tepnách"],
@@ -204,6 +224,38 @@ export function classify(request) {
       if (is("a_kde", "hrudna")) info("hrudná aorta");
       break;
     }
+    case "renalne": {
+      const sympt = yes("n_tlak") || yes("n_oblicky");
+      if (yes("n_edem") && !is("n_nalez", "nie")) put("ustav", 1, "zúženie renálnej tepny s opakovaným pľúcnym edémom / zlyhaním srdca");
+      else if (is("n_nalez", "nad70")) put("ustav", sympt ? 2 : 3, sympt ? "významné zúženie renálnej tepny s ťažko liečiteľným tlakom / zhoršovaním obličiek" : "významné zúženie renálnej tepny bez ťažkostí");
+      else if (is("n_nalez", "do70")) put("angiolog", sympt ? 2 : 3, sympt ? "menej významné zúženie renálnej tepny s ťažko liečiteľným tlakom / zhoršovaním obličiek — doplniť vyšetrenie" : "menej významné zúženie renálnej tepny — sledovanie");
+      else if (is("n_nalez", "nie")) put("obvodny", 3, sympt || yes("n_edem") ? "ťažko liečiteľný tlak bez vyšetrenia renálnych tepien — najprv internista / kardiológ" : "bez nálezu na renálnych tepnách");
+      if (yes("n_zakrok")) put("ustav", 2, "lekár odporučil zákrok na renálnej tepne");
+      if (yes("n_tlak")) info("tlak neupravený na 3 a viac liekoch");
+      if (yes("n_oblicky")) info("zhoršovanie funkcie obličiek");
+      break;
+    }
+    case "malformacia": {
+      const confirmed = yes("m_diag"), active = is("m_tazkosti", "bolest", "rast");
+      if (is("m_kde", "mozog")) put("posudit", 3, "malformácia mozgu / miechy — patrí neurochirurgii / intervenčnej neurorádiológii");
+      else if (is("m_tazkosti", "krvacanie")) put("ustav", 1, "cievna malformácia s krvácaním alebo nehojacou sa ranou");
+      else if (confirmed) put("ustav", active || is("m_kde", "organy") ? 2 : 3, active ? "potvrdená cievna malformácia s ťažkosťami (bolesť / opuch / rast)" : is("m_kde", "organy") ? "potvrdená malformácia vnútorných orgánov" : "potvrdená cievna malformácia bez ťažkostí — posúdenie");
+      else if (is("m_diag", "nie")) put("angiolog", active ? 2 : 3, "podozrenie na cievnu malformáciu — najprv ultrazvuk");
+      if (yes("m_liecba")) { if (!is("m_kde", "mozog") && !is("m_tazkosti", "nic")) put("ustav", 2, "ťažkosti po predchádzajúcej liečbe malformácie"); else info("malformácia už bola liečená"); }
+      if (is("m_kde", "hlava")) info("lokalizácia: tvár / hlava / krk");
+      break;
+    }
+    case "panva": {
+      if (yes("pk_zakrok")) put("ustav", 2, "lekár odporučil embolizáciu panvových žíl");
+      else if (yes("pk_nalez")) put("ustav", 2, "nález rozšírených panvových / ovariálnych žíl");
+      else if (yes("pk_bolest") && is("pk_gyn", "bez")) put("ustav", yes("pk_varixy") ? 2 : 3, yes("pk_varixy") ? "typické príznaky panvovej kongescie, gynekológ inú príčinu nenašiel" : "chronická panvová bolesť, gynekológ inú príčinu nenašiel — vylúčiť panvovú kongesciu");
+      else if (is("pk_gyn", "ina")) put("posudit", 3, "panvová bolesť s inou gynekologickou príčinou — pravdepodobne nie cievny problém");
+      else if (yes("pk_bolest")) put("posudit", 3, "chronická panvová bolesť bez gynekologického vyšetrenia — najprv gynekológ");
+      else if (yes("pk_varixy")) put("ustav", 3, "kŕčové žily v atypickej lokalizácii (rodidlá, slabiny, zadok) — možný panvový reflux");
+      else put("posudit", 3, "bez typických príznakov panvovej kongescie — prečítať text");
+      if (yes("pk_varixy") && (yes("pk_zakrok") || yes("pk_nalez") || is("pk_gyn", "ina") || (yes("pk_bolest") && !is("pk_gyn", "bez")))) info("kŕčové žily v oblasti rodidiel / slabín / zadku");
+      break;
+    }
     case "prsty": {
       if (yes("p_rany")) put("ustav", 2, "ranky / trvalá zmena farby na prstoch");
       else if (yes("p_jedna")) put("angiolog", 2, "príznaky len na jednej končatine — vylúčiť tepnovú príčinu");
@@ -258,6 +310,8 @@ export const RULES_OVERVIEW = [
     "zúženie karotídy s príznakmi za posledných 6 mesiacov (okrem zúženia pod 50 % a úplného uzáveru)",
     "aneuryzma aorty 5 cm a viac",
     "po zákroku na cievach: bolesť v pokoji alebo rana",
+    "zúženie renálnej tepny s opakovaným pľúcnym edémom alebo náhlym zlyhaním srdca",
+    "cievna malformácia (AVM) s krvácaním alebo nehojacou sa ranou",
   ] },
   { category: "ustav", title: "Ústav — bežne", items: [
     "kŕčové žily s kožnými zmenami",
@@ -273,11 +327,17 @@ export const RULES_OVERVIEW = [
     "aneuryzma 4–4,9 cm, aneuryzma, ktorá rastie, aneuryzma tepny v podkolení alebo v stehne",
     "ranky alebo trvalá zmena farby na prstoch",
     "po zákroku: návrat ťažkostí, opuch alebo bolesť v mieste zákroku",
+    "významné zúženie renálnej tepny (70 % a viac) s tlakom neupraveným na 3 liekoch alebo so zhoršovaním obličiek; odporúčaný zákrok na renálnej tepne",
+    "potvrdená cievna malformácia s bolesťou, opuchom alebo rastom; malformácia vnútorných orgánov; ťažkosti po predchádzajúcej liečbe malformácie",
+    "panvová kongescia: odporúčaná embolizácia, nález rozšírených panvových / ovariálnych žíl, alebo typické príznaky (bolesť + atypické kŕčové žily) po gynekologickom vyšetrení bez inej príčiny",
   ] },
   { category: "ustav", title: "Ústav — nízka priorita", items: [
     "kŕčové žily bez ťažkostí, ale so záujmom o zákrok",
     "bolesť pri chôdzi nad 200 m s nálezom alebo odporúčaným zákrokom",
     "kontrola po zákroku v NÚSCH bez ťažkostí",
+    "významné zúženie renálnej tepny bez ťažkostí",
+    "potvrdená cievna malformácia bez ťažkostí (posúdenie)",
+    "chronická panvová bolesť bez atypických kŕčových žíl, gynekológ inú príčinu nenašiel; kŕčové žily na rodidlách, v slabinách alebo na zadku bez bolesti",
   ] },
   { category: "angiolog", title: "Rajónny angiológ", items: [
     "kŕčové žily bez záujmu o zákrok; metličky",
@@ -289,15 +349,19 @@ export const RULES_OVERVIEW = [
     "aneuryzma menšia ako 4 cm alebo neznámej veľkosti",
     "studené / biele prsty bez rán (Raynaud); príznaky len na jednej končatine",
     "kontrola po zákroku na inom pracovisku bez ťažkostí",
+    "menej významné zúženie renálnej tepny (s ťažkosťami bežne, bez nich nízka priorita)",
+    "podozrenie na cievnu malformáciu bez potvrdenia vyšetrením — najprv ultrazvuk",
   ] },
   { category: "obvodny", title: "Obvodný lekár", items: [
     "bolesť nôh nesúvisiaca s chôdzou, bez nálezu na tepnách",
     "čerstvá rana do 2 týždňov bez rizikových znakov",
     "opuch oboch nôh bez trombózy v minulosti (najprv srdce, obličky, lieky)",
     "trombóza pred viac ako rokom, bez ťažkostí a bez liekov na riedenie krvi",
+    "ťažko liečiteľný tlak bez nálezu na renálnych tepnách (najprv internista / kardiológ)",
   ] },
   { category: "posudit", title: "Na posúdenie — prečítať text", items: [
     "téma „Niečo iné“ alebo neúplné odpovede",
+    "patrí inému odborníkovi: malformácia mozgu / miechy (neurochirurgia), chronická panvová bolesť bez gynekologického vyšetrenia alebo s inou gynekologickou príčinou",
   ] },
 ];
 
