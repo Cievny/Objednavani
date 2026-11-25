@@ -342,7 +342,7 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
               <input id="konz-mail" type="email" className={inputSmCls + " max-w-sm"} value={mail} onChange={(e) => setMail(e.target.value)} placeholder="ako ostatné upozornenia pracoviska" data-testid="konz-notify-email" />
               <Btn type="submit" size="sm">Uložiť</Btn>
             </div>
-            <p className="text-xs text-muted">Hneď príde e-mail len pri žiadosti s akútnymi príznakmi alebo keď sa odpoveď nepodarí odoslať; inak raz denne ráno súhrn čakajúcich žiadostí. E-maily neobsahujú zdravotné údaje. Prázdne pole = adresy pracoviska ako pri ostatných upozorneniach.</p>
+            <p className="text-xs text-muted">E-mail príde pri každej novej žiadosti (ak ich príde viac naraz, jeden spoločný — najviac raz za 15 minút), hneď pri žiadosti s akútnymi príznakmi a keď sa odpoveď nepodarí odoslať; ráno navyše súhrn čakajúcich. E-maily neobsahujú zdravotné údaje. Prázdne pole = adresy pracoviska ako pri ostatných upozorneniach.</p>
           </form>
         </details>
       )}

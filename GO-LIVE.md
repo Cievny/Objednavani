@@ -35,6 +35,12 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v136 — konzultácie: e-mail pri každej novej žiadosti (25. 11. 2026):** spustiť `supabase/konzultacie-003.sql`
+      (po konzultacie-002; idempotentné; editor ukáže riadok `KONZULTACIE-003 OK`). Doteraz prišiel e-mail hneď
+      len pri akútnych príznakoch. Po novom každá nová žiadosť → e-mail „Konzultácie: nová žiadosť" (bez zdravotných
+      údajov, s počtom čakajúcich); najviac jeden za 15 minút — žiadosti, ktoré prídu medzitým, oznámi spoločný
+      e-mail po uplynutí odstupu (`consult_tick`, úloha `konzultacie-odoslanie` každých 5 minút). Akútna žiadosť
+      má naďalej vlastný e-mail ihneď; ranný súhrn ostáva. Adresy: správa → Konzultácie → „Upozornenia e-mailom".
 - [x] **v135 — konzultácie: tri nové témy (25. 11. 2026):** bez skriptu. Dotazník pozná aj zúženie obličkových
       (renálnych) tepien, cievne malformácie (AVM) a panvovú kongesciu; pravidlá zaradenia sú v `src/triaz.js`
       (návrh na odsúhlasenie lekárom). Databáza nové témy prijíma bez zmeny. Na ostrej od 25. 11. 2026.
