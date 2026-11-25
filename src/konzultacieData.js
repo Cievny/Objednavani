@@ -9,6 +9,8 @@ import { classify } from "./triaz.js";
 export const CONSULT_KEY = "consultRequests_v1";
 export const CONSULT_STATS_KEY = "consultStats_v1";
 const DEMO_OPEN_KEY = "consultFormOff_v1";
+const DEMO_FORWARD_KEY = "consultForwardEmail_v1";
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const NEED_SQL = "Konzultácie ešte nie sú zapnuté v databáze (spustite supabase/konzultacie-001.sql).";
 const NEED_SQL2 = "Okamžité mazanie po vybavení ešte nie je v databáze zapnuté — spustite supabase/konzultacie-002.sql. Dovtedy žiadosti, prosím, nevybavujte.";
 
@@ -96,12 +98,14 @@ export function useConsultRequests(isStaff) {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState("");
+  const [forwardEmail, setForwardEmail] = useState(""); // pracovný e-mail lekára: sem ide celá žiadosť pri rozhodnutí „pozvať k nám"
   const [stats, setStats] = useState([]);
   const [needsUpgrade, setNeedsUpgrade] = useState(false); // databáza ešte nemá okamžité mazanie (konzultacie-002)
 
   const reload = useCallback(async () => {
     if (!supabase) {
       setList(load()); setStats(loadStats().map(statRow)); setOpen(!localStorage.getItem(DEMO_OPEN_KEY)); setLoading(false); setError("");
+      setForwardEmail(localStorage.getItem(DEMO_FORWARD_KEY) || "");
       return;
     }
     if (!isStaff) return;
@@ -109,7 +113,7 @@ export function useConsultRequests(isStaff) {
     try { await supabase.rpc("consult_finalize"); } catch { /* staršia databáza alebo výpadok — zoznam sa načíta aj tak */ }
     const [rq, st, cs] = await Promise.all([
       supabase.from("consult_requests").select("*").order("created_at", { ascending: true }).limit(1000),
-      supabase.from("settings").select("key,value").in("key", ["consult_form", "consult_notify_email"]),
+      supabase.from("settings").select("key,value").in("key", ["consult_form", "consult_notify_email", "consult_forward_email"]),
       supabase.from("consult_stats").select("done_on,topic,outcome,channel,reply_sent,wait_days").order("done_on", { ascending: false }).limit(5000),
     ]);
     setLoading(false);
@@ -124,13 +128,14 @@ export function useConsultRequests(isStaff) {
     setNeedsUpgrade(Boolean(missing(cs.error, "consult_stats")));
     setStats(cs.error ? [] : (cs.data || []).map(statRow));
     const s = Object.fromEntries((st.data || []).map((x) => [x.key, x.value]));
-    setOpen(s.consult_form !== "off"); setNotifyEmail(s.consult_notify_email || "");
+    setOpen(s.consult_form !== "off"); setNotifyEmail(s.consult_notify_email || ""); setForwardEmail(s.consult_forward_email || "");
   }, [isStaff]);
   useEffect(() => { reload(); }, [reload]);
 
   // rozhodnutie + odpoveď; send = odoslať SMS / e-mail zo systému (pri Instagrame sa nič neposiela).
   // Žiadosť sa tým natrvalo maže — nedá sa vrátiť.
-  const resolve = async (id, { outcome, reply, send }) => {
+  // forward = pri rozhodnutí „pozvať k nám" poslať celú žiadosť na pracovný e-mail lekára (summary = čitateľný výpis dotazníka)
+  const resolve = async (id, { outcome, reply, send, forward, summary }) => {
     if (!supabase) {
       const all = load(); const r = all.find((x) => x.id === id);
       if (!r) throw new Error("Žiadosť sa nenašla (už bola vybavená a zmazaná).");
@@ -139,12 +144,15 @@ export function useConsultRequests(isStaff) {
       localStorage.setItem(CONSULT_STATS_KEY, JSON.stringify([{ done_on: isoToday(), topic: r.topic, outcome, channel: r.contactType, reply_sent: Boolean(sent),
         wait_days: Math.max(0, Math.floor((Date.now() - new Date(r.createdAt).getTime()) / 86400000)) }, ...loadStats()]));
       await reload();
-      return { sent: sent ? r.contactType : null };
+      return { sent: sent ? r.contactType : null, forwarded: Boolean(forward && outcome === "ustav" && localStorage.getItem(DEMO_FORWARD_KEY)) };
     }
-    const { data, error: e } = await supabase.rpc("consult_resolve", { p_id: id, p_outcome: outcome, p_reply: reply || "", p_send: Boolean(send) });
-    if (e) throw new Error(e.message);
+    // údaje o preposlaní idú len vtedy, keď sa naozaj preposiela — staršia databáza (bez konzultacie-004) tak funguje ďalej
+    const args = { p_id: id, p_outcome: outcome, p_reply: reply || "", p_send: Boolean(send) };
+    if (forward) { args.p_forward = true; args.p_summary = String(summary || "").slice(0, 6000); }
+    const { data, error: e } = await supabase.rpc("consult_resolve", args);
+    if (e) throw new Error(forward && e.code === "PGRST202" ? "Posielanie na pracovný e-mail ešte nie je v databáze zapnuté — spustite supabase/konzultacie-004.sql, alebo políčko odškrtnite." : e.message);
     await reload();
-    return { sent: data?.sent || null };
+    return { sent: data?.sent || null, forwarded: Boolean(data?.forwarded) };
   };
   const setFormOpen = async (on) => {
     if (!supabase) { if (on) localStorage.removeItem(DEMO_OPEN_KEY); else localStorage.setItem(DEMO_OPEN_KEY, "1"); }
@@ -153,12 +161,19 @@ export function useConsultRequests(isStaff) {
   };
   const saveNotifyEmail = async (email) => {
     const v = String(email || "").trim();
-    if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) throw new Error("E-mail nie je platný.");
+    if (v && !EMAIL_RE.test(v)) throw new Error("E-mail nie je platný.");
     if (supabase) { const { error: e } = await supabase.from("settings").upsert([{ key: "consult_notify_email", value: v }], { onConflict: "key" }); if (e) throw new Error(e.message); }
     setNotifyEmail(v);
+  };
+  const saveForwardEmail = async (email) => {
+    const v = String(email || "").trim().toLowerCase();
+    if (v && !EMAIL_RE.test(v)) throw new Error("E-mail nie je platný.");
+    if (supabase) { const { error: e } = await supabase.from("settings").upsert([{ key: "consult_forward_email", value: v }], { onConflict: "key" }); if (e) throw new Error(e.message); }
+    else if (v) localStorage.setItem(DEMO_FORWARD_KEY, v); else localStorage.removeItem(DEMO_FORWARD_KEY);
+    setForwardEmail(v);
   };
 
   // návrh zaradenia sa počíta z odpovedí pri každom zobrazení (pravidlá: src/triaz.js)
   const withTriage = list.map((r) => ({ ...r, triage: classify(r) }));
-  return { isSupabase: isSupabaseConfigured, list: withTriage, stats, needsUpgrade, loading, error, open, notifyEmail, reload, resolve, setFormOpen, saveNotifyEmail };
+  return { isSupabase: isSupabaseConfigured, list: withTriage, stats, needsUpgrade, loading, error, open, notifyEmail, forwardEmail, reload, resolve, setFormOpen, saveNotifyEmail, saveForwardEmail };
 }

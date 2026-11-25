@@ -61,8 +61,19 @@ function Details({ r }) {
   );
 }
 
+// čitateľný výpis dotazníka do e-mailu lekárovi (pri rozhodnutí „pozvať k nám")
+const forwardSummary = (r) => {
+  const flags = r.flags.map((f) => RED_FLAGS.find((x) => x.id === f)).filter(Boolean);
+  return [
+    `Téma: ${topicById(r.topic)?.label || r.topic}`,
+    ...summarize(r).map(([q, a]) => `${q} — ${a}`),
+    ...(flags.length ? [`Akútne príznaky označené pacientom: ${flags.map((f) => f.short).join("; ")}`] : []),
+    `Návrh zaradenia: ${CATEGORIES[r.triage.category].label} · ${PRIORITY_LABEL[r.triage.priority]} — ${r.triage.reasons.join(" · ")}`,
+  ].join("\n");
+};
+
 // Rozhodnutie a odpoveď. Každé vybavenie sa potvrdzuje — žiadosť sa tým natrvalo zmaže.
-function ReplyPanel({ r, onResolve }) {
+function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
   const failed = r.status === "failed";
   const suggested = !failed && OUTCOME_LABEL[r.triage.category] ? r.triage.category : "";
   const tpl = (o) => REPLY_TEMPLATES[o] || REPLY_TEMPLATES.posudit;
@@ -70,6 +81,7 @@ function ReplyPanel({ r, onResolve }) {
   const [reply, setReply] = useState(r.replyText || tpl(r.outcome || suggested));
   const [touched, setTouched] = useState(Boolean(r.replyText));
   const [confirm, setConfirm] = useState(""); // "" | "send" | "close"
+  const [fwd, setFwd] = useState(true); // pri „pozvať k nám" poslať celú žiadosť na pracovný e-mail lekára
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -83,13 +95,16 @@ function ReplyPanel({ r, onResolve }) {
     if (needReply && tooLong) return isSms ? "SMS je príliš dlhá — skráťte ju." : "Text je príliš dlhý.";
     return "";
   };
+  const canForward = !failed && outcome === "ustav";
+  const forward = canForward && fwd && Boolean(forwardEmail);
   const ask = (kind) => { const e = check(kind === "send"); if (e) { setErr(e); setConfirm(""); } else { setErr(""); setConfirm(kind); } };
   const run = async () => {
     const send = confirm === "send";
     setBusy(true); setErr("");
     try {
-      const res = await onResolve(r.id, { outcome, reply: reply.trim(), send });
-      showToast(res?.sent === "sms" ? "SMS odoslaná — žiadosť sa maže" : res?.sent === "email" ? "E-mail odoslaný — žiadosť sa maže" : "Žiadosť vybavená a zmazaná");
+      const res = await onResolve(r.id, { outcome, reply: reply.trim(), send, forward, summary: forward ? forwardSummary(r) : "" });
+      showToast((res?.sent === "sms" ? "SMS odoslaná — žiadosť sa maže" : res?.sent === "email" ? "E-mail odoslaný — žiadosť sa maže" : "Žiadosť vybavená a zmazaná")
+        + (res?.forwarded ? " · kópia ide na váš pracovný e-mail" : ""));
     } catch (x) { setErr(x?.message || String(x)); setBusy(false); setConfirm(""); }
   };
 
@@ -115,12 +130,21 @@ function ReplyPanel({ r, onResolve }) {
           onChange={(e) => { setReply(e.target.value); setTouched(true); setErr(""); setConfirm(""); }} />
         {isSms && <p className={`text-xs mt-1 ${tooLong ? "text-danger font-semibold" : "text-muted"}`} data-testid="konz-sms-len">{smsLen} / {SMS_MAX} znakov · SMS odíde bez diakritiky a začína slovom „NUSCH:“{smsLen > 153 ? ` · ${Math.ceil((smsLen + 7) / 153)} SMS` : ""}</p>}
       </div>
+      {canForward && (
+        <label className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm ${forwardEmail ? "cursor-pointer border-brand/40 bg-brand-soft" : "border-line bg-soft text-muted"}`} data-testid="konz-forward-box">
+          <input type="checkbox" className="mt-1 accent-brand shrink-0" checked={forward} disabled={!forwardEmail} onChange={(e) => { setFwd(e.target.checked); setConfirm(""); }} data-testid="konz-forward" />
+          {forwardEmail
+            ? <span>Poslať celú žiadosť na môj pracovný e-mail <b className="break-all">{forwardEmail}</b> <span className="text-muted">— aby ste mali podľa čoho pacienta objednať</span></span>
+            : <span>Žiadosť sa dá poslať na váš pracovný e-mail — adresu najprv nastavte nižšie v časti „Upozornenia e-mailom“.</span>}
+        </label>
+      )}
       {err && <Callout tone="danger" role="alert" data-testid="konz-reply-error">{err}</Callout>}
       {confirm ? (
         <Callout tone="warn" className="flex flex-wrap items-center gap-2" data-testid="konz-confirm">
           <span className="grow">
             {confirm === "send" ? <>Odoslať {isSms ? "SMS" : "e-mail"} na <b>{r.contact}</b>? </> : null}
-            Žiadosť sa tým <b>natrvalo zmaže</b> — nedá sa vrátiť.
+            Žiadosť sa tým zo systému <b>natrvalo zmaže</b> — nedá sa vrátiť.
+            {forward ? <> Kópia celej žiadosti pôjde na <b>{forwardEmail}</b>.</> : null}
           </span>
           <Btn disabled={busy} onClick={run} data-testid="konz-confirm-yes">{busy ? "Pracujem…" : confirm === "send" ? "Áno, odoslať a zmazať" : "Áno, vybaviť a zmazať"}</Btn>
           <Btn variant="secondary" disabled={busy} onClick={() => setConfirm("")}>Späť</Btn>
@@ -137,17 +161,17 @@ function ReplyPanel({ r, onResolve }) {
           <Btn variant="secondary" onClick={() => ask("close")} data-testid="konz-resolve">Vybaviť bez odoslania</Btn>
         </div>
       )}
-      <p className="text-xs text-muted">Po vybavení sa žiadosť ihneď a natrvalo vymaže. Ostane len anonymný počet (téma, rozhodnutie) bez údajov pacienta.</p>
+      <p className="text-xs text-muted">Po vybavení sa žiadosť zo systému ihneď a natrvalo vymaže. Ostane len anonymný počet (téma, rozhodnutie) bez údajov pacienta.{forward ? " Kópia vo vašej pracovnej pošte obsahuje zdravotné údaje a sama sa nemaže." : ""}</p>
     </div>
   );
 }
 
-function RequestCard({ r, canReply, locked, expanded, onToggle, onResolve }) {
+function RequestCard({ r, canReply, locked, expanded, onToggle, onResolve, forwardEmail }) {
   const t = r.triage, cat = CATEGORIES[t.category], failed = r.status === "failed";
   const age = new Date().getFullYear() - r.birthYear;
   const wait = daysAgo(r.createdAt);
   const reply = locked ? <Callout tone="warn">Vybavovanie je dočasne zablokované — najprv treba v databáze spustiť skript konzultacie-002.sql.</Callout>
-    : canReply ? <ReplyPanel r={r} onResolve={onResolve} /> : <Callout tone="soft">Odpovedať na konzultácie môže len lekár.</Callout>;
+    : canReply ? <ReplyPanel r={r} onResolve={onResolve} forwardEmail={forwardEmail} /> : <Callout tone="soft">Odpovedať na konzultácie môže len lekár.</Callout>;
   // odpoveď, ktorú brána neprijala: zdravotné údaje sú už zmazané, ostal len kontakt a text odpovede
   if (failed) {
     return (
@@ -238,8 +262,10 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
   const [cat, setCat] = useState("all");
   const [openId, setOpenId] = useState("");
   const [mail, setMail] = useState("");
+  const [fmail, setFmail] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => { setMail(c.notifyEmail); }, [c.notifyEmail]);
+  useEffect(() => { setFmail(c.forwardEmail); }, [c.forwardEmail]);
   useEffect(() => { const f = () => reload(); window.addEventListener("focus", f); return () => window.removeEventListener("focus", f); }, [reload]);
 
   const failed = useMemo(() => c.list.filter((r) => r.status === "failed"), [c.list]);
@@ -256,6 +282,10 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
     setBusy(true);
     try { await c.setFormOpen(!c.open); showToast(c.open ? "Príjem žiadostí pozastavený" : "Príjem žiadostí zapnutý"); }
     catch (x) { showToast(x?.message || String(x), "err"); } finally { setBusy(false); }
+  };
+  const saveFmail = async (e) => {
+    e.preventDefault();
+    try { await c.saveForwardEmail(fmail); showToast(fmail.trim() ? "Pracovný e-mail uložený" : "Pracovný e-mail zrušený"); } catch (x) { showToast(x?.message || String(x), "err"); }
   };
   const saveMail = async (e) => {
     e.preventDefault();
@@ -296,7 +326,7 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
           {sending > 0 && <Callout tone="info" data-testid="konz-sending">Odosiela sa {sending === 1 ? "1 odpoveď" : `${sending} odpovedí`} — po potvrdení brány sa žiadosť zmaže. Zdravotné údaje sú už zmazané.</Callout>}
           {failed.length > 0 && (
             <ul className="space-y-3" data-testid="konz-failed">
-              {failed.map((r) => <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded onToggle={() => {}} onResolve={resolve} />)}
+              {failed.map((r) => <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded onToggle={() => {}} onResolve={resolve} forwardEmail={c.forwardEmail} />)}
             </ul>
           )}
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter podľa návrhu zaradenia">
@@ -308,7 +338,7 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
           {shown.length === 0 ? <Card className="text-center text-muted" data-testid="konz-empty">{cat === "all" ? "Žiadne žiadosti na vybavenie." : "V tejto skupine nie je žiadna žiadosť."}</Card> : (
             <ul className="space-y-3">
               {shown.map((r) => (
-                <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded={openId === r.id} onToggle={() => setOpenId(openId === r.id ? "" : r.id)} onResolve={resolve} />
+                <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded={openId === r.id} onToggle={() => setOpenId(openId === r.id ? "" : r.id)} onResolve={resolve} forwardEmail={c.forwardEmail} />
               ))}
             </ul>
           )}
@@ -331,8 +361,8 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
         </div>
       </details>
 
-      {role === "superadmin" && c.isSupabase && (
-        <details className="group rounded-xl border border-line bg-white">
+      {role === "superadmin" && (
+        <details className="group rounded-xl border border-line bg-white" data-testid="konz-mail-settings">
           <summary className="cursor-pointer select-none list-none px-4 py-3 text-sm font-semibold text-brand flex items-center gap-2">
             <span className="inline-block transition-transform group-open:rotate-90">▸</span> Upozornenia e-mailom
           </summary>
@@ -343,6 +373,14 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
               <Btn type="submit" size="sm">Uložiť</Btn>
             </div>
             <p className="text-xs text-muted">E-mail príde pri každej novej žiadosti (ak ich príde viac naraz, jeden spoločný — najviac raz za 15 minút), hneď pri žiadosti s akútnymi príznakmi a keď sa odpoveď nepodarí odoslať; ráno navyše súhrn čakajúcich. E-maily neobsahujú zdravotné údaje. Prázdne pole = adresy pracoviska ako pri ostatných upozorneniach.</p>
+          </form>
+          <form onSubmit={saveFmail} className="px-4 pb-4 border-t border-line pt-3 space-y-2">
+            <label className={labelCls} htmlFor="konz-fmail">Pracovný e-mail lekára — sem príde celá žiadosť, keď zvolíte „Pozvať k nám“</label>
+            <div className="flex flex-wrap gap-2">
+              <input id="konz-fmail" type="email" className={inputSmCls + " max-w-sm"} value={fmail} onChange={(e) => setFmail(e.target.value)} placeholder="meno@nusch.sk" data-testid="konz-forward-email" />
+              <Btn type="submit" size="sm" data-testid="konz-forward-save">Uložiť</Btn>
+            </div>
+            <p className="text-xs text-muted">Táto správa obsahuje zdravotné údaje pacienta (odpovede, popis, kontakt), preto ide len na adresu, ktorú tu výslovne uvediete — zadajte pracovnú, nie súkromnú. Pri každej žiadosti sa dá posielanie odškrtnúť. Prázdne pole = nič sa neposiela.</p>
           </form>
         </details>
       )}

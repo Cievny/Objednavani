@@ -35,6 +35,14 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v137 — konzultácie: „Pozvať k nám" → žiadosť na pracovný e-mail lekára (25. 11. 2026):** spustiť
+      `supabase/konzultacie-004.sql` (po konzultacie-002, na 003 nezávisí; idempotentné; editor ukáže `KONZULTACIE-004 OK`).
+      Pri rozhodnutí „Pozvať k nám (ústav)" je predvolene zaškrtnuté „poslať celú žiadosť na môj pracovný e-mail"
+      (iniciály, rok, kraj, kontakt, dotazník, popis, návrh zaradenia, odpoveď) — aby bolo podľa čoho pacienta objednať.
+      Adresu treba výslovne nastaviť: správa → Konzultácie → „Upozornenia e-mailom" → „Pracovný e-mail lekára"
+      (`settings.consult_forward_email`); bez nej sa nič neposiela a systém adresu neháda. POZOR: e-mail obsahuje
+      zdravotné údaje a kópia v pošte už nepodlieha automatickému mazaniu; pacient je o tom informovaný v súhlase,
+      na stránke o ochrane údajov a v pätičke odpovede. Pri iných rozhodnutiach sa nič neposiela.
 - [ ] **v136 — konzultácie: e-mail pri každej novej žiadosti (25. 11. 2026):** spustiť `supabase/konzultacie-003.sql`
       (po konzultacie-002; idempotentné; editor ukáže riadok `KONZULTACIE-003 OK`). Doteraz prišiel e-mail hneď
       len pri akútnych príznakoch. Po novom každá nová žiadosť → e-mail „Konzultácie: nová žiadosť" (bez zdravotných
