@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MgJrSFUQ4I7QXIy8cz1qTtgD8vdClp3EroWlX3vOBkM='; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Poraďte sa s cievnym lekárom | NÚSCH, a.s.</title>
+<meta name="description" content="Krátky dotazník o vašich ťažkostiach s cievami. Lekár si ho prečíta a odpíše, či je vhodné vyšetrenie v NÚSCH, u angiológa vo vašom okolí alebo u všeobecného lekára. Bez mena a rodného čísla.">
+<link rel="canonical" href="https://objednanie.cievny.sk/konzultacia/">
+<!-- Náhľad pri zdieľaní (Instagram, WhatsApp, iMessage). Roboty JavaScript
+     nespúšťajú, preto si náhľad berú z tejto stránky; ľudí presmeruje skript nižšie. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NÚSCH — cievna medicína">
+<meta property="og:locale" content="sk_SK">
+<meta property="og:url" content="https://objednanie.cievny.sk/konzultacia/">
+<meta property="og:title" content="Poraďte sa s cievnym lekárom">
+<meta property="og:description" content="Vyplňte krátky dotazník — lekár vám odpíše, kam sa s ťažkosťami obrátiť. Bez mena a rodného čísla, nie je to objednanie na termín.">
+<meta property="og:image" content="https://objednanie.cievny.sk/logo-nusch.png">
+<meta property="og:image:alt" content="Logo NÚSCH">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Poraďte sa s cievnym lekárom">
+<meta name="twitter:description" content="Krátky dotazník — lekár vám odpíše, kam sa s ťažkosťami obrátiť.">
+<meta name="twitter:image" content="https://objednanie.cievny.sk/logo-nusch.png">
+<style>
+  body{margin:0;font-family: "Source Sans 3", -apple-system, "Segoe UI", Arial, sans-serif;background:#FFFFFF;color:#1F2A37}
+  .box{max-width:560px;margin:48px auto;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:32px 24px;text-align:center}
+  h1{color:#0057B8;font-size:24px;margin:0 0 8px}
+  p{color:#5B6977;line-height:1.5;margin:0 0 20px}
+  a.btn{display:inline-block;background:#0057B8;color:#fff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:12px;font-size:18px}
+  small{display:block;margin-top:16px;color:#5B6977;font-size:12px}
+</style>
+<script>
+  // Krátka adresa /konzultacia → aplikácia (#/konzultacia — triážny dotazník,
+  // odkaz z Instagramu). Relatívne, aby fungovala aj v bete (/beta/konzultacia).
+  // Cieľ je vždy na tomto origine (base len z cesty bez úvodných lomiek).
+  (function () {
+    var base = '/' + location.pathname.replace(/^\/+/, '').replace(/konzultacia\/?(index\.html)?$/, '');
+    location.replace(location.origin + base + '#/konzultacia');
+  })();
+</script>
+</head>
+<body>
+  <div class="box">
+    <h1>Poraďte sa s cievnym lekárom</h1>
+    <p>Krátky dotazník o vašich ťažkostiach. Lekár vám odpíše, kam sa obrátiť.<br>Národný ústav srdcových a cievnych chorôb, a.s.</p>
+    <a class="btn" href="../#/konzultacia">Otvoriť dotazník</a>
+    <small>Presmerúvame vás… Ak sa nič nedeje, kliknite na tlačidlo. Pri náhlych ťažkostiach volajte 155.</small>
+  </div>
+</body>
+</html>

@@ -35,6 +35,24 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v133 — konzultácie z Instagramu (25. 11. 2026):** spustiť `supabase/konzultacie-001.sql`
+      (po audit-vlna10-001; idempotentné; editor ukáže riadok `KONZULTACIE-001 OK | zapnutý`).
+      Verejný dotazník `objednanie.cievny.sk/konzultacia/` (odkaz do Instagramu) NEDÁVA termín: človek uvedie
+      iniciály, rok narodenia, voliteľne kraj, ťažkosti (téma + pár otázok + voľný text) a kontakt na odpoveď
+      (SMS / e-mail / Instagram). Meno, rodné číslo ani IP adresa sa neukladajú.
+      1. pri akútnych príznakoch dostane pacient pokyn hneď na obrazovke (155 / lekár ešte dnes) a personálu
+         príde e-mail bez zdravotných údajov; inak raz denne o 06:05 UTC súhrn čakajúcich (`konzultacie-suhrn`);
+      2. Správa → „Konzultácie z Instagramu" (`#/konzultacie`): žiadosti zoradené podľa NÁVRHU zaradenia
+         (akútne / ústav / na posúdenie / rajónny angiológ / obvodný lekár) s dôvodmi; pravidlá sú v
+         `src/triaz.js` (návrh na odsúhlasenie lekárom — zaradenie sa počíta pri zobrazení, nie v databáze);
+      3. odpovedá len lekár a superadmin (`consult_resolve`): SMS bez diakritiky (najviac 450 znakov) alebo
+         e-mail odíde zo systému; pri Instagrame si lekár odpoveď skopíruje a pošle sám; sestra len číta;
+      4. poriadok: vybavené žiadosti sa mažú po 30 dňoch, všetky po 90 dňoch (`konzultacie-cleanup`, 01:40 UTC);
+      5. ochrana: limity na IP a kontakt, denný strop 300 žiadostí, skryté pole + čas vyplnenia (`bot_guard`);
+         príjem sa dá pozastaviť tlačidlom v správe (`consult_set_open`) — dotazník to pacientovi oznámi;
+      6. adresa upozornení: správa → Konzultácie → „Upozornenia e-mailom" (`settings.consult_notify_email`);
+         prázdne = adresy pracoviska (`copy_email` + `notify_email`).
+      Stránka v133 dotazník ponúkne až po spustení skriptu (pýta sa databázy `consult_ready`).
 - [x] **v132 — CT zásobník (23. 11. 2026):** spustiť `supabase/ct-zasobnik-001.sql` — skript spustený a stránka v132
       nasadená na ostrú 23. 11. 2026 (overené: tabuľka, funkcie, práva, nočná úloha).
       (po ct-lekari-004, audit-vlna10-001 a zabezpecenie-001; idempotentné; vypíše `CT-ZASOBNIK-001 OK`).

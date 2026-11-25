@@ -12,11 +12,13 @@ export default function AdminHub({ usgHref, angioAdminHref }) {
     { href: angioAdminHref, title: "Angiologická ambulancia č. 1", desc: "objednávky, kalendár, spätné volania" },
     { href: "#/ct", title: "CT pracovisko", desc: "žiadosti lekárov, kalendár, heslo pre lekárov" },
     { href: "#/platba", title: "Ad-hoc platby", desc: "platba za výkon cez QR kód" },
+    { href: "#/konzultacie", title: "Konzultácie z Instagramu", desc: "žiadosti zoradené podľa naliehavosti, odpoveď" },
   ];
   const pub = [
     { url: `${base}#/`, title: "USG objednávanie", desc: "pacienti — platené USG vyšetrenia" },
     { url: `${base}#/angio1`, title: "Angiologická ambulancia — objednanie", desc: "pacienti — bez poplatku" },
     { url: `${base}zachrannohu/`, title: "Zachráň nohu", desc: "informačná stránka, samotest, Zavolajte mi späť" },
+    { url: `${base}konzultacia/`, title: "Konzultácia — dotazník z Instagramu", desc: "bez termínu: iniciály, rok narodenia, ťažkosti" },
     { url: `${base}#/ct-lekar`, title: "CT pre lekárov NÚSCH", desc: "žiadosti o CT termín, spoločné heslo" },
     { url: `${base}#/som-tu`, title: "Som tu — príchod do čakárne", desc: "QR kód na stojane v čakárni" },
     { url: `${base}#/podmienky`, title: "Podmienky online objednávania", desc: "právne texty" },
@@ -30,7 +32,7 @@ export default function AdminHub({ usgHref, angioAdminHref }) {
     <nav aria-label="Rozcestník správy" className="mb-5 space-y-4" data-testid="admin-hub">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-2">Správa</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           {admin.map((a) => (
             <a key={a.title} href={a.href} aria-current={a.current ? "page" : undefined} data-testid="hub-admin"
               className={`block rounded-lg border px-3 py-2.5 transition-colors ${a.current ? "border-brand bg-brand-soft" : "border-line bg-white hover:border-brand hover:bg-page"}`}>
