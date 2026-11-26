@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import { StaffAddOrder } from "./staffAdd.jsx";
 import { printDayProgram, exportDayProgram, DayProgramActions } from "./printProgram.jsx";
 import { DelaySms } from "./delaySms.jsx";
+import { BigHero, ServiceTiles, IconProbe, IconStethoscope, IconChat, IconFoot } from "./hero.jsx";
 
 // --- 1. KONFIGURÁCIA ---
 
@@ -456,11 +457,44 @@ const USG_POINTS = [
   ["Tradícia a špecializácia", "NÚSCH je špičkové slovenské pracovisko pre srdce a cievy — diagnostike cievnych ochorení sa venujeme desaťročia."],
   ["Starostlivosť, ktorá nekončí nálezom", "Pri pozitívnom náleze priamo nadväzuje ďalšia diagnostika a liečba u našich špecialistov — všetko pod jednou strechou."],
 ];
+// v138: výrazný úvod (tmavomodrý blok, veľký nadpis, fotka v oblúku) + dlaždice služieb NÚSCH
+const SERVICE_TILES = [
+  { title: "Ultrazvuk ciev", sub: "termín si vyberiete online, platba QR kódom", tone: "rose", Icon: IconProbe, target: "objednanie", testId: "tile-usg" },
+  { title: "Angiologická ambulancia", sub: "vyšetrenie bez poplatku", tone: "sun", Icon: IconStethoscope, href: "#/angio1", testId: "tile-angio" },
+  { title: "Poraďte sa s lekárom", sub: "krátky dotazník, odpíše vám lekár", tone: "mint", Icon: IconChat, href: "#/konzultacia", testId: "tile-konzultacia" },
+  { title: "Zachráň nohu", sub: "rana, vred alebo zmena farby na nohe", tone: "sky", Icon: IconFoot, href: "#/angio1/zachrannohu", testId: "tile-zachrannohu" },
+];
 const UsgHero = () => (
-  <div className="mb-4 space-y-4">
+  <div className="mb-6 space-y-3 md:space-y-4">
     <p className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-2 text-sm">
       <b>Skúšobná prevádzka:</b> objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné a pracovisko vás môže kontaktovať s upresnením.
     </p>
+    <BigHero
+      eyebrow="Národný ústav srdcových a cievnych chorôb"
+      word="Zdravé cievy"
+      title="Ultrazvuk ciev tam, kde cievam rozumejú najlepšie"
+      chips={[["calendar", "termín si vyberiete sami"], ["qr", "platba QR kódom"], ["heart", "lekári NÚSCH"]]}
+      text="Objednajte sa online na sonografické vyšetrenie ciev priamo v NÚSCH — bez čakania v rade."
+      cta={{ label: "Vybrať termín", target: "objednanie", testId: "usg-hero-cta" }}
+      note="Pri pozitívnom náleze nadväzuje ďalšia diagnostika a liečba u našich špecialistov — pod jednou strechou."
+      photo={{ src: "hero-usg-krk.webp", alt: "Ultrazvukové vyšetrenie krčných tepien", position: "38% 50%" }}
+    />
+    <ServiceTiles items={SERVICE_TILES} />
+    <div className="grid md:grid-cols-3 gap-4 md:gap-6 px-1 md:px-2 pt-3">
+      {USG_POINTS.map(([title, text]) => (
+        <div key={title} className="border-t-2 border-brand/40 pt-3">
+          <p className="font-semibold text-brand-dark text-base md:text-lg leading-snug">{title}</p>
+          <p className="text-sm md:text-base text-muted mt-1 leading-relaxed">{text}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// pôvodný úvod (v105) — ponechaný na porovnanie; nepoužíva sa
+// eslint-disable-next-line no-unused-vars
+const UsgHeroV105 = () => (
+  <div className="mb-4 space-y-4">
     <section className="rounded-xl border border-line overflow-hidden grid md:grid-cols-[3fr_2fr] bg-brand-soft" aria-label="Úvod">
       <div className="p-6 md:p-10 flex flex-col justify-center md:min-h-[360px]">
         <p className="text-xs md:text-xs font-semibold tracking-wide text-muted uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
@@ -475,7 +509,7 @@ const UsgHero = () => (
         </ul>
         <div className="mt-6">
           <a href="#objednanie" onClick={(e) => { const el = document.getElementById("objednanie"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); } }}
-            className="inline-block bg-brand hover:bg-brand-dark text-white font-semibold text-base px-6 py-3 rounded-lg transition-colors" data-testid="usg-hero-cta">
+            className="inline-block bg-brand hover:bg-brand-dark text-white font-semibold text-base px-6 py-3 rounded-lg transition-colors">
             Vybrať vyšetrenie a termín ›
           </a>
         </div>

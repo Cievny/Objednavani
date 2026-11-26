@@ -23,6 +23,15 @@
   --color-success-soft: #EAF6EF;
   --color-warn: #7A5A00;
   --color-warn-soft: #FFF8E5;
+  /* pastelové dlaždice služieb a tlačidlo v úvode (v138); text na nich je vždy brand-dark */
+  --color-tile-rose: #F2D5E2;
+  --color-tile-rose-ink: #C892AC;
+  --color-tile-sun: #F2DE82;
+  --color-tile-sun-ink: #C9A835;
+  --color-tile-mint: #BFE3CF;
+  --color-tile-mint-ink: #6CAF8C;
+  --color-tile-sky: #B9D0F5;
+  --color-tile-sky-ink: #6E97DA;
   --font-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
 }

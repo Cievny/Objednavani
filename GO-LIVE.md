@@ -35,6 +35,12 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v138 — nový vzhľad úvodu (26. 11. 2026, na porovnanie na beta):** bez skriptu. Úvod USG objednávania
+      a dotazníka konzultácie: tmavomodrý blok s veľkým nadpisom („Zdravé cievy" / „Poraďte sa"), okrúhle tlačidlo
+      so šípkou, fotka z ultrazvuku v oblúku; pod úvodom USG štyri farebné dlaždice služieb (ultrazvuk ciev,
+      angiologická ambulancia, poradiť sa s lekárom, Zachráň nohu). Inšpirácia: návrh z Dribbble od lekára,
+      prevedený do farieb NÚSCH (`src/hero.jsx`, farby `--color-tile-*` v `src/index.css`). Pôvodný úvod
+      v105 ostal v kóde (`UsgHeroV105`) na prípadný návrat. Na ostrú len po odsúhlasení.
 - [ ] **v137 — konzultácie: „Pozvať k nám" → žiadosť na pracovný e-mail lekára (25. 11. 2026):** spustiť
       `supabase/konzultacie-004.sql` (po konzultacie-002, na 003 nezávisí; idempotentné; editor ukáže `KONZULTACIE-004 OK`).
       Pri rozhodnutí „Pozvať k nám (ústav)" je predvolene zaškrtnuté „poslať celú žiadosť na môj pracovný e-mail"

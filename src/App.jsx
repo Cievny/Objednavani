@@ -15,7 +15,7 @@ import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
 // Provizórny prístupový kód pre demo režim bez Supabase — nie je to reálne
 // zabezpečenie. V Supabase režime ho nahrádza prihlásenie cez Supabase Auth.
-const APP_VERSION = "v137";
+const APP_VERSION = "v138";
 
 // Režim nasadenia: "patient" = verejná stránka len s objednávaním,
 // "admin" = interný systém pracoviska na samostatnej adrese,
@@ -176,6 +176,8 @@ export default function App() {
   // USG dáta len tam, kde sa používajú (USG pacient, USG správa, check-in nie — má vlastné RPC)
   const usgActive = !isAngioRoute && !isCtRoute && !isCtDoctorRoute && !isPayRoute && !isCheckinRoute && !isConsultRoute && !isConsultAdminRoute && !legalPage;
   const data = useBookingData(isStaff, usgActive);
+  // úvodná stránka pre pacientov (USG): úvod a dlaždice na širšej ploche, formulár ostáva úzky
+  const isUsgPatient = usgActive && !isAdminRoute;
 
   // titulok okna podľa stránky
   useEffect(() => {
@@ -314,7 +316,7 @@ export default function App() {
       </nav>
       )}
 
-      <main className={`${isConsultRoute ? "max-w-[720px]" : isAdminRoute || isPayRoute || isCtRoute || isCtDoctorRoute || isConsultAdminRoute || (isAngioRoute && isAngioAdmin) ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
+      <main className={`${isConsultRoute ? "max-w-[720px]" : isUsgPatient || isAdminRoute || isPayRoute || isCtRoute || isCtDoctorRoute || isConsultAdminRoute || (isAngioRoute && isAngioAdmin) ? "max-w-5xl" : "max-w-[720px]"} mx-auto p-2 sm:p-4 md:p-6`}>
         {legalPage === "vop" ? <VopPage /> : legalPage === "privacy" ? <PrivacyPage />
           : isCheckinRoute ? <CheckinView />
           : isCtDoctorRoute ? <CtDoctorApp />
@@ -328,6 +330,7 @@ export default function App() {
           : isAdminRoute ? renderAdmin() : (
           <>
             <UsgHero />
+            <div className="max-w-[720px] mx-auto">
             {data.isSupabase && data.loading ? (
               <div className="bg-white rounded-xl border border-line p-8 text-center text-muted">Načítavam voľné termíny…</div>
             ) : data.isSupabase && data.loadError && Object.keys(data.openSlots).length === 0 ? (
@@ -348,6 +351,7 @@ export default function App() {
               />
             )}
             <OrderLookup onLookup={data.lookupOrder} onCancel={data.cancelOrder} onReschedule={data.patientReschedule} openSlots={data.openSlots} occupied={data.occupied} settings={data.settings} initialOrderId={orderLinkId} defaultOpen={Boolean(orderLinkId)} />
+            </div>
           </>
         )}
       </main>
