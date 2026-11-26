@@ -114,7 +114,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment2.outputs.page_url }}
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -127,5 +127,18 @@ jobs:
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist
+      # GitHub hneď po nahratí artefakt niekedy ešte neeviduje („No artifacts named
+      # github-pages were found", nov. 2026) — pauza a pri chybe ešte jeden pokus.
+      # Opakovať treba v tom istom behu: „Re-run failed jobs" nahrá druhý artefakt
+      # s rovnakým menom a nasadenie potom zlyhá na „Multiple artifacts".
+      - name: Počkať, kým GitHub artefakt zaeviduje
+        run: sleep 15
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Druhý pokus o nasadenie (po chybe GitHubu)
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+      - id: deployment2
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
