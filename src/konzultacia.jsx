@@ -3,7 +3,7 @@ import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./bo
 import { inputCls, labelCls, Btn, Card, Callout } from "./ui.jsx";
 import { RED_FLAGS, TOPICS, REGIONS, classify, topicById } from "./triaz.js";
 import { consultApi } from "./konzultacieData.js";
-import { BigHero, IconChat } from "./hero.jsx";
+import { BigHero, IconChat, NEW_LOOK } from "./hero.jsx";
 
 // Konzultácia — verejný triážny formulár (odkaz z Instagramu, #/konzultacia).
 // NEDÁVA termín: človek uvedie iniciály, rok narodenia, ťažkosti a kontakt;
@@ -122,17 +122,25 @@ export default function ConsultForm() {
   return (
     <form ref={topRef} onSubmit={submit} onFocus={prewarmHumanPass} className="space-y-4 relative" noValidate data-testid="konz-form">
       <input {...honeypotProps} value={hp} onChange={(e) => setHp(e.target.value)} />
-      <BigHero
-        testId="konz-hero"
-        eyebrow="Národný ústav srdcových a cievnych chorôb"
-        word="Poraďte sa"
-        title="s cievnym lekárom"
-        chips={[["clock", "zaberie asi 2 minúty"], ["lock", "bez mena a rodného čísla"], ["doctor", "odpíše vám lekár"]]}
-        text="Vyplňte krátky dotazník. Lekár si ho prečíta a odpíše vám, či je vhodné vyšetrenie u nás v ústave, u angiológa vo vašom okolí alebo u všeobecného lekára."
-        cta={{ label: "Vyplniť dotazník", target: "konz-start", testId: "konz-hero-cta" }}
-        note="Formulár nie je objednanie na termín a nenahrádza lekárske vyšetrenie. Pri náhlych ťažkostiach volajte 155."
-        decor={<IconChat className="w-full h-full" />}
-      />
+      {NEW_LOOK ? (
+        <BigHero
+          testId="konz-hero"
+          eyebrow="Národný ústav srdcových a cievnych chorôb"
+          word="Poraďte sa"
+          title="s cievnym lekárom"
+          chips={[["clock", "zaberie asi 2 minúty"], ["lock", "bez mena a rodného čísla"], ["doctor", "odpíše vám lekár"]]}
+          text="Vyplňte krátky dotazník. Lekár si ho prečíta a odpíše vám, či je vhodné vyšetrenie u nás v ústave, u angiológa vo vašom okolí alebo u všeobecného lekára."
+          cta={{ label: "Vyplniť dotazník", target: "konz-start", testId: "konz-hero-cta" }}
+          note="Formulár nie je objednanie na termín a nenahrádza lekárske vyšetrenie. Pri náhlych ťažkostiach volajte 155."
+          decor={<IconChat className="w-full h-full" />}
+        />
+      ) : (
+        <Card>
+          <h1 className="text-xl md:text-2xl font-semibold text-brand">Poraďte sa s cievnym lekárom</h1>
+          <p className="text-ink mt-2">Vyplňte krátky dotazník — zaberie asi 2 minúty. Lekár si ho prečíta a odpíše vám, či je vhodné vyšetrenie u nás v ústave, u angiológa vo vašom okolí alebo u všeobecného lekára.</p>
+          <p className="text-sm text-muted mt-2">Nepýtame si meno ani rodné číslo. Formulár nie je objednanie na termín a nenahrádza lekárske vyšetrenie.</p>
+        </Card>
+      )}
 
       <Card id="konz-start" tabIndex={-1} className={`scroll-mt-4 outline-none ${errs.flags ? "border-danger" : ""}`}>
         <H n={1}>Najprv to najdôležitejšie</H>

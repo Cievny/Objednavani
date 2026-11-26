@@ -35,7 +35,9 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v138 — nový vzhľad úvodu (26. 11. 2026, na porovnanie na beta):** bez skriptu. Úvod USG objednávania
+- [ ] **v138 — nový vzhľad úvodu (26. 11. 2026) — ODLOŽENÉ, len na beta:** lekár: „ešte by som to nedával von".
+      Nový vzhľad sa zobrazí len v beta builde (`VITE_BETA=1`) alebo lokálne s `VITE_NEW_LOOK=1`; ostrá stránka
+      má aj po nasadení pôvodný úvod v105. Zapnutie na ostrej: `NEW_LOOK = true` v `src/hero.jsx`. Bez skriptu. Úvod USG objednávania
       a dotazníka konzultácie: tmavomodrý blok s veľkým nadpisom („Zdravé cievy" / „Poraďte sa"), okrúhle tlačidlo
       so šípkou, fotka z ultrazvuku v oblúku; pod úvodom USG štyri farebné dlaždice služieb (ultrazvuk ciev,
       angiologická ambulancia, poradiť sa s lekárom, Zachráň nohu). Inšpirácia: návrh z Dribbble od lekára,

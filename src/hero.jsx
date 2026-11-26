@@ -2,6 +2,11 @@
 // Štýl: tmavomodrý blok s veľkým nadpisom, okrúhle tlačidlo so šípkou, fotografia
 // v oblúku; pod ním pastelové dlaždice s jednoduchými kreslenými ikonami.
 // Farby len z tokenov v src/index.css (brand-dark + tile-*).
+//
+// ODLOŽENÉ (26. 11. 2026, rozhodnutie lekára): nový vzhľad sa zobrazuje LEN na beta
+// (build s VITE_BETA=1) alebo lokálne s VITE_NEW_LOOK=1. Ostrá stránka má pôvodný
+// úvod v105. Zapnutie na ostrej = zmeniť NEW_LOOK nižšie na true.
+export const NEW_LOOK = import.meta.env.VITE_BETA === "1" || import.meta.env.VITE_NEW_LOOK === "1";
 
 const scrollToId = (id) => (e) => {
   const el = document.getElementById(id);

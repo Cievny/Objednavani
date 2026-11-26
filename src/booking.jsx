@@ -8,7 +8,7 @@ import QRCode from "qrcode";
 import { StaffAddOrder } from "./staffAdd.jsx";
 import { printDayProgram, exportDayProgram, DayProgramActions } from "./printProgram.jsx";
 import { DelaySms } from "./delaySms.jsx";
-import { BigHero, ServiceTiles, IconProbe, IconStethoscope, IconChat, IconFoot } from "./hero.jsx";
+import { BigHero, ServiceTiles, IconProbe, IconStethoscope, IconChat, IconFoot, NEW_LOOK } from "./hero.jsx";
 
 // --- 1. KONFIGURÁCIA ---
 
@@ -464,11 +464,17 @@ const SERVICE_TILES = [
   { title: "Poraďte sa s lekárom", sub: "krátky dotazník, odpíše vám lekár", tone: "mint", Icon: IconChat, href: "#/konzultacia", testId: "tile-konzultacia" },
   { title: "Zachráň nohu", sub: "rana, vred alebo zmena farby na nohe", tone: "sky", Icon: IconFoot, href: "#/angio1/zachrannohu", testId: "tile-zachrannohu" },
 ];
-const UsgHero = () => (
+// upozornenie na skúšobnú prevádzku — v oboch vzhľadoch
+const TrialNotice = () => (
+  <p className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-2 text-sm">
+    <b>Skúšobná prevádzka:</b> objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné a pracovisko vás môže kontaktovať s upresnením.
+  </p>
+);
+// nový vzhľad (v138) len na beta, ostrá ostáva na v105 — pozri NEW_LOOK v src/hero.jsx
+const UsgHero = () => (NEW_LOOK ? <UsgHeroNew /> : <UsgHeroV105 />);
+const UsgHeroNew = () => (
   <div className="mb-6 space-y-3 md:space-y-4">
-    <p className="bg-warn-soft border border-warn/30 text-warn rounded-lg px-4 py-2 text-sm">
-      <b>Skúšobná prevádzka:</b> objednávkový systém zatiaľ testujeme. Vytvorené objednávky nie sú záväzné a pracovisko vás môže kontaktovať s upresnením.
-    </p>
+    <TrialNotice />
     <BigHero
       eyebrow="Národný ústav srdcových a cievnych chorôb"
       word="Zdravé cievy"
@@ -491,10 +497,10 @@ const UsgHero = () => (
   </div>
 );
 
-// pôvodný úvod (v105) — ponechaný na porovnanie; nepoužíva sa
-// eslint-disable-next-line no-unused-vars
+// pôvodný úvod (v105) — na ostrej, kým sa nový vzhľad nezapne
 const UsgHeroV105 = () => (
   <div className="mb-4 space-y-4">
+    <TrialNotice />
     <section className="rounded-xl border border-line overflow-hidden grid md:grid-cols-[3fr_2fr] bg-brand-soft" aria-label="Úvod">
       <div className="p-6 md:p-10 flex flex-col justify-center md:min-h-[360px]">
         <p className="text-xs md:text-xs font-semibold tracking-wide text-muted uppercase">Národný ústav srdcových a cievnych chorôb, a.s.</p>
@@ -509,7 +515,7 @@ const UsgHeroV105 = () => (
         </ul>
         <div className="mt-6">
           <a href="#objednanie" onClick={(e) => { const el = document.getElementById("objednanie"); if (el) { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); } }}
-            className="inline-block bg-brand hover:bg-brand-dark text-white font-semibold text-base px-6 py-3 rounded-lg transition-colors">
+            className="inline-block bg-brand hover:bg-brand-dark text-white font-semibold text-base px-6 py-3 rounded-lg transition-colors" data-testid="usg-hero-cta">
             Vybrať vyšetrenie a termín ›
           </a>
         </div>

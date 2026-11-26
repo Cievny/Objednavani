@@ -10,6 +10,7 @@ import AdminHub from "./adminHub.jsx";
 import CheckinView from "./checkin.jsx";
 import ConsultForm from "./konzultacia.jsx";
 import ConsultAdminApp from "./konzultacieAdmin.jsx";
+import { NEW_LOOK } from "./hero.jsx";
 import { AngioPatientApp, AngioAdminApp, CLINIC_NAME as ANGIO_NAME } from "./angio.jsx";
 import { MfaEnroll, MfaChallenge } from "./mfa.jsx";
 
@@ -177,7 +178,7 @@ export default function App() {
   const usgActive = !isAngioRoute && !isCtRoute && !isCtDoctorRoute && !isPayRoute && !isCheckinRoute && !isConsultRoute && !isConsultAdminRoute && !legalPage;
   const data = useBookingData(isStaff, usgActive);
   // úvodná stránka pre pacientov (USG): úvod a dlaždice na širšej ploche, formulár ostáva úzky
-  const isUsgPatient = usgActive && !isAdminRoute;
+  const isUsgPatient = NEW_LOOK && usgActive && !isAdminRoute;
 
   // titulok okna podľa stránky
   useEffect(() => {
