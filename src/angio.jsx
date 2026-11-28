@@ -12,6 +12,7 @@ import { guardFor, ensureHumanPass, prewarmHumanPass, honeypotProps } from "./bo
 import { StaffAddOrder } from "./staffAdd.jsx";
 import { printDayProgram, exportDayProgram, DayProgramActions, fmtPhone } from "./printProgram.jsx";
 import { DelaySms } from "./delaySms.jsx";
+import { PatientQuestionnaire, QuestionnairePanel } from "./dotaznik.jsx";
 
 // ============================================================
 // Angiologická ambulancia č. 1 — objednávanie bez poplatku
@@ -674,6 +675,8 @@ function AngioOrderCard({ order, data, canManage, embedded = false }) {
         </div>
       )}
       {order.statusNote && <p className="text-xs text-warn">{order.statusNote}</p>}
+      {/* dotazník pred vyšetrením (v139) — len angio objednávky; panel sa sám skryje, ak rola nemá oprávnenie */}
+      {String(order.id || "").startsWith("ANG-") && <QuestionnairePanel order={order} />}
       {msg && <p className="text-xs text-danger font-semibold">{msg}</p>}
 
       {canManage && active && (
@@ -1352,8 +1355,15 @@ function AngioSettings({ data, isSuper }) {
 
 // ---------- Vstupné body ----------
 
-// Verejná pacientska stránka (bez prihlásenia): hero + objednávanie + overenie
+// Verejná pacientska stránka (bez prihlásenia): hero + objednávanie + overenie.
+// #/angio1/dotaznik/<kľúč> — dotazník pred vyšetrením (v139), bez načítania termínov.
 export function AngioPatientApp() {
+  const hash = window.location.hash || "";
+  const qToken = (hash.match(/^#\/angio1\/dotaznik\/([0-9a-f]{32})\/?$/i) || [])[1];
+  if (hash.startsWith("#/angio1/dotaznik")) return <PatientQuestionnaire key={qToken || "x"} token={(qToken || "").toLowerCase()} />;
+  return <AngioPatientMain />;
+}
+function AngioPatientMain() {
   const data = useAngioData(false);
   // deep-link z e-mailu: #/angio1/objednavka/ANG-… → predvyplní „Už máte objednávku?"
   const hash = window.location.hash || "";

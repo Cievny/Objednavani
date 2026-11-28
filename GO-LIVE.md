@@ -35,7 +35,7 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
-- [ ] **v139 — vyšetrenia v Angiologickej ambulancii č. 1 podľa tém z konzultácií (28. 11. 2026):** spustiť
+- [ ] **v140 — vyšetrenia v Angiologickej ambulancii č. 1 podľa tém z konzultácií (28. 11. 2026):** spustiť
       `supabase/angio-konzultacie-001.sql` (idempotentné; editor ukáže `ANGIO-KONZULTACIE-001 OK | 6 | 1`).
       Pridá 6 vyšetrení bez žiadanky, 20 min (tepny nôh, karotídy, aneuryzma, renálne tepny, cievna malformácia,
       stav po trombóze / opuch) a priradí ich lekárom, ktorí robia bežné vyšetrenia ambulancie; existujúce
@@ -43,6 +43,19 @@ treba dokončiť body nižšie.
       v `src/triaz.js`) a odpoveď obsahuje odkaz `objednanie.cievny.sk/angio1/?v=<id>` — pacient má vyšetrenie
       v objednávaní vybrané (`#/angio1/vysetrenie/<id>`, ostatné ostávajú na výber). Názvy, popisy, dĺžku
       a žiadanku upravíte v správe ambulancie → Cenník.
+- [ ] **v139 — dotazník pred vyšetrením (panvová bolesť) k objednávke angio ambulancie (28. 11. 2026) — len beta:**
+      spustiť `supabase/dotaznik-001.sql` (po konzultacie-001 a audit-vlna10-001; idempotentné; editor ukáže
+      `DOTAZNIK-001 OK`). Personál v karte objednávky klikne „Poslať dotazník (SMS + e-mail)" (alebo zobrazí QR kód /
+      odkaz pri telefonickom objednaní); pacientka vyplní na `…/#/angio1/dotaznik/<kľúč>` bez prihlásenia a bez mena,
+      raz a najneskôr v deň vyšetrenia. Úvodné otázky (rozcestník) skrývajú bloky, ktoré sa pacientky netýkajú.
+      Odpovede (`angio_questionnaires`) sú bez mena, len s číslom objednávky; tabuľka nemá žiadne priame oprávnenia.
+      **Čítať ich smie len lekár, ku ktorému je pacientka objednaná** (`staff_roles.doctor_name` = lekár objednávky),
+      pri objednávke bez lekára superadmin; sestra vidí len stav. Každé otvorenie → `audit_log`. Vyhodnotenie podľa kľúča
+      a text anamnézy do správy počíta stránka (`src/dotaznikData.js`). Mazanie 7 dní po termíne (zrušené / nedostavil
+      sa: deň po termíne), úloha `dotaznik-cleanup`. Pred ostrou: (1) overiť, že účet lekára má v `staff_roles.doctor_name`
+      presne to meno, ktoré je pri objednávkach — inak odpovede neuvidí; (2) DPO: text v `src/legal.jsx` (odsek
+      „Dotazník pred vyšetrením…", označené [OVERIŤ]); (3) obsah dotazníka nie je validovaný test — pracovná verzia
+      lekára, preklad PHQ-4 nahradiť oficiálnou slovenskou verziou.
 - [ ] **v138 — nový vzhľad úvodu (26. 11. 2026) — ODLOŽENÉ, len na beta:** lekár: „ešte by som to nedával von".
       Nový vzhľad sa zobrazí len v beta builde (`VITE_BETA=1`) alebo lokálne s `VITE_NEW_LOOK=1`; ostrá stránka
       má aj po nasadení pôvodný úvod v105. Zapnutie na ostrej: `NEW_LOOK = true` v `src/hero.jsx`. Bez skriptu. Úvod USG objednávania
