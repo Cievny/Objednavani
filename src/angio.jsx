@@ -83,9 +83,19 @@ function FormattedText({ text }) {
 }
 
 // ---------- Pacientske objednávanie (verejné) ----------
-function AngioBookingView({ data, landing = null }) {
+function AngioBookingView({ data, landing = null, initialExamId = "" }) {
   const [step, setStep] = useState(1);
   const [examTypeId, setExamTypeId] = useState("");
+  // odkaz s predvybraným vyšetrením (#/angio1/vysetrenie/<id>, napr. z odpovede na konzultáciu):
+  // vyšetrenie sa vyberie raz pri otvorení; pacient ho môže zmeniť tlačidlom „Zmeniť"
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current || !initialExamId || landing) return;
+    const p = data.pricelist.find((x) => x.id === initialExamId);
+    if (!p) return;
+    preselected.current = true;
+    setExamTypeId(p.id); setStep(2);
+  }, [initialExamId, landing, data.pricelist]);
   // vstup s jedným vyšetrením: predvybrať a preskočiť krok 1 (aj po „Nová objednávka")
   const landingExam = findLandingExam(landing, data.pricelist);
   useEffect(() => {
@@ -1348,6 +1358,8 @@ export function AngioPatientApp() {
   // deep-link z e-mailu: #/angio1/objednavka/ANG-… → predvyplní „Už máte objednávku?"
   const hash = window.location.hash || "";
   const orderLinkId = hash.startsWith("#/angio1/objednavka/") ? decodeURIComponent(hash.slice("#/angio1/objednavka/".length)).trim() : "";
+  // odkaz s predvybraným vyšetrením: #/angio1/vysetrenie/<id> (ostatné vyšetrenia ostávajú na výber)
+  const initialExamId = (hash.match(/^#\/angio1\/vysetrenie\/([a-z0-9_]{2,40})\/?$/) || [])[1] || "";
   // vstup s jedným vyšetrením: #/angio1/zachrannohu
   const landingKey = (hash.match(/^#\/angio1\/([a-z0-9-]+)\/?$/) || [])[1];
   const landing = landingKey && landingKey !== "objednavka" && landingKey !== "sprava" ? ANGIO_LANDINGS[landingKey] || null : null;
@@ -1373,7 +1385,7 @@ export function AngioPatientApp() {
           preto je pri väčšine vyšetrení potrebná žiadanka (výmenný lístok) od vášho lekára. Termín si vyberiete sami, potvrdenie príde e-mailom.
         </p>
       </div>
-      {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : loadFailed(data) ? <LoadFailed data={data} /> : <AngioBookingView data={data} landing={null} />}
+      {data.loading ? <div className="bg-white rounded-xl border border-line p-6 text-center text-muted">Načítavam voľné termíny…</div> : loadFailed(data) ? <LoadFailed data={data} /> : <AngioBookingView data={data} landing={null} initialExamId={initialExamId} />}
       <section id="zavolame" className="scroll-mt-16"><CallbackCard onRequest={data.requestCallback} source="angio1" /></section>
       <AngioOrderLookup data={data} initialId={orderLinkId} />
     </div>

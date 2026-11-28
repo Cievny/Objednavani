@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { inputCls, inputSmCls, labelCls, Btn, Card, Callout } from "./ui.jsx";
 import { showToast } from "./toast.jsx";
-import { CATEGORIES, CATEGORY_ORDER, PRIORITY_LABEL, RED_FLAGS, OUTCOMES, REPLY_TEMPLATES, RULES_OVERVIEW, TOPICS, topicById, summarize, triageSort } from "./triaz.js";
+import { CATEGORIES, CATEGORY_ORDER, PRIORITY_LABEL, RED_FLAGS, OUTCOMES, REPLY_TEMPLATES, RULES_OVERVIEW, TOPICS, topicById, summarize, triageSort,
+  examForRequest, angioBookingLink, ANGIO_LINK_RE, ustavReply } from "./triaz.js";
 import { useConsultRequests, smsPlain, SMS_MAX } from "./konzultacieData.js";
 
 // Konzultácie — prehľad žiadostí z verejného formulára (#/konzultacie, len personál).
@@ -62,21 +63,25 @@ function Details({ r }) {
 }
 
 // čitateľný výpis dotazníka do e-mailu lekárovi (pri rozhodnutí „pozvať k nám")
-const forwardSummary = (r) => {
+const forwardSummary = (r, examLabel = "") => {
   const flags = r.flags.map((f) => RED_FLAGS.find((x) => x.id === f)).filter(Boolean);
   return [
     `Téma: ${topicById(r.topic)?.label || r.topic}`,
     ...summarize(r).map(([q, a]) => `${q} — ${a}`),
     ...(flags.length ? [`Akútne príznaky označené pacientom: ${flags.map((f) => f.short).join("; ")}`] : []),
     `Návrh zaradenia: ${CATEGORIES[r.triage.category].label} · ${PRIORITY_LABEL[r.triage.priority]} — ${r.triage.reasons.join(" · ")}`,
+    ...(examLabel ? [`Odporučené vyšetrenie v ambulancii: ${examLabel}`] : []),
   ].join("\n");
 };
 
 // Rozhodnutie a odpoveď. Každé vybavenie sa potvrdzuje — žiadosť sa tým natrvalo zmaže.
-function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
+function ReplyPanel({ r, onResolve, forwardEmail = "", angioExams = [] }) {
   const failed = r.status === "failed";
   const suggested = !failed && OUTCOME_LABEL[r.triage.category] ? r.triage.category : "";
-  const tpl = (o) => REPLY_TEMPLATES[o] || REPLY_TEMPLATES.posudit;
+  // vyšetrenie v ambulancii podľa témy (pri „Pozvať k nám" ho pacient bude mať v objednávaní vybrané)
+  const suggestedExam = angioExams.some((p) => p.id === examForRequest(r)) ? examForRequest(r) : "";
+  const [examId, setExamId] = useState(suggestedExam);
+  const tpl = (o, ex = examId) => (o === "ustav" ? ustavReply(ex) : REPLY_TEMPLATES[o] || REPLY_TEMPLATES.posudit);
   const [outcome, setOutcome] = useState(r.outcome || suggested);
   const [reply, setReply] = useState(r.replyText || tpl(r.outcome || suggested));
   const [touched, setTouched] = useState(Boolean(r.replyText));
@@ -89,6 +94,22 @@ function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
   const smsLen = isSms ? smsPlain(reply).length : 0;
   const tooLong = isSms ? smsLen > SMS_MAX : reply.length > 2000;
   const pick = (o) => { setOutcome(o); setErr(""); setConfirm(""); if (!touched) setReply(tpl(o)); };
+  // zmena vyšetrenia: nezmenený text sa vygeneruje znova, v upravenom sa vymení len odkaz
+  // zoznam vyšetrení sa môže načítať až po otvorení žiadosti — návrh doplniť, kým lekár sám nevyberie
+  const examPicked = useRef(false);
+  useEffect(() => {
+    if (examPicked.current || !suggestedExam || examId) return;
+    setExamId(suggestedExam);
+    if (!touched && outcome === "ustav" && !r.replyText) setReply(ustavReply(suggestedExam));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedExam]);
+  const pickExam = (id) => {
+    examPicked.current = true;
+    setExamId(id); setConfirm("");
+    if (!touched) setReply(tpl(outcome, id));
+    else setReply((t) => t.replace(ANGIO_LINK_RE, angioBookingLink(id)));
+  };
+  const examLabel = angioExams.find((p) => p.id === examId)?.label || "";
   const check = (needReply) => {
     if (!outcome) return "Vyberte rozhodnutie.";
     if (needReply && reply.trim().length < 10) return "Napíšte odpoveď pacientovi.";
@@ -102,7 +123,7 @@ function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
     const send = confirm === "send";
     setBusy(true); setErr("");
     try {
-      const res = await onResolve(r.id, { outcome, reply: reply.trim(), send, forward, summary: forward ? forwardSummary(r) : "" });
+      const res = await onResolve(r.id, { outcome, reply: reply.trim(), send, forward, summary: forward ? forwardSummary(r, outcome === "ustav" ? examLabel : "") : "" });
       showToast((res?.sent === "sms" ? "SMS odoslaná — žiadosť sa maže" : res?.sent === "email" ? "E-mail odoslaný — žiadosť sa maže" : "Žiadosť vybavená a zmazaná")
         + (res?.forwarded ? " · kópia ide na váš pracovný e-mail" : ""));
     } catch (x) { setErr(x?.message || String(x)); setBusy(false); setConfirm(""); }
@@ -121,6 +142,16 @@ function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
           ))}
         </div>
       </fieldset>
+      {!failed && outcome === "ustav" && angioExams.length > 0 && (
+        <div>
+          <label className={labelCls} htmlFor={`ex-${r.id}`}>Vyšetrenie v Angiologickej ambulancii č. 1 <span className="font-normal text-muted">(pacient ho po kliknutí na odkaz bude mať vybrané)</span></label>
+          <select id={`ex-${r.id}`} className={inputSmCls} value={examId} onChange={(e) => pickExam(e.target.value)} data-testid="konz-exam">
+            <option value="">— bez výberu (pacient si vyberie sám) —</option>
+            {angioExams.map((p) => <option key={p.id} value={p.id}>{p.label}{p.id === suggestedExam ? " · návrh" : ""}</option>)}
+          </select>
+          {touched && !new RegExp(ANGIO_LINK_RE.source).test(reply) && <p className="text-xs text-warn mt-1">V upravenom texte nie je odkaz na objednanie — vyšetrenie sa pacientovi nepredvyberie.</p>}
+        </div>
+      )}
       <div>
         <div className="flex items-end justify-between gap-2">
           <label className={labelCls} htmlFor={`rp-${r.id}`}>Odpoveď pacientovi <span className="font-normal text-muted">({isIg ? "na Instagram ju pošlete sami" : `odíde ako ${isSms ? "SMS" : "e-mail"}`})</span></label>
@@ -166,12 +197,12 @@ function ReplyPanel({ r, onResolve, forwardEmail = "" }) {
   );
 }
 
-function RequestCard({ r, canReply, locked, expanded, onToggle, onResolve, forwardEmail }) {
+function RequestCard({ r, canReply, locked, expanded, onToggle, onResolve, forwardEmail, angioExams }) {
   const t = r.triage, cat = CATEGORIES[t.category], failed = r.status === "failed";
   const age = new Date().getFullYear() - r.birthYear;
   const wait = daysAgo(r.createdAt);
   const reply = locked ? <Callout tone="warn">Vybavovanie je dočasne zablokované — najprv treba v databáze spustiť skript konzultacie-002.sql.</Callout>
-    : canReply ? <ReplyPanel r={r} onResolve={onResolve} forwardEmail={forwardEmail} /> : <Callout tone="soft">Odpovedať na konzultácie môže len lekár.</Callout>;
+    : canReply ? <ReplyPanel r={r} onResolve={onResolve} forwardEmail={forwardEmail} angioExams={angioExams} /> : <Callout tone="soft">Odpovedať na konzultácie môže len lekár.</Callout>;
   // odpoveď, ktorú brána neprijala: zdravotné údaje sú už zmazané, ostal len kontakt a text odpovede
   if (failed) {
     return (
@@ -326,7 +357,7 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
           {sending > 0 && <Callout tone="info" data-testid="konz-sending">Odosiela sa {sending === 1 ? "1 odpoveď" : `${sending} odpovedí`} — po potvrdení brány sa žiadosť zmaže. Zdravotné údaje sú už zmazané.</Callout>}
           {failed.length > 0 && (
             <ul className="space-y-3" data-testid="konz-failed">
-              {failed.map((r) => <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded onToggle={() => {}} onResolve={resolve} forwardEmail={c.forwardEmail} />)}
+              {failed.map((r) => <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded onToggle={() => {}} onResolve={resolve} forwardEmail={c.forwardEmail} angioExams={c.angioExams} />)}
             </ul>
           )}
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter podľa návrhu zaradenia">
@@ -338,7 +369,7 @@ export default function ConsultAdminApp({ role = "superadmin", backHref = "#/spr
           {shown.length === 0 ? <Card className="text-center text-muted" data-testid="konz-empty">{cat === "all" ? "Žiadne žiadosti na vybavenie." : "V tejto skupine nie je žiadna žiadosť."}</Card> : (
             <ul className="space-y-3">
               {shown.map((r) => (
-                <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded={openId === r.id} onToggle={() => setOpenId(openId === r.id ? "" : r.id)} onResolve={resolve} forwardEmail={c.forwardEmail} />
+                <RequestCard key={r.id} r={r} canReply={canReply} locked={c.needsUpgrade} expanded={openId === r.id} onToggle={() => setOpenId(openId === r.id ? "" : r.id)} onResolve={resolve} forwardEmail={c.forwardEmail} angioExams={c.angioExams} />
               ))}
             </ul>
           )}

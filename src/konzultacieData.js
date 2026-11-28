@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 import { classify } from "./triaz.js";
+import { defaultAngioPricelist } from "./podappkyData.js";
 
 // Konzultácie z Instagramu (konzultacie-001, -002): verejný triážny formulár a prehľad pre lekára.
 // Po vybavení sa žiadosť IHNEĎ a natrvalo maže — ostáva len anonymný počet (consult_stats).
@@ -100,22 +101,27 @@ export function useConsultRequests(isStaff) {
   const [notifyEmail, setNotifyEmail] = useState("");
   const [forwardEmail, setForwardEmail] = useState(""); // pracovný e-mail lekára: sem ide celá žiadosť pri rozhodnutí „pozvať k nám"
   const [stats, setStats] = useState([]);
+  const [angioExams, setAngioExams] = useState([]); // aktívne vyšetrenia Angiologickej ambulancie č. 1 (výber pri „Pozvať k nám")
   const [needsUpgrade, setNeedsUpgrade] = useState(false); // databáza ešte nemá okamžité mazanie (konzultacie-002)
 
   const reload = useCallback(async () => {
     if (!supabase) {
       setList(load()); setStats(loadStats().map(statRow)); setOpen(!localStorage.getItem(DEMO_OPEN_KEY)); setLoading(false); setError("");
       setForwardEmail(localStorage.getItem(DEMO_FORWARD_KEY) || "");
+      let pl = defaultAngioPricelist; try { const x = JSON.parse(localStorage.getItem("angioPricelist_v1") || "null"); if (Array.isArray(x) && x.length) pl = x; } catch { /* demo */ }
+      setAngioExams(pl.filter((p) => p.active !== false).map((p) => ({ id: p.id, label: p.label })));
       return;
     }
     if (!isStaff) return;
     // najprv potvrdiť odoslané odpovede (brána prijala → riadok sa zmaže; odmietla → vráti sa ako neodoslaná)
     try { await supabase.rpc("consult_finalize"); } catch { /* staršia databáza alebo výpadok — zoznam sa načíta aj tak */ }
-    const [rq, st, cs] = await Promise.all([
+    const [rq, st, cs, ap] = await Promise.all([
       supabase.from("consult_requests").select("*").order("created_at", { ascending: true }).limit(1000),
       supabase.from("settings").select("key,value").in("key", ["consult_form", "consult_notify_email", "consult_forward_email"]),
       supabase.from("consult_stats").select("done_on,topic,outcome,channel,reply_sent,wait_days").order("done_on", { ascending: false }).limit(5000),
+      supabase.from("angio_pricelist").select("id,label,sort_order").eq("active", true).order("sort_order", { ascending: true }),
     ]);
+    setAngioExams(ap.error ? [] : (ap.data || []).map((p) => ({ id: p.id, label: p.label })));
     setLoading(false);
     const missing = (e, name) => e && (e.code === "42P01" || e.code === "PGRST205" || (new RegExp(name).test(e.message || "") && /not exist|schema cache/i.test(e.message || "")));
     if (rq.error) {
@@ -175,5 +181,5 @@ export function useConsultRequests(isStaff) {
 
   // návrh zaradenia sa počíta z odpovedí pri každom zobrazení (pravidlá: src/triaz.js)
   const withTriage = list.map((r) => ({ ...r, triage: classify(r) }));
-  return { isSupabase: isSupabaseConfigured, list: withTriage, stats, needsUpgrade, loading, error, open, notifyEmail, forwardEmail, reload, resolve, setFormOpen, saveNotifyEmail, saveForwardEmail };
+  return { isSupabase: isSupabaseConfigured, list: withTriage, stats, needsUpgrade, loading, error, open, notifyEmail, forwardEmail, angioExams, reload, resolve, setFormOpen, saveNotifyEmail, saveForwardEmail };
 }

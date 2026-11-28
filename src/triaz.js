@@ -365,11 +365,37 @@ export const RULES_OVERVIEW = [
   ] },
 ];
 
+// ---------- téma → vyšetrenie v Angiologickej ambulancii č. 1 (pri „Pozvať k nám") ----------
+// id z angio_pricelist; ang_k_* pridáva angio-konzultacie-001.sql, ostatné už v ambulancii sú.
+// Ak vyšetrenie v ambulancii nie je aktívne, odkaz vedie na zoznam všetkých vyšetrení.
+export const TOPIC_EXAM = {
+  varixy: "ang_usg_dk",        // Konzultácia pred RFA
+  chodza: "ang_k_tepny",
+  rana: "ang_vnwtrvq2",        // Zachráň nohu
+  opuch: "ang_k_zily",
+  tromboza: "ang_k_zily",
+  karotidy: "ang_k_karotidy",
+  aneuryzma: "ang_k_aneuryzma",
+  renalne: "ang_k_renalne",
+  malformacia: "ang_k_avm",
+  panva: "ang_prve",           // kompresia ciev v brušnej dutine
+  prsty: "ang_pqdggmxd",       // Prvé cievne vyšetrenie
+  ine: "ang_pqdggmxd",
+};
+export function examForRequest(request) {
+  if (request?.topic === "po_zakroku") return request?.answers?.z_typ === "zily" ? "ang_konzult" : "ang_usg_krk"; // kontrola po RFA / po výkone
+  return TOPIC_EXAM[request?.topic] || "";
+}
+// odkaz do objednávania (krátka adresa; s vyšetrením ho má pacient rovno vybrané)
+export const angioBookingLink = (examId) => `objednanie.cievny.sk/angio1/${examId ? `?v=${examId}` : ""}`;
+export const ANGIO_LINK_RE = /objednanie\.cievny\.sk\/(?:angio1\/(?:\?v=[a-z0-9_]+)?|#\/angio1[^\s,;)]*)/g;
+export const ustavReply = (examId) => `Ďakujeme za správu. Podľa popisu odporúčame vyšetrenie v našej ambulancii. Objednajte sa na ${angioBookingLink(examId)}${examId ? " — vyšetrenie už bude vybrané" : ""} a prineste doterajšie nálezy.`;
+
 // ---------- šablóny odpovede (lekár ich pred odoslaním upraví) ----------
 // SMS ide bez diakritiky; e-mail s diakritikou.
 export const REPLY_TEMPLATES = {
   akutne: "Podľa popisu môže ísť o akútny stav. Vyhľadajte, prosím, lekára ešte dnes (pohotovosť alebo urgentný príjem). Pri zhoršení volajte 155.",
-  ustav: "Ďakujeme za správu. Podľa popisu odporúčame vyšetrenie v našej ambulancii. Objednajte sa na objednanie.cievny.sk/#/angio1 a prineste doterajšie nálezy.",
+  ustav: "Ďakujeme za správu. Podľa popisu odporúčame vyšetrenie v našej ambulancii. Objednajte sa na objednanie.cievny.sk/angio1/ a prineste doterajšie nálezy.",
   angiolog: "Ďakujeme za správu. Podľa popisu odporúčame najprv vyšetrenie u angiológa v mieste bydliska; výmenný lístok vám vystaví všeobecný lekár. Pri zhoršení sa ozvite.",
   obvodny: "Ďakujeme za správu. Podľa popisu odporúčame najprv návštevu všeobecného lekára, ktorý rozhodne o ďalšom postupe.",
   posudit: "Ďakujeme za správu.",

@@ -9,12 +9,15 @@
   // Krátka adresa /angio1 → aplikácia (#/angio1). Relatívne, aby fungovala
   // aj v bete (/beta/angio1 → /beta/#/angio1). Voliteľne prenesie ID objednávky:
   // /angio1/?o=ANG-XXXX → #/angio1/objednavka/ANG-XXXX
+  // alebo predvybrané vyšetrenie (odpoveď na konzultáciu): /angio1/?v=ang_k_tepny → #/angio1/vysetrenie/ang_k_tepny
   (function () {
     var q = new URLSearchParams(location.search);
     var o = (q.get('o') || '').trim();
+    var v = (q.get('v') || '').trim().toLowerCase();
+    if (!/^[a-z0-9_]{2,40}$/.test(v)) v = '';
     // koreň aplikácie = cesta bez posledného segmentu /angio1 alebo /angio (s lomkou aj bez, aj /beta/…)
     var base = location.pathname.replace(/(angio1|angio)\/?(index\.html)?$/, '');
-    location.replace(base + '#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : ''));
+    location.replace(base + '#/angio1' + (o ? '/objednavka/' + encodeURIComponent(o) : v ? '/vysetrenie/' + v : ''));
   })();
 </script>
 <meta http-equiv="refresh" content="0; url=../#/angio1">

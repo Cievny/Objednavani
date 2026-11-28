@@ -35,6 +35,14 @@ treba dokončiť body nižšie.
 
 ## 3. Supabase — nastavenia a skripty
 
+- [ ] **v139 — vyšetrenia v Angiologickej ambulancii č. 1 podľa tém z konzultácií (28. 11. 2026):** spustiť
+      `supabase/angio-konzultacie-001.sql` (idempotentné; editor ukáže `ANGIO-KONZULTACIE-001 OK | 6 | 1`).
+      Pridá 6 vyšetrení bez žiadanky, 20 min (tepny nôh, karotídy, aneuryzma, renálne tepny, cievna malformácia,
+      stav po trombóze / opuch) a priradí ich lekárom, ktorí robia bežné vyšetrenia ambulancie; existujúce
+      vyšetrenia nemení. Pri konzultácii „Pozvať k nám" je výber vyšetrenia (návrh podľa témy, `TOPIC_EXAM`
+      v `src/triaz.js`) a odpoveď obsahuje odkaz `objednanie.cievny.sk/angio1/?v=<id>` — pacient má vyšetrenie
+      v objednávaní vybrané (`#/angio1/vysetrenie/<id>`, ostatné ostávajú na výber). Názvy, popisy, dĺžku
+      a žiadanku upravíte v správe ambulancie → Cenník.
 - [ ] **v138 — nový vzhľad úvodu (26. 11. 2026) — ODLOŽENÉ, len na beta:** lekár: „ešte by som to nedával von".
       Nový vzhľad sa zobrazí len v beta builde (`VITE_BETA=1`) alebo lokálne s `VITE_NEW_LOOK=1`; ostrá stránka
       má aj po nasadení pôvodný úvod v105. Zapnutie na ostrej: `NEW_LOOK = true` v `src/hero.jsx`. Bez skriptu. Úvod USG objednávania
